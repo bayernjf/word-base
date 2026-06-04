@@ -1,0 +1,6 @@
+{
+  "name": "WordScene AI",
+  "description": "An immersive multi-screen AI translation and language learning platform featuring high-fidelity responsive scenarios, personal vocabulary collections, pronuncation practice, and versatile interactive UI themes.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
