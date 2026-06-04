@@ -1,4 +1,4 @@
-export type ThemeType = 'original' | 'minimalist' | 'glass' | 'natural';
+export type ThemeType = 'glass' | 'natural';
 
 export interface Word {
   id: string;
