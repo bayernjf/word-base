@@ -2,6 +2,14 @@ import { Word, VocabularyBook, Story, PracticeQuiz, AIModel } from './types';
 
 export const initialVocabularyBooks: VocabularyBook[] = [
   {
+    id: 'inbox',
+    name: 'Inbox (插件同步)',
+    description: 'Words synced from browser extension.',
+    wordCount: 0,
+    icon: 'Download',
+    progress: 0
+  },
+  {
     id: 'biz-eng',
     name: 'Business English (商务英语核心)',
     description: 'Master negotiation, presentation, and collaboration terminology.',

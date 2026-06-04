@@ -1,0 +1,887 @@
+[
+  {
+    "id": "831c83a8-4689-4809-8f27-f20523906db6",
+    "word": "Join",
+    "phonetic": "/ˈdʒɔɪn/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 一键加入",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Join over 5 million learners worldwide",
+        "translation": "n. 一键加入",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780591296132,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "831c83a8-4689-4809-8f27-f20523906db6"
+      }
+    }
+  },
+  {
+    "id": "016b88a2-3dd7-40de-88d8-04fae72c678e",
+    "word": "books",
+    "phonetic": "/bʊks/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 书籍",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "He was frustrated because he couldn't find anything about dinosaurs in the book.",
+        "zh": "他很沮丧，因为他在书中找不到任何关于恐龙的东西。"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Learn from what you're interested in - movies, podcasts, books, videos",
+        "translation": "n. 书籍",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780591215013,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "016b88a2-3dd7-40de-88d8-04fae72c678e"
+      }
+    }
+  },
+  {
+    "id": "a809a605-b855-4bff-8c13-a944eb2080c0",
+    "word": "from",
+    "phonetic": "/fɹɒm/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "prep. 阻碍你",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "I got a letter from my brother.",
+        "zh": "我哥哥来的信"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Learn from what you're interested in - movies, podcasts, books, videos",
+        "translation": "prep. 阻碍你",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780591210715,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "a809a605-b855-4bff-8c13-a944eb2080c0"
+      }
+    }
+  },
+  {
+    "id": "723ebfaf-c6ad-41d2-a84c-038befb1a3ee",
+    "word": "videos",
+    "phonetic": "",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 视频",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Learn from what you're interested in - movies, podcasts, books, videos",
+        "translation": "n. 视频",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780590787253,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "723ebfaf-c6ad-41d2-a84c-038befb1a3ee"
+      }
+    }
+  },
+  {
+    "id": "38bd98b8-e639-4010-a69c-30a8b88ffd12",
+    "word": "podcasts",
+    "phonetic": "",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 播客",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Learn from what you're interested in - movies, podcasts, books, videos",
+        "translation": "n. 播客",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780590784636,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "38bd98b8-e639-4010-a69c-30a8b88ffd12"
+      }
+    }
+  },
+  {
+    "id": "ba5378df-918f-4974-b772-a1848805b1ab",
+    "word": "interested",
+    "phonetic": "/ˈɪntəɹɛstəd/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "v. 感兴趣",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "Action films don't really interest me.",
+        "zh": "我对动作片并不感兴趣。"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Learn from what you're interested in - movies, podcasts, books, videos",
+        "translation": "v. 感兴趣",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780590782422,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "ba5378df-918f-4974-b772-a1848805b1ab"
+      }
+    }
+  },
+  {
+    "id": "b73f8ea5-054a-4789-90d6-5b2ae2e034c2",
+    "word": "Endless",
+    "phonetic": "/ˈɛndləs/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "adj. &#x0D;",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "endless time; endless praise",
+        "zh": "无尽的时间；无尽的赞美"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Endless content",
+        "translation": "adj. &#x0D;",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780590775743,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "b73f8ea5-054a-4789-90d6-5b2ae2e034c2"
+      }
+    }
+  },
+  {
+    "id": "cd86d8a8-c50c-42d7-96a5-6e372ae96a10",
+    "word": "Grok",
+    "phonetic": "/ˈɡɹɒk/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "v. 格罗克",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Grok",
+        "translation": "v. 格罗克",
+        "source": "Grok / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/i/grok?conversation=2062079022037929986",
+      "sourceTitle": "Grok / X",
+      "createdAt": 1780589206269,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "cd86d8a8-c50c-42d7-96a5-6e372ae96a10"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "ba15757b-335b-4279-bc31-af0ca8ad57bf",
+    "word": "learning",
+    "phonetic": "/ˈlɜːnɪŋ/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "v. 学习",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Unlimited learning",
+        "translation": "v. 学习",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780589095644,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "ba15757b-335b-4279-bc31-af0ca8ad57bf"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "67464e35-01e8-4fb7-915b-57272cee0d4b",
+    "word": "Unlimited",
+    "phonetic": "/ʌnˈlɪmɪtɪd/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "adj. 无限",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Unlimited learning",
+        "translation": "adj. 无限",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780589093981,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "67464e35-01e8-4fb7-915b-57272cee0d4b"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "69a9be79-024c-4db1-b27a-6c03894eeef1",
+    "word": "content",
+    "phonetic": "/kənˈtɛnt/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 内容",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Endless content",
+        "translation": "n. 内容",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780589091976,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "69a9be79-024c-4db1-b27a-6c03894eeef1"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "bb301ad4-1218-4a75-886b-967754696795",
+    "word": "Endless",
+    "phonetic": "/ˈɛndləs/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "adj. &#x0D;",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "endless time; endless praise",
+        "zh": "无尽的时间；无尽的赞美"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Endless content",
+        "translation": "adj. &#x0D;",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780589089934,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "bb301ad4-1218-4a75-886b-967754696795"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "f131edfa-da65-4e29-bd79-7cd9d8700d29",
+    "word": "Notifications",
+    "phonetic": "",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 消息",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Notifications",
+        "translation": "n. 消息",
+        "source": "Grok / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/i/grok?conversation=2062079022037929986",
+      "sourceTitle": "Grok / X",
+      "createdAt": 1780589007245,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "f131edfa-da65-4e29-bd79-7cd9d8700d29"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "bb82ea9d-b9da-40d8-9c47-012740b1da22",
+    "word": "Stitch",
+    "phonetic": "/stɪt͡ʃ/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. A single pass of a needle in sewing; the loop or turn of the thread thus made.",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "这是 Google Stitch（stitch",
+        "translation": "n. A single pass of a needle in sewing; the loop or turn of the thread thus made.",
+        "source": "Grok / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/i/grok?conversation=2062079022037929986",
+      "sourceTitle": "Grok / X",
+      "createdAt": 1780588998413,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "bb82ea9d-b9da-40d8-9c47-012740b1da22"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "d5725050-ec75-4f72-83f3-ae528c3b03df",
+    "word": "Intermediate",
+    "phonetic": "/ɪntə(ɹ)ˈmidi.ət/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 中级",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Level: Intermediate (B2)",
+        "translation": "n. 中级",
+        "source": "My Google AI Studio App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "http://localhost:3000/",
+      "sourceTitle": "My Google AI Studio App",
+      "createdAt": 1780588966307,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "d5725050-ec75-4f72-83f3-ae528c3b03df"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "e73da621-e582-4758-ac9b-e2580c3e5457",
+    "word": "massive",
+    "phonetic": "/ˈmæs.ɪv/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 大规模",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "karst massives in western Georgia",
+        "zh": "乔治亚州西部的喀斯特巨头"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Choose a lesson from our massive library or import any content you find",
+        "translation": "n. 大规模",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780588196555,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "e73da621-e582-4758-ac9b-e2580c3e5457"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "b490f417-678c-446e-8575-7dc0c9856eb3",
+    "word": "lesson",
+    "phonetic": "/ˈlɛsn̩/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 课时",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "In our school a typical working week consists of around twenty lessons and ten hours of related laboratory work.",
+        "zh": "在我们学校，典型的工作周包括大约20节课和10小时的相关实验室工作。"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Instantly turn it into a lesson with LingQ’s AI tools—transcripts, translations, audio and more",
+        "translation": "n. 课时",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780588191122,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "b490f417-678c-446e-8575-7dc0c9856eb3"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "8b7b64f9-bf4a-4b4e-a14c-6e20ee21e237",
+    "word": "milestone",
+    "phonetic": "",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 里程碑",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Celebrate each milestone along the way",
+        "translation": "n. 里程碑",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780588184585,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "8b7b64f9-bf4a-4b4e-a14c-6e20ee21e237"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "50e7607d-50bf-4283-984f-eb3ef99752cf",
+    "word": "Celebrate",
+    "phonetic": "/ˈsɛl.ə.bɹeɪt/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "v. 庆生",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "to celebrate the name of the Most High",
+        "zh": "庆祝至高者的名字"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Celebrate each milestone along the way",
+        "translation": "v. 庆生",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780588182652,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "50e7607d-50bf-4283-984f-eb3ef99752cf"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "534c354f-d92f-4066-af2a-df148c346caf",
+    "word": "exponential",
+    "phonetic": "/ˌɛk.spəʊ.ˈnɛn.tʃəl/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 指数",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "See the effort you are making and track your exponential growth",
+        "translation": "n. 指数",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780588176931,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "534c354f-d92f-4066-af2a-df148c346caf"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "a7143167-3f96-4672-afe3-30705b665976",
+    "word": "track",
+    "phonetic": "/tɹæk/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 时间线",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "Can you see any tracks in the snow?",
+        "zh": "你能在雪地里看到任何足迹吗？"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "See the effort you are making and track your exponential growth",
+        "translation": "n. 时间线",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780588170845,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "a7143167-3f96-4672-afe3-30705b665976"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "94277b0e-392e-427a-b24a-13a395cb9910",
+    "word": "Real",
+    "phonetic": "/ɹiːl/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. A commodity; see realty.",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Real progress that you can see and feel",
+        "translation": "n. A commodity; see realty.",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780587933350,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "94277b0e-392e-427a-b24a-13a395cb9910"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "79140dc0-7092-4577-b1f4-634e6acf3b8e",
+    "word": "feel",
+    "phonetic": "/fiːl/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. A quality of an object experienced by touch.",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "Bark has a rough feel.",
+        "zh": "树皮有一种粗糙的感觉。"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Real progress that you can see and feel",
+        "translation": "n. A quality of an object experienced by touch.",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780587929946,
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "79140dc0-7092-4577-b1f4-634e6acf3b8e"
+      },
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "41959df6-55df-4503-9994-0a1fcf4cdecb",
+    "word": "your",
+    "phonetic": "",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "您的",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Get the LingQ Importer extension for your browser",
+        "translation": "您的",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780587407912,
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "3629faa8-ed6e-428f-ac97-fb9adcb7dc67",
+    "word": "language",
+    "phonetic": "/[ˈleɪŋɡwɪd͡ʒ]/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 语言选择",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "Deaf and mute people communicate using languages like ASL.",
+        "zh": "聋哑人使用ASL等语言进行交流。"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Encountering words naturally in meaningful contexts will lead to massive vocabulary growth, the only way to truly succeed in your new language",
+        "translation": "n. 语言选择",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780587369302,
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "65acda26-ec50-42e2-941e-542013c718c5",
+    "word": "wherever",
+    "phonetic": "/wɛəˈɹɛvə/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "adv. 任何地方",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "Wherever have you been all my life?",
+        "zh": "我一生中你去过哪里？"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "Learn wherever life takes you",
+        "translation": "adv. 任何地方",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780587291237,
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "298d5d83-2059-4d9b-95f5-c9186314ee4b",
+    "word": "renowned",
+    "phonetic": "/ɹɪˈnaʊnd/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "adj. 大名鼎鼎",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "The movie “Three Stars” is about world-renowned chefs.",
+        "zh": "电影《三星》讲述了世界知名厨师的故事。"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "World renowned polyglot, speaker of 20 languages, co-founder of LingQ",
+        "translation": "adj. 大名鼎鼎",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780587286996,
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  },
+  {
+    "id": "1de94642-6ccd-49e4-a041-5b936a7d69e4",
+    "word": "speaker",
+    "phonetic": "/ˈspiːkə/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 演讲者",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "World renowned polyglot, speaker of 20 languages, co-founder of LingQ",
+        "translation": "n. 演讲者",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780587234309,
+      "workspaceId": "b0112e97-3753-439f-b506-c5331d81149b"
+    }
+  }
+]

@@ -2326,14 +2326,73 @@ export const SyncStorageView: React.FC<SyncStorageProps> = ({ themeStyles }) => 
   const [cloudSync, setCloudSync] = useState(true);
   const [extensionStatus, setExtensionStatus] = useState('Enabled');
   const [copied, setCopied] = useState(false);
+  const [pairingCode, setPairingCode] = useState('');
+  const [pairingExpiresAt, setPairingExpiresAt] = useState<number | null>(null);
+  const [pairingError, setPairingError] = useState('');
 
-  const keycode = "XWS-2026-N92A";
+  const getToken = () => {
+    try {
+      return localStorage.getItem('wordbase_token') || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const loadPairingCode = async (forceNew: boolean) => {
+    let token = getToken();
+    if (!token) {
+      try {
+        const res = await fetch('/api/v1/session/bootstrap', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          const next = typeof data?.token === 'string' ? data.token : '';
+          if (next) {
+            localStorage.setItem('wordbase_token', next);
+            token = next;
+          }
+        }
+      } catch {
+        token = '';
+      }
+    }
+    if (!token) {
+      setPairingError('No token');
+      return;
+    }
+    try {
+      setPairingError('');
+      const res = await fetch(forceNew ? '/api/v1/pairing/new' : '/api/v1/pairing/code', {
+        method: forceNew ? 'POST' : 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        setPairingError(`HTTP ${res.status}`);
+        return;
+      }
+      const data = await res.json();
+      const code = typeof data?.code === 'string' ? data.code : '';
+      const expiresAt = Number.isFinite(data?.expiresAt) ? Number(data.expiresAt) : null;
+      setPairingCode(code);
+      setPairingExpiresAt(expiresAt);
+    } catch (error) {
+      setPairingError(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(keycode);
+    if (!pairingCode) {
+      return;
+    }
+    navigator.clipboard.writeText(pairingCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  useEffect(() => {
+    loadPairingCode(false);
+  }, []);
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -2375,7 +2434,7 @@ export const SyncStorageView: React.FC<SyncStorageProps> = ({ themeStyles }) => 
               <input 
                 type="text" 
                 readOnly 
-                value={keycode}
+                value={pairingCode || (pairingError ? `Error: ${pairingError}` : '')}
                 className="bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex-1"
               />
               <button 
@@ -2384,7 +2443,18 @@ export const SyncStorageView: React.FC<SyncStorageProps> = ({ themeStyles }) => 
               >
                 {copied ? 'Copied!' : 'Copy Code'}
               </button>
+              <button
+                onClick={() => loadPairingCode(true)}
+                className="px-3 py-1.5 bg-slate-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 rounded-lg text-xs font-semibold font-sans hover:bg-slate-300 dark:hover:bg-white/15 cursor-pointer"
+              >
+                Refresh
+              </button>
             </div>
+            {pairingExpiresAt ? (
+              <div className="text-[10px] text-neutral-400 mt-2 font-mono">
+                Expires: {new Date(pairingExpiresAt).toLocaleString()}
+              </div>
+            ) : null}
           </div>
         </div>
 
