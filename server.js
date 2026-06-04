@@ -21,6 +21,90 @@ if (!fs.existsSync(DATA_DIR)) {
 const db = new Database(path.join(DATA_DIR, 'wordbase.db'));
 db.pragma('journal_mode = WAL');
 
+// 10个卡通头像SVG
+const AVATARS = [
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FFB6C1"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <path d="M 35 60 Q 50 75 65 60" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#87CEEB"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <rect x="35" y="55" width="30" height="15" rx="7" fill="#FFD700"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#90EE90"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <path d="M 35 65 Q 50 55 65 65" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#DDA0DD"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <path d="M 35 60 Q 50 50 65 60" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#F0E68C"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <ellipse cx="50" cy="60" rx="15" ry="10" fill="#FF6B6B"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#E6E6FA"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <polygon points="50,55 55,70 45,70" fill="#FFA500"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FFEFD5"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <circle cx="50" cy="62" r="8" fill="#FF69B4"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#B0E0E6"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <rect x="40" y="55" width="20" height="15" rx="3" fill="#8B4513"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FAFAD2"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <ellipse cx="50" cy="65" rx="12" ry="8" fill="#20B2AA"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FFE4E1"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <path d="M 40 60 L 45 55 L 50 60 L 55 55 L 60 60" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`
+];
+
 // 创建数据库表
 function initDatabase() {
   db.exec(`
@@ -30,6 +114,7 @@ function initDatabase() {
       passwordHash TEXT NOT NULL,
       passwordSalt TEXT NOT NULL,
       nickname TEXT DEFAULT '',
+      avatar INTEGER DEFAULT 0,
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL
     );
@@ -76,6 +161,13 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_words_userId ON words(userId);
     CREATE INDEX IF NOT EXISTS idx_verification_email_type ON verification_codes(email, type);
   `);
+
+  // 添加avatar列到现有用户表
+  try {
+    db.prepare('ALTER TABLE users ADD COLUMN avatar INTEGER DEFAULT 0').run();
+  } catch (e) {
+    // 列可能已经存在，忽略错误
+  }
 }
 
 initDatabase();
@@ -149,13 +241,19 @@ async function requireAuth(req, res, next) {
   // 更新 lastUsedAt
   db.prepare('UPDATE tokens SET lastUsedAt = ? WHERE tokenHash = ?').run(Date.now(), tokenHash);
 
-  const user = db.prepare('SELECT id, email, nickname, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
   if (!user) {
     return res.status(401).json({ error: 'user_not_found' });
   }
 
   req.user = user;
   next();
+}
+
+// 获取用户头像SVG
+function getAvatarSvg(avatarIndex) {
+  const index = Math.max(0, Math.min(AVATARS.length - 1, avatarIndex || 0));
+  return AVATARS[index];
 }
 
 // 根路径
@@ -250,11 +348,12 @@ app.post('/api/v1/auth/register', (req, res) => {
   const salt = generateSalt();
   const passwordHash = hashPassword(cleanPassword, salt);
   const cleanNickname = (nickname || '').trim() || normalizedEmail.split('@')[0];
+  const randomAvatar = Math.floor(Math.random() * AVATARS.length); // 随机选择一个头像
 
   db.prepare(`
-    INSERT INTO users (id, email, passwordHash, passwordSalt, nickname, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(userId, normalizedEmail, passwordHash, salt, cleanNickname, now, now);
+    INSERT INTO users (id, email, passwordHash, passwordSalt, nickname, avatar, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(userId, normalizedEmail, passwordHash, salt, cleanNickname, randomAvatar, now, now);
 
   // 生成 token
   const accessToken = randomToken();
@@ -272,7 +371,7 @@ app.post('/api/v1/auth/register', (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(sha256Hex(refreshToken), userId, 'refresh', refreshExpiresAt, now, now);
 
-  const user = db.prepare('SELECT id, email, nickname, createdAt FROM users WHERE id = ?').get(userId);
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(userId);
   res.json({
     ok: true,
     accessToken,
@@ -317,13 +416,18 @@ app.post('/api/v1/auth/login', (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(sha256Hex(refreshToken), user.id, 'refresh', refreshExpiresAt, now, now);
 
-  const safeUser = db.prepare('SELECT id, email, nickname, createdAt FROM users WHERE id = ?').get(user.id);
+  const safeUser = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(user.id);
   res.json({
     ok: true,
     accessToken,
     refreshToken,
     user: safeUser
   });
+});
+
+// API: 获取头像列表
+app.get('/api/v1/avatars', (_req, res) => {
+  res.json({ ok: true, avatars: AVATARS });
 });
 
 // API: 刷新 token
@@ -340,7 +444,7 @@ app.post('/api/v1/auth/refresh', (req, res) => {
     return res.status(401).json({ error: 'invalid_refresh_token' });
   }
 
-  const user = db.prepare('SELECT id, email, nickname, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
   if (!user) {
     return res.status(401).json({ error: 'user_not_found' });
   }
@@ -443,7 +547,7 @@ app.post('/api/v1/auth/reset-password', (req, res) => {
   db.prepare('DELETE FROM tokens WHERE tokenHash = ?').run(tokenHash);
 
   // 可选：清除该用户所有其他 token，强制重新登录
-  db.prepare('DELETE FROM tokens WHERE userId = ? AND type IN ("access", "refresh")').run(tokenRow.userId);
+  db.prepare('DELETE FROM tokens WHERE userId = ? AND type IN (\'access\', \'refresh\')').run(tokenRow.userId);
 
   // 生成新的 token
   const accessToken = randomToken();
@@ -461,7 +565,7 @@ app.post('/api/v1/auth/reset-password', (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(sha256Hex(refreshToken), tokenRow.userId, 'refresh', refreshExpiresAt, now, now);
 
-  const user = db.prepare('SELECT id, email, nickname, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
   res.json({
     ok: true,
     accessToken,
@@ -488,18 +592,33 @@ app.get('/api/v1/user', requireAuth, (req, res) => {
 
 // API: 更新用户信息
 app.patch('/api/v1/user', requireAuth, (req, res) => {
-  const { nickname } = req.body;
-  const cleanNickname = (nickname || '').trim();
-
-  if (!cleanNickname) {
-    return res.status(400).json({ error: 'nickname_required' });
+  const { nickname, avatar } = req.body;
+  const updates = { updatedAt: Date.now() };
+  
+  if (nickname !== undefined) {
+    const cleanNickname = (nickname || '').trim();
+    if (!cleanNickname) {
+      return res.status(400).json({ error: 'nickname_required' });
+    }
+    updates.nickname = cleanNickname;
+  }
+  
+  if (avatar !== undefined) {
+    const cleanAvatar = Number.isFinite(avatar) ? Math.max(0, Math.min(AVATARS.length - 1, avatar)) : 0;
+    updates.avatar = cleanAvatar;
   }
 
-  db.prepare('UPDATE users SET nickname = ?, updatedAt = ? WHERE id = ?').run(
-    cleanNickname, Date.now(), req.user.id
-  );
+  // 如果没有需要更新的字段
+  if (Object.keys(updates).length === 1) {
+    return res.status(400).json({ error: 'nothing_to_update' });
+  }
 
-  const updatedUser = db.prepare('SELECT id, email, nickname, createdAt FROM users WHERE id = ?').get(req.user.id);
+  const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+  const values = [...Object.values(updates), req.user.id];
+
+  db.prepare(`UPDATE users SET ${setClauses} WHERE id = ?`).run(...values);
+
+  const updatedUser = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(req.user.id);
   res.json({ ok: true, user: updatedUser });
 });
 

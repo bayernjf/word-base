@@ -213,13 +213,6 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-xs font-medium uppercase tracking-wider">Password</label>
-                <button 
-                  type="button" 
-                  onClick={() => { clearMessages(); setStep('forgot-email'); }}
-                  className="text-xs hover:underline"
-                >
-                  Forgot?
-                </button>
               </div>
               <input 
                 type="password" 
@@ -255,6 +248,13 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
             </button>
 
             <div className="text-center pt-2">
+              <button 
+                  type="button" 
+                  onClick={() => { clearMessages(); setStep('forgot-email'); }}
+                  className="text-xs text-indigo-650 dark:text-indigo-400 font-medium hover:underline"
+                >
+                  Forgot Password?
+              </button><br></br>
               <button 
                 type="button" 
                 onClick={() => { clearMessages(); setStep('register'); }}
@@ -2272,9 +2272,87 @@ export const WritingPracticeView: React.FC<WritingPracticeProps> = ({ themeStyle
 // ==========================================
 interface AccountSettingsProps {
   themeStyles: ThemeClasses;
-  user: { id: string; email: string; nickname?: string; createdAt: number } | null;
-  onUpdateProfile: (nickname: string) => Promise<boolean>;
+  user: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
+  onUpdateProfile: (data: { nickname?: string; avatar?: number }) => Promise<boolean>;
   onChangePassword: (oldPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
+}
+
+// Avatar Select Component for Account Settings
+function AccountAvatarSelect({
+  themeStyles,
+  currentAvatar,
+  onUpdate
+}: {
+  themeStyles: ThemeClasses;
+  currentAvatar: number;
+  onUpdate: (data: { nickname?: string; avatar?: number }) => Promise<boolean>;
+}) {
+  const [avatars, setAvatars] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    // Predefined avatars (same as server-side)
+    const defaultAvatars = [
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#FFB6C1"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="35" cy="42" r="4" fill="#333"/><circle cx="65" cy="42" r="4" fill="#333"/><path d="M 35 60 Q 50 75 65 60" stroke="#333" stroke-width="3" fill="none"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#87CEEB"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="37" cy="42" r="4" fill="#333"/><circle cx="67" cy="42" r="4" fill="#333"/><rect x="35" y="55" width="30" height="15" rx="7" fill="#FFD700"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#90EE90"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="35" cy="42" r="4" fill="#333"/><circle cx="65" cy="42" r="4" fill="#333"/><path d="M 35 65 Q 50 55 65 65" stroke="#333" stroke-width="3" fill="none"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#DDA0DD"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="37" cy="42" r="4" fill="#333"/><circle cx="67" cy="42" r="4" fill="#333"/><path d="M 35 60 Q 50 50 65 60" stroke="#333" stroke-width="3" fill="none"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#F0E68C"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="35" cy="42" r="4" fill="#333"/><circle cx="65" cy="42" r="4" fill="#333"/><ellipse cx="50" cy="60" rx="15" ry="10" fill="#FF6B6B"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#E6E6FA"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="37" cy="42" r="4" fill="#333"/><circle cx="67" cy="42" r="4" fill="#333"/><polygon points="50,55 55,70 45,70" fill="#FFA500"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#FFEFD5"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="35" cy="42" r="4" fill="#333"/><circle cx="65" cy="42" r="4" fill="#333"/><circle cx="50" cy="62" r="8" fill="#FF69B4"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#B0E0E6"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="37" cy="42" r="4" fill="#333"/><circle cx="67" cy="42" r="4" fill="#333"/><rect x="40" y="55" width="20" height="15" rx="3" fill="#8B4513"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#FAFAD2"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="35" cy="42" r="4" fill="#333"/><circle cx="65" cy="42" r="4" fill="#333"/><ellipse cx="50" cy="65" rx="12" ry="8" fill="#20B2AA"/></svg>`,
+      `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#FFE4E1"/><circle cx="35" cy="40" r="8" fill="white"/><circle cx="65" cy="40" r="8" fill="white"/><circle cx="37" cy="42" r="4" fill="#333"/><circle cx="67" cy="42" r="4" fill="#333"/><path d="M 40 60 L 45 55 L 50 60 L 55 55 L 60 60" stroke="#333" stroke-width="3" fill="none"/></svg>`
+    ];
+    setAvatars(defaultAvatars);
+  }, []);
+
+  const handleSelectAvatar = async (index: number) => {
+    setIsLoading(true);
+    setMessage(null);
+    try {
+      const success = await onUpdate({ avatar: index });
+      if (success) {
+        setMessage({ text: '头像更新成功！', type: 'success' });
+      } else {
+        setMessage({ text: '更新失败', type: 'error' });
+      }
+    } catch {
+      setMessage({ text: '更新失败', type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {message && (
+        <div className={`mb-3 p-2 rounded-lg text-xs ${message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+          {message.text}
+        </div>
+      )}
+      <div className="grid grid-cols-5 gap-2">
+        {avatars.map((avatar, index) => (
+          <button
+            key={index}
+            onClick={() => handleSelectAvatar(index)}
+            disabled={isLoading}
+            className={`p-1 rounded-lg border-2 transition-all ${
+              currentAvatar === index
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                : 'border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-600'
+            }`}
+          >
+            <div
+              dangerouslySetInnerHTML={{ __html: avatar }}
+              className="w-12 h-12 mx-auto"
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export const AccountSettingsView: React.FC<AccountSettingsProps> = ({ 
@@ -2299,7 +2377,7 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
     setIsUpdating(true);
     setProfileMessage(null);
     try {
-      const success = await onUpdateProfile(nickname.trim());
+      const success = await onUpdateProfile({ nickname: nickname.trim() });
       if (success) {
         setProfileMessage({ text: '昵称更新成功！', type: 'success' });
         setIsEditingNickname(false);
@@ -2342,13 +2420,6 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
     }
   };
 
-  const initials = (user?.nickname || user?.email?.split('@')[0] || 'User')
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
   return (
     <div className="space-y-6 max-w-xl">
       <div className="border-b border-neutral-200 dark:border-white/10 pb-4">
@@ -2358,17 +2429,13 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
 
       <div className="space-y-8">
         {/* Avatars */}
-        <div className="flex items-center space-x-4">
-          <div className="relative group cursor-pointer w-16 h-16 rounded-full overflow-hidden bg-indigo-600 flex items-center justify-center font-bold text-white text-lg">
-            <span>{initials}</span>
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] uppercase font-mono transition-opacity">
-              Upload
-            </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider mb-1">Interactive User Avatar</h4>
-            <p className="text-[10px] text-neutral-400">Requires JPG / PNG up to 2MB storage allocation.</p>
-          </div>
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider mb-3">选择头像</h4>
+          <AccountAvatarSelect 
+            themeStyles={themeStyles}
+            currentAvatar={user?.avatar || 0}
+            onUpdate={onUpdateProfile}
+          />
         </div>
 
         {/* User Info */}
