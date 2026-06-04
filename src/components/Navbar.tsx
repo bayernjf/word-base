@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sparkles, LogIn, LogOut, Settings as SettingsIcon, Layers, Sliders } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown } from 'lucide-react';
 import { ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
 
@@ -11,12 +11,14 @@ interface NavbarProps {
   onLogout: () => void;
   onNavigate: (view: string) => void;
   activeView: string;
+  user?: { id: string; email: string; nickname?: string; createdAt: number } | null;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
-  theme, onThemeChange, themeStyles, isLoggedIn, onLogout, onNavigate, activeView 
+  theme, onThemeChange, themeStyles, isLoggedIn, onLogout, onNavigate, activeView, user 
 }) => {
   const isGlass = theme === 'glass';
+  const [showDropdown, setShowDropdown] = useState(false);
 
   return (
     <nav className={`${themeStyles.navClass} sticky top-0 z-40 backdrop-blur-md bg-opacity-95`}>
@@ -100,34 +102,76 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User Sign status toggle */}
           {isLoggedIn ? (
-            <div className="flex items-center space-x-2">
+            <div className="relative">
               <button 
-                onClick={() => onNavigate('settings-account')}
-                className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
-                  isGlass 
-                    ? 'hover:bg-white/10 text-white/60 hover:text-white' 
-                    : theme === 'natural'
-                      ? 'hover:bg-[#dfdbcf] text-emerald-900/75 hover:text-emerald-950'
-                      : 'hover:bg-slate-100 dark:hover:bg-white/10 text-neutral-500'
-                }`}
-                title="Account Settings"
-              >
-                <SettingsIcon className="w-4 h-4" />
-              </button>
-              
-              <button 
-                onClick={onLogout}
-                className={`flex items-center space-x-1 py-1.5 px-3 border rounded-xl text-xs transition-colors cursor-pointer font-bold ${
+                onClick={() => setShowDropdown(!showDropdown)}
+                className={`flex items-center space-x-2 py-1.5 px-3 border rounded-xl text-xs transition-colors cursor-pointer font-bold ${
                   isGlass 
                     ? 'border-white/15 text-white/80 hover:bg-white/5 hover:text-white' 
                     : theme === 'natural'
                       ? 'border-[#c4c0b1] text-black hover:bg-[#dfdbcf] hover:text-black'
-                      : 'border-neutral-300 dark:border-white/15 text-neutral-750 dark:text-neutral-300 hover:bg-red-50 hover:text-red-600'
+                      : 'border-neutral-300 dark:border-white/15 text-neutral-750 dark:text-neutral-300 hover:bg-slate-50'
                 }`}
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                  isGlass 
+                    ? 'bg-white/20' 
+                    : theme === 'natural'
+                      ? 'bg-emerald-700/20'
+                      : 'bg-indigo-100 dark:bg-indigo-900/30'
+                }`}>
+                  <User className="w-3.5 h-3.5" />
+                </div>
+                <span>{user?.nickname || user?.email?.split('@')[0] || 'User'}</span>
+                <ChevronDown className="w-3 h-3" />
               </button>
+
+              {showDropdown && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowDropdown(false)}
+                  />
+                  <div className={`absolute right-0 top-full mt-2 w-48 rounded-xl shadow-lg border z-50 ${
+                    isGlass 
+                      ? 'bg-slate-900/95 border-white/10 text-white' 
+                      : theme === 'natural'
+                        ? 'bg-[#f5f2eb] border-[#c4c0b1]'
+                        : 'bg-white dark:bg-slate-800 border-neutral-200 dark:border-white/10'
+                  }`}>
+                    <div className="py-2">
+                      <button
+                        onClick={() => { setShowDropdown(false); onNavigate('profile'); }}
+                        className={`w-full text-left px-4 py-2 text-xs hover:bg-black/5 dark:hover:bg-white/5 ${themeStyles.textPrimary}`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <User className="w-3.5 h-3.5" />
+                          <span>Personal Center</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => { setShowDropdown(false); onNavigate('settings-account'); }}
+                        className={`w-full text-left px-4 py-2 text-xs hover:bg-black/5 dark:hover:bg-white/5 ${themeStyles.textPrimary}`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <SettingsIcon className="w-3.5 h-3.5" />
+                          <span>Account Settings</span>
+                        </div>
+                      </button>
+                      <div className="border-t border-neutral-200 dark:border-white/10 my-1" />
+                      <button
+                        onClick={() => { setShowDropdown(false); onLogout(); }}
+                        className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <LogOut className="w-3.5 h-3.5" />
+                          <span>Sign Out</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <button 

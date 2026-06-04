@@ -14,6 +14,7 @@ export interface ThemeClasses {
   navClass: string;
   accentText: string;
   glowEffect: string;
+  secondaryBg: string;
 }
 
 export function getThemeClasses(theme: ThemeType, isSmallTypography: boolean = false): ThemeClasses {
@@ -35,6 +36,7 @@ export function getThemeClasses(theme: ThemeType, isSmallTypography: boolean = f
         navClass: 'bg-[#ece9df] border-b border-[#d6d2c4] py-4 px-6',
         accentText: 'text-emerald-700 underline decoration-amber-500/50 decoration-wavy decoration-2 underline-offset-4 font-normal',
         glowEffect: '',
+        secondaryBg: 'bg-[#ece9df]',
       };
       
     case 'glass':
@@ -53,6 +55,7 @@ export function getThemeClasses(theme: ThemeType, isSmallTypography: boolean = f
         navClass: 'bg-white/5 border-b border-white/10 py-4 px-6 backdrop-blur-md',
         accentText: 'text-indigo-400 font-bold drop-shadow-[0_0_6px_rgba(129,140,248,0.4)]',
         glowEffect: '',
+        secondaryBg: 'bg-white/10',
       };
   }
 }
