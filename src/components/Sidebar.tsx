@@ -1,16 +1,18 @@
 import React from 'react';
 import { 
-  Home, BookOpen, Layers, Sparkles, Activity, Settings, Award, ChevronRight, Play, Book
+  Home, BookOpen, Layers, Sparkles, Activity, Settings, ChevronRight
 } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
+import { AVATARS } from '../avatars';
 
 interface SidebarProps {
   activeView: string;
   onNavigate: (view: string) => void;
   themeStyles: ThemeClasses;
+  user?: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles, user }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard Home (仪表盘)', icon: Home },
     { id: 'vocabulary', label: 'My Words (单词表)', icon: BookOpen },
@@ -22,35 +24,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
 
   const parentView = activeView.split('-')[0];
   const isGlass = themeStyles.borderClass === 'border-white/10';
+  const avatarIndex = user?.avatar ?? 0;
+  const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
+  const displayName = user?.nickname || user?.email?.split('@')[0] || 'User';
 
   return (
     <div className={`space-y-6 ${themeStyles.sidebar}`}>
-      {/* Learning stats brief */}
+      {/* User profile */}
       <div className="space-y-3 pb-3 border-b border-neutral-200 dark:border-white/10 font-sans">
-        <h3 className={`text-xs font-mono uppercase tracking-widest ${isGlass ? 'text-white/40 font-semibold' : 'text-neutral-400'}`}>
-          Learning Progress
-        </h3>
-        <div className="flex items-center space-x-2.5">
-          <div className={`p-1.5 rounded-lg ${isGlass ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-500/10 text-indigo-500'}`}>
-            <Award className="w-5 h-5" />
-          </div>
-          <div>
-            <div className={`text-xs font-bold ${isGlass ? 'text-white' : 'text-slate-800 dark:text-neutral-205'}`}>Level: Intermediate (B2)</div>
-            <span className={`text-[10px] font-mono ${isGlass ? 'text-white/40' : 'text-neutral-500'}`}>1,820 Active Words</span>
-          </div>
-        </div>
-
-        <div className="space-y-11 pt-1">
-          <div className={`flex justify-between text-[9px] font-mono ${isGlass ? 'text-white/60' : 'text-neutral-550'}`}>
-            <span>Weekly Target</span>
-            <span>68%</span>
-          </div>
-          <div className={`w-full h-1.5 rounded-full overflow-hidden ${isGlass ? 'bg-white/10' : 'bg-slate-200/60 dark:bg-white/10'}`}>
-            <div 
-              className={`h-full ${isGlass ? 'bg-gradient-to-r from-indigo-400 to-fuchsia-400' : 'bg-indigo-600'}`} 
-              style={{ width: '68%' }} 
-            />
-          </div>
+        <div className="flex flex-col items-center space-y-2">
+          <div className="w-20 h-20" dangerouslySetInnerHTML={{ __html: avatarSvg }} />
+          <h3 className={`text-sm font-bold ${isGlass ? 'text-white' : 'text-slate-800 dark:text-neutral-205'}`}>{displayName}</h3>
         </div>
       </div>
 
