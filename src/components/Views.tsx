@@ -12,19 +12,31 @@ import { ThemeClasses } from './ThemeStyles';
 // ==========================================
 interface LoginProps {
   themeStyles: ThemeClasses;
-  onLogin: () => void;
+  onLogin: (email: string, password: string) => Promise<boolean>;
+  onRegister: (email: string, password: string) => Promise<boolean>;
+  authError?: string | null;
 }
 
-export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin }) => {
-  const [email, setEmail] = useState('learner@wordscene.ai');
-  const [password, setPassword] = useState('••••••••');
+export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin, onRegister, authError }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isRegister, setIsRegister] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setIsLoading(true);
+    try {
+      if (isRegister) {
+        await onRegister(email, password);
+      } else {
+        await onLogin(email, password);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -119,9 +131,21 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin })
               </div>
             )}
 
-            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5 flex items-center justify-center space-x-2`}>
-              <span>{isRegister ? 'Create Free Account' : 'Sign In'}</span>
-              <ChevronRight className="w-4 h-4" />
+            {authError && (
+              <div className="flex items-center space-x-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-xs">
+                <AlertCircle className="w-4 h-4" />
+                <span>{authError}</span>
+              </div>
+            )}
+            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5 flex items-center justify-center space-x-2`} disabled={isLoading}>
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <span>{isRegister ? 'Create Free Account' : 'Sign In'}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
             </button>
 
             <div className="relative flex py-2 items-center">
@@ -131,14 +155,14 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin })
             </div>
 
             <div className="grid grid-cols-2 gap-3 font-mono text-xs">
-              <button 
+              <button disabled
                 type="button" 
                 onClick={onLogin}
                 className="flex items-center justify-center space-x-1.5 py-2 border border-neutral-300 dark:border-white/10 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
               >
                 <span>Google</span>
               </button>
-              <button 
+              <button disabled
                 type="button" 
                 onClick={onLogin}
                 className="flex items-center justify-center space-x-1.5 py-2 border border-neutral-300 dark:border-white/10 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"

@@ -14,6 +14,7 @@ const DATA_DIR = path.join(__dirname, '.data');
 const WORDS_FILE = path.join(DATA_DIR, 'words.json');
 const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
 const PAIRINGS_FILE = path.join(DATA_DIR, 'pairings.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 async function readJson(filePath, fallback) {
   try {
@@ -68,6 +69,23 @@ async function writePairings(pairings) {
   await writeJsonAtomic(PAIRINGS_FILE, pairings);
 }
 
+async function readUsers() {
+  const data = await readJson(USERS_FILE, {});
+  return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+}
+
+async function writeUsers(users) {
+  await writeJsonAtomic(USERS_FILE, users);
+}
+
+function hashPassword(password, salt) {
+  return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+}
+
+function generateSalt() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
 async function requireAuth(req, res, next) {
   const raw = typeof req.headers?.authorization === 'string' ? req.headers.authorization : '';
   const token = raw.startsWith('Bearer ') ? raw.slice('Bearer '.length).trim() : '';
@@ -84,17 +102,30 @@ async function requireAuth(req, res, next) {
     return;
   }
 
-  const workspaceId = typeof record.workspaceId === 'string' ? record.workspaceId : '';
-  if (!workspaceId) {
+  if (record.type !== 'access') {
     res.status(401).json({ error: 'unauthorized' });
     return;
   }
 
-  req.auth = { tokenId, workspaceId, token };
+  const userId = typeof record.userId === 'string' ? record.userId : '';
+  if (!userId) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+
+  if (Number(record.expiresAt) < Date.now()) {
+    res.status(401).json({ error: 'token_expired' });
+    return;
+  }
+
+  tokens[tokenId] = { ...record, lastUsedAt: Date.now() };
+  await writeTokens(tokens);
+
+  req.auth = { tokenId, userId, token };
   next();
 }
 
-function normalizeWordInput(input, workspaceId) {
+function normalizeWordInput(input, userId) {
   const now = Date.now();
   const wordRaw = typeof input?.word === 'string' ? input.word.trim() : '';
   if (!wordRaw) {
@@ -162,7 +193,7 @@ function normalizeWordInput(input, workspaceId) {
         sourceUrl,
         sourceTitle,
         createdAt,
-        workspaceId,
+        userId,
         client: clientDeviceId && clientEntryId
           ? { deviceId: clientDeviceId, entryId: clientEntryId }
           : undefined
@@ -172,17 +203,17 @@ function normalizeWordInput(input, workspaceId) {
 }
 
 function clientKeyForWord(w) {
-  const workspaceId = String(w?.meta?.workspaceId || '').trim();
+  const userId = String(w?.meta?.userId || '').trim();
   const deviceId = String(w?.meta?.client?.deviceId || '').trim();
   const entryId = String(w?.meta?.client?.entryId || '').trim();
-  return workspaceId && deviceId && entryId ? `ws:${workspaceId}|client:${deviceId}:${entryId}` : '';
+  return userId && deviceId && entryId ? `user:${userId}|client:${deviceId}:${entryId}` : '';
 }
 
 function wordKeyForWord(w) {
-  const workspaceId = String(w?.meta?.workspaceId || '').trim();
+  const userId = String(w?.meta?.userId || '').trim();
   const wordKey = String(w?.word || '').trim().toLowerCase();
   const bookKey = String(w?.bookId || '').trim().toLowerCase();
-  return `${workspaceId}::${bookKey}::${wordKey}`;
+  return `${userId}::${bookKey}::${wordKey}`;
 }
 
 const app = express();
@@ -217,6 +248,167 @@ app.get('/api/v1/info', (_req, res) => {
 app.get('/api/v1/health', (_req, res) => {
   res.json({ ok: true });
 });
+
+app.post('/api/v1/auth/register', asyncHandler(async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+  if (!email) {
+    res.status(400).json({ error: 'email 不能为空' });
+    return;
+  }
+  if (!email.includes('@')) {
+    res.status(400).json({ error: 'email 格式无效' });
+    return;
+  }
+  if (!password || password.length < 6) {
+    res.status(400).json({ error: 'password 至少需要 6 个字符' });
+    return;
+  }
+
+  const users = await readUsers();
+  if (Object.values(users).some(u => u && u.email === email)) {
+    res.status(409).json({ error: 'email 已被注册' });
+    return;
+  }
+
+  const userId = crypto.randomUUID();
+  const salt = generateSalt();
+  const passwordHash = hashPassword(password, salt);
+
+  users[userId] = {
+    id: userId,
+    email,
+    passwordHash,
+    passwordSalt: salt,
+    createdAt: Date.now()
+  };
+  await writeUsers(users);
+
+  const accessToken = randomToken();
+  const refreshToken = randomToken();
+  const now = Date.now();
+
+  const tokens = await readTokens();
+  tokens[sha256Hex(accessToken)] = {
+    type: 'access',
+    userId,
+    createdAt: now,
+    expiresAt: now + 24 * 60 * 60 * 1000,
+    lastUsedAt: now
+  };
+  tokens[sha256Hex(refreshToken)] = {
+    type: 'refresh',
+    userId,
+    createdAt: now,
+    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+    lastUsedAt: now
+  };
+  await writeTokens(tokens);
+
+  res.json({
+    accessToken,
+    refreshToken,
+    user: { id: userId, email, createdAt: users[userId].createdAt }
+  });
+}));
+
+app.post('/api/v1/auth/login', asyncHandler(async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+  if (!email || !password) {
+    res.status(400).json({ error: 'email 和 password 不能为空' });
+    return;
+  }
+
+  const users = await readUsers();
+  const user = Object.values(users).find(u => u && u.email === email);
+  if (!user) {
+    res.status(401).json({ error: 'invalid_credentials' });
+    return;
+  }
+
+  const expectedHash = hashPassword(password, user.passwordSalt);
+  if (expectedHash !== user.passwordHash) {
+    res.status(401).json({ error: 'invalid_credentials' });
+    return;
+  }
+
+  const accessToken = randomToken();
+  const refreshToken = randomToken();
+  const now = Date.now();
+
+  const tokens = await readTokens();
+  tokens[sha256Hex(accessToken)] = {
+    type: 'access',
+    userId: user.id,
+    createdAt: now,
+    expiresAt: now + 24 * 60 * 60 * 1000,
+    lastUsedAt: now
+  };
+  tokens[sha256Hex(refreshToken)] = {
+    type: 'refresh',
+    userId: user.id,
+    createdAt: now,
+    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+    lastUsedAt: now
+  };
+  await writeTokens(tokens);
+
+  res.json({
+    accessToken,
+    refreshToken,
+    user: { id: user.id, email: user.email, createdAt: user.createdAt }
+  });
+}));
+
+app.post('/api/v1/auth/refresh', asyncHandler(async (req, res) => {
+  const refreshToken = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken.trim() : '';
+  if (!refreshToken) {
+    res.status(400).json({ error: 'refreshToken 不能为空' });
+    return;
+  }
+
+  const tokenId = sha256Hex(refreshToken);
+  const tokens = await readTokens();
+  const record = tokens[tokenId];
+  if (!record || typeof record !== 'object' || record.type !== 'refresh') {
+    res.status(401).json({ error: 'invalid_refresh_token' });
+    return;
+  }
+
+  if (Number(record.expiresAt) < Date.now()) {
+    res.status(401).json({ error: 'refresh_token_expired' });
+    return;
+  }
+
+  const userId = String(record.userId);
+  const users = await readUsers();
+  const user = users[userId];
+  if (!user) {
+    res.status(401).json({ error: 'user_not_found' });
+    return;
+  }
+
+  const accessToken = randomToken();
+  const now = Date.now();
+
+  tokens[sha256Hex(accessToken)] = {
+    type: 'access',
+    userId,
+    createdAt: now,
+    expiresAt: now + 24 * 60 * 60 * 1000,
+    lastUsedAt: now
+  };
+  tokens[tokenId] = { ...record, lastUsedAt: now };
+  await writeTokens(tokens);
+
+  res.json({
+    accessToken,
+    user: { id: user.id, email: user.email, createdAt: user.createdAt }
+  });
+}));
 
 app.post('/api/v1/session/bootstrap', asyncHandler(async (_req, res) => {
   const workspaceId = crypto.randomUUID();
@@ -335,51 +527,33 @@ app.post('/api/v1/pairing/claim', asyncHandler(async (req, res) => {
   res.json({ token });
 }));
 
-async function loadWordsForWorkspace(workspaceId) {
+async function loadWordsForUser(userId) {
   const all = await readJson(WORDS_FILE, []);
   const words = Array.isArray(all) ? all : [];
-  let migrated = false;
-  const next = words.map((w) => {
-    const current = String(w?.meta?.workspaceId || '').trim();
-    if (current) {
-      return w;
-    }
-    migrated = true;
-    return {
-      ...(w || {}),
-      meta: {
-        ...(w?.meta || {}),
-        workspaceId
-      }
-    };
-  });
-  if (migrated) {
-    await writeJsonAtomic(WORDS_FILE, next);
-  }
-  return next.filter((w) => String(w?.meta?.workspaceId || '').trim() === workspaceId);
+  return words.filter((w) => String(w?.meta?.userId || '').trim() === userId);
 }
 
 app.get('/api/v1/words', requireAuth, asyncHandler(async (req, res) => {
-  const workspaceId = req.auth.workspaceId;
-  const words = await loadWordsForWorkspace(workspaceId);
+  const userId = req.auth.userId;
+  const words = await loadWordsForUser(userId);
   const bookId = typeof req.query.bookId === 'string' ? req.query.bookId.trim() : '';
   const filtered = bookId ? words.filter((w) => w?.bookId === bookId) : words;
   res.json({ words: filtered });
 }));
 
 app.post('/api/v1/words', requireAuth, asyncHandler(async (req, res) => {
-  const workspaceId = req.auth.workspaceId;
-  const normalized = normalizeWordInput(req.body, workspaceId);
+  const userId = req.auth.userId;
+  const normalized = normalizeWordInput(req.body, userId);
   if (!normalized.ok) {
     res.status(400).json({ error: normalized.error });
     return;
   }
 
   const nextWord = normalized.word;
-  const workspaceWords = await loadWordsForWorkspace(workspaceId);
+  const userWords = await loadWordsForUser(userId);
   const nextClientKey = clientKeyForWord(nextWord);
   const nextWordKey = wordKeyForWord(nextWord);
-  const existing = workspaceWords.find((w) => {
+  const existing = userWords.find((w) => {
     const wClientKey = clientKeyForWord(w);
     if (nextClientKey && wClientKey === nextClientKey) {
       return true;
@@ -404,7 +578,7 @@ app.post('/api/v1/words', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 app.post('/api/v1/words/batch', requireAuth, asyncHandler(async (req, res) => {
-  const workspaceId = req.auth.workspaceId;
+  const userId = req.auth.userId;
   const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim() : '';
   const entries = Array.isArray(req.body?.entries) ? req.body.entries : [];
 
@@ -426,9 +600,9 @@ app.post('/api/v1/words/batch', requireAuth, asyncHandler(async (req, res) => {
     return;
   }
 
-  const workspaceWords = await loadWordsForWorkspace(workspaceId);
-  const existingClientKeys = new Set(workspaceWords.map(clientKeyForWord).filter(Boolean));
-  const existingWordKeys = new Set(workspaceWords.map(wordKeyForWord));
+  const userWords = await loadWordsForUser(userId);
+  const existingClientKeys = new Set(userWords.map(clientKeyForWord).filter(Boolean));
+  const existingWordKeys = new Set(userWords.map(wordKeyForWord));
 
   const processedEntryIds = [];
   const savedWords = [];
@@ -446,7 +620,7 @@ app.post('/api/v1/words/batch', requireAuth, asyncHandler(async (req, res) => {
         deviceId,
         entryId
       }
-    }, workspaceId);
+    }, userId);
     if (!normalized.ok) {
       continue;
     }
