@@ -30,12 +30,23 @@ import {
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
-  user: { id: string; email: string; createdAt: number } | null;
+  user: { id: string; email: string; nickname?: string; createdAt: number } | null;
 }
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeType>('glass');
-  const [activeView, setActiveView] = useState<string>('dashboard');
+  const [activeView, setActiveView] = useState<string>(() => {
+    try {
+      const auth = localStorage.getItem('wordbase_auth');
+      if (auth) {
+        const parsed = JSON.parse(auth);
+        return !!(parsed?.accessToken && parsed?.refreshToken && parsed?.user) ? 'dashboard' : 'welcome';
+      }
+    } catch {
+      // ignore
+    }
+    return 'welcome';
+  });
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
       const auth = localStorage.getItem('wordbase_auth');
@@ -92,12 +103,12 @@ export default function App() {
         throw new Error('refresh_failed');
       }
       const data = await res.json();
-      if (!data.accessToken) {
+      if (!data.accessToken || !data.refreshToken) {
         throw new Error('invalid_refresh_response');
       }
       const newAuth: AuthState = {
-        ...auth,
         accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
         user: data.user || auth.user
       };
       saveAuth(newAuth);
@@ -105,6 +116,7 @@ export default function App() {
     } catch {
       saveAuth({ accessToken: null, refreshToken: null, user: null });
       setIsLoggedIn(false);
+      setActiveView('welcome');
       return null;
     }
   };
@@ -136,13 +148,30 @@ export default function App() {
     }
   };
 
-  const handleRegister = async (email: string, password: string): Promise<boolean> => {
+  const sendVerificationCode = async (email: string, type: 'register' | 'reset'): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/v1/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, type })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { ok: false, error: data?.error || 'send_code_failed' };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'network_error' };
+    }
+  };
+
+  const handleRegister = async (email: string, password: string, code: string, nickname?: string): Promise<boolean> => {
     setAuthError(null);
     try {
       const res = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, code, nickname })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -166,13 +195,13 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (email: string, password: string): Promise<boolean> => {
+  const handleLogin = async (email: string, password: string, remember: boolean): Promise<boolean> => {
     setAuthError(null);
     try {
       const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, remember })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -196,7 +225,136 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleResetPasswordVerify = async (email: string, code: string): Promise<{ ok: boolean; resetToken?: string; error?: string }> => {
+    try {
+      const res = await fetch('/api/v1/auth/reset-password-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { ok: false, error: data?.error || 'verify_failed' };
+      }
+      return { ok: true, resetToken: data.resetToken };
+    } catch {
+      return { ok: false, error: 'network_error' };
+    }
+  };
+
+  const handleResetPassword = async (resetToken: string, newPassword: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/v1/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetToken, newPassword })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAuthError(data?.error || 'reset_failed');
+        return false;
+      }
+      const data = await res.json();
+      const newAuth: AuthState = {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: data.user
+      };
+      saveAuth(newAuth);
+      setIsLoggedIn(true);
+      setActiveView('profile');
+      await loadWords(data.accessToken);
+      return true;
+    } catch {
+      setAuthError('network_error');
+      return false;
+    }
+  };
+
+  const handleUpdateProfile = async (nickname: string): Promise<boolean> => {
+    try {
+      let token = auth.accessToken;
+      if (!token) {
+        throw new Error('not_logged_in');
+      }
+      let res = await fetch('/api/v1/user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ nickname })
+      });
+      if (res.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          res = await fetch('/api/v1/user', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
+            body: JSON.stringify({ nickname })
+          });
+        } else {
+          throw new Error('token_refresh_failed');
+        }
+      }
+      if (!res.ok) {
+        throw new Error('request_failed');
+      }
+      const data = await res.json();
+      if (data.user) {
+        const newAuth: AuthState = {
+          ...auth,
+          user: data.user
+        };
+        saveAuth(newAuth);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleChangePassword = async (oldPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      let token = auth.accessToken;
+      if (!token) {
+        throw new Error('not_logged_in');
+      }
+      let res = await fetch('/api/v1/user/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+      if (res.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          res = await fetch('/api/v1/user/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
+            body: JSON.stringify({ oldPassword, newPassword })
+          });
+        } else {
+          throw new Error('token_refresh_failed');
+        }
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data?.error || 'change_failed' };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'network_error' };
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (auth.accessToken) {
+        await fetch('/api/v1/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${auth.accessToken}` }
+        }).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
     saveAuth({ accessToken: null, refreshToken: null, user: null });
     setIsLoggedIn(false);
     setActiveView('welcome');
@@ -230,7 +388,6 @@ export default function App() {
       if (m.id === modelId) {
         return { ...m, isActive: !m.isActive };
       }
-      // If setting static primary active model, could optionally deactivate others
       return m;
     }));
   };
@@ -325,7 +482,11 @@ export default function App() {
           themeStyles={themeStyles} 
           onLogin={handleLogin}
           onRegister={handleRegister}
+          onSendCode={sendVerificationCode}
+          onResetPasswordVerify={handleResetPasswordVerify}
+          onResetPassword={handleResetPassword}
           authError={authError}
+          setAuthError={setAuthError}
         />
       );
     }
@@ -413,6 +574,50 @@ export default function App() {
             onNavigate={setActiveView} 
           />
         );
+      case 'profile':
+        return (
+          <div className={`${themeStyles.card} p-6`}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className={`text-2xl font-bold ${themeStyles.textPrimary}`}>个人中心</h2>
+              <button 
+                onClick={() => setActiveView('dashboard')}
+                className={`${themeStyles.btnSecondary} px-4 py-2 text-sm`}
+              >
+                返回
+              </button>
+            </div>
+            
+            <div className="space-y-8">
+              {/* 个人信息 */}
+              <div>
+                <h3 className={`text-lg font-semibold ${themeStyles.textPrimary} mb-4`}>基本信息</h3>
+                <div className="space-y-4">
+                  <div className={`p-4 rounded-lg ${themeStyles.secondaryBg}`}>
+                    <label className="block text-sm font-medium text-neutral-500 mb-2">邮箱</label>
+                    <div className={themeStyles.textPrimary}>{auth.user?.email}</div>
+                  </div>
+                  <div className={`p-4 rounded-lg ${themeStyles.secondaryBg}`}>
+                    <label className="block text-sm font-medium text-neutral-500 mb-2">昵称</label>
+                    <ProfileNicknameEdit 
+                      themeStyles={themeStyles}
+                      currentNickname={auth.user?.nickname || auth.user?.email?.split('@')[0] || ''}
+                      onUpdate={handleUpdateProfile}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 修改密码 */}
+              <div>
+                <h3 className={`text-lg font-semibold ${themeStyles.textPrimary} mb-4`}>修改密码</h3>
+                <ProfilePasswordChange 
+                  themeStyles={themeStyles}
+                  onChangePassword={handleChangePassword}
+                />
+              </div>
+            </div>
+          </div>
+        );
       
       // Settings Sub-screens Grouping
       case 'settings-account':
@@ -426,7 +631,14 @@ export default function App() {
             activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
             onNavigateSettings={setActiveView}
           >
-            {activeView === 'settings-account' && <AccountSettingsView themeStyles={themeStyles} />}
+            {activeView === 'settings-account' && (
+              <AccountSettingsView 
+                themeStyles={themeStyles} 
+                user={auth.user}
+                onUpdateProfile={handleUpdateProfile}
+                onChangePassword={handleChangePassword}
+              />
+            )}
             {activeView === 'settings-appearance' && (
               <AppearanceSettingsView 
                 themeStyles={themeStyles} 
@@ -489,6 +701,7 @@ export default function App() {
         onNavigate={setActiveView}
         onLogout={handleLogout}
         activeView={activeView}
+        user={auth.user}
       />
 
       {/* Main Workspace Frame */}
@@ -505,7 +718,13 @@ export default function App() {
             >
               <WelcomeLoginView 
                 themeStyles={themeStyles} 
-                onLogin={() => { setIsLoggedIn(true); setActiveView('dashboard'); }} 
+                onLogin={handleLogin}
+                onRegister={handleRegister}
+                onSendCode={sendVerificationCode}
+                onResetPasswordVerify={handleResetPasswordVerify}
+                onResetPassword={handleResetPassword}
+                authError={authError}
+                setAuthError={setAuthError}
               />
             </motion.div>
           </AnimatePresence>
@@ -552,5 +771,176 @@ export default function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// 个人中心子组件
+function ProfileNicknameEdit({ 
+  themeStyles, 
+  currentNickname, 
+  onUpdate 
+}: { 
+  themeStyles: any;
+  currentNickname: string;
+  onUpdate: (nickname: string) => Promise<boolean>;
+}) {
+  const [nickname, setNickname] = useState(currentNickname);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const handleSave = async () => {
+    if (!nickname.trim()) return;
+    setIsLoading(true);
+    setMessage(null);
+    try {
+      const success = await onUpdate(nickname.trim());
+      if (success) {
+        setMessage({ text: '更新成功！', type: 'success' });
+        setIsEditing(false);
+      } else {
+        setMessage({ text: '更新失败', type: 'error' });
+      }
+    } catch {
+      setMessage({ text: '更新失败', type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {message && (
+        <div className={`mb-4 p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+          {message.text}
+        </div>
+      )}
+      {isEditing ? (
+        <div className="flex gap-3">
+          <input 
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            className={`flex-1 px-3 py-2 bg-white dark:bg-zinc-800 border border-neutral-300 dark:border-white/10 rounded-lg ${themeStyles.textPrimary}`}
+            autoFocus
+          />
+          <button 
+            onClick={handleSave}
+            disabled={isLoading}
+            className={`${themeStyles.btnPrimary} px-4 py-2 text-sm`}
+          >
+            {isLoading ? '保存中...' : '保存'}
+          </button>
+          <button 
+            onClick={() => { setIsEditing(false); setNickname(currentNickname); }}
+            className={`${themeStyles.btnSecondary} px-4 py-2 text-sm`}
+          >
+            取消
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className={themeStyles.textPrimary}>{nickname}</span>
+          <button 
+            onClick={() => setIsEditing(true)}
+            className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            编辑
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfilePasswordChange({
+  themeStyles,
+  onChangePassword
+}: {
+  themeStyles: any;
+  onChangePassword: (oldPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
+}) {
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setMessage({ text: '两次输入的密码不一致', type: 'error' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setMessage({ text: '密码至少需要6个字符', type: 'error' });
+      return;
+    }
+    setIsLoading(true);
+    setMessage(null);
+    try {
+      const result = await onChangePassword(oldPassword, newPassword);
+      if (result.ok) {
+        setMessage({ text: '密码修改成功！', type: 'success' });
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setMessage({ text: result.error || '修改失败', type: 'error' });
+      }
+    } catch {
+      setMessage({ text: '修改失败', type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={`space-y-4 p-6 rounded-lg ${themeStyles.card}`}>
+      {message && (
+        <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+          {message.text}
+        </div>
+      )}
+      <div>
+        <label className={`block text-sm font-medium mb-2 ${themeStyles.textPrimary}`}>当前密码</label>
+        <input 
+          type="password"
+          value={oldPassword}
+          onChange={(e) => setOldPassword(e.target.value)}
+          className={`w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-neutral-300 dark:border-white/10 rounded-lg ${themeStyles.textPrimary}`}
+          required
+        />
+      </div>
+      <div>
+        <label className={`block text-sm font-medium mb-2 ${themeStyles.textPrimary}`}>新密码</label>
+        <input 
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          className={`w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-neutral-300 dark:border-white/10 rounded-lg ${themeStyles.textPrimary}`}
+          required
+          minLength={6}
+        />
+      </div>
+      <div>
+        <label className={`block text-sm font-medium mb-2 ${themeStyles.textPrimary}`}>确认新密码</label>
+        <input 
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className={`w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-neutral-300 dark:border-white/10 rounded-lg ${themeStyles.textPrimary}`}
+          required
+          minLength={6}
+        />
+      </div>
+      <button 
+        type="submit"
+        disabled={isLoading}
+        className={`w-full ${themeStyles.btnPrimary} py-2.5 mt-2`}
+      >
+        {isLoading ? '修改中...' : '修改密码'}
+      </button>
+    </form>
   );
 }
