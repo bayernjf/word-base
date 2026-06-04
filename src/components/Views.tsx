@@ -2058,8 +2058,6 @@ export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({
           
           <div className="grid grid-cols-2 gap-3">
             {[
-              { id: 'original', label: '提供的原本的风格', color: 'bg-indigo-600', desc: 'Mist sky blue borders with clear layout' },
-              { id: 'minimalist', label: '商务极简风格', color: 'bg-black', desc: 'Pure stark monochrome high contrast and raw edges' },
               { id: 'glass', label: 'iOS26 玻璃风格', color: 'bg-blue-500', desc: 'Frosted translucency, colorful glows, dark backdrops' },
               { id: 'natural', label: '清新自然风格', color: 'bg-emerald-700', desc: 'Earthy oatmeal and warm moss sage sage accents' }
             ].map(thm => (

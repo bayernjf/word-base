@@ -29,20 +29,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className={`p-1.5 rounded-xl flex items-center justify-center transition-all ${
             isGlass 
               ? 'w-9 h-9 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 text-white shadow-lg shadow-indigo-500/10' 
-              : 'bg-indigo-650/15 text-indigo-600'
+              : theme === 'natural'
+                ? 'bg-emerald-700/15 text-emerald-800'
+                : 'bg-indigo-650/15 text-indigo-600'
           }`}>
-            <Sparkles className="w-5 h-5 fill-white/10" />
+            <Sparkles className={`w-5 h-5 ${isGlass ? 'fill-white/10' : theme === 'natural' ? 'fill-emerald-800/10' : 'fill-indigo-600/10'}`} />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center">
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">WordScene AI</h1>
+              <h1 className={`text-lg font-bold tracking-tight ${theme === 'natural' ? 'text-[#1c2e24]' : 'text-slate-900 dark:text-white'}`}>WordScene AI</h1>
               {isGlass && (
                 <div className="ml-3 px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] text-white/60 font-mono">
                   v4.2.0
                 </div>
               )}
             </div>
-            <span className={`text-[9px] font-mono tracking-widest block uppercase -mt-0.5 ${isGlass ? 'text-white/45' : 'text-neutral-400'}`}>
+            <span className={`text-[9px] font-mono tracking-widest block uppercase -mt-0.5 ${isGlass ? 'text-white/45' : theme === 'natural' ? 'text-emerald-900/60' : 'text-neutral-400'}`}>
               Translation & Spaced Study
             </span>
           </div>
@@ -54,12 +56,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className={`flex items-center space-x-1 p-1.5 rounded-full text-[10px] font-mono border ${
             isGlass 
               ? 'bg-white/5 border-white/10 text-white' 
-              : 'bg-slate-150/80 dark:bg-white/5 border-neutral-300 dark:border-white/10'
+              : theme === 'natural'
+                ? 'bg-[#dfdbcf] border-[#c4c0b1] text-emerald-950'
+                : 'bg-slate-150/80 dark:bg-white/5 border-neutral-300 dark:border-white/10'
           }`}>
-            <span className={`mr-1.5 px-2 font-sans font-semibold ${isGlass ? 'text-white/40' : 'text-neutral-450'}`}>Theme:</span>
+            <span className={`mr-1.5 px-2 font-sans font-semibold ${isGlass ? 'text-white/40' : theme === 'natural' ? 'text-emerald-900/70' : 'text-neutral-450'}`}>Theme:</span>
             {[
-              { id: 'original', label: '原本/Sky' },
-              { id: 'minimalist', label: '极简/Black' },
               { id: 'glass', label: 'iOS26/Glass' },
               { id: 'natural', label: '清新/Sage' }
             ].map(thm => {
@@ -67,13 +69,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               let btnClass = '';
               
               if (isSelected) {
-                btnClass = isGlass 
-                  ? 'bg-white text-slate-900 shadow-md font-bold' 
-                  : 'bg-indigo-650 text-white shadow-xs';
+                if (isGlass) {
+                  btnClass = 'bg-white text-slate-900 shadow-md font-bold';
+                } else if (theme === 'natural') {
+                  btnClass = 'bg-white text-black shadow-xs font-bold border border-[#c4c0b1]';
+                } else {
+                  btnClass = 'bg-indigo-650 text-white shadow-xs font-bold';
+                }
               } else {
-                btnClass = isGlass 
-                  ? 'text-white/60 hover:text-white hover:bg-white/5 font-semibold' 
-                  : 'text-neutral-550 dark:hover:text-white hover:bg-neutral-200/50 dark:hover:bg-white/5';
+                if (isGlass) {
+                  btnClass = 'text-white/60 hover:text-white hover:bg-white/5 font-semibold';
+                } else if (theme === 'natural') {
+                  btnClass = 'text-emerald-900/60 hover:text-[#1c2e24] hover:bg-[#ece9df] font-semibold';
+                } else {
+                  btnClass = 'text-neutral-550 dark:hover:text-white hover:bg-neutral-200/50 dark:hover:bg-white/5';
+                }
               }
 
               return (
@@ -94,7 +104,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button 
                 onClick={() => onNavigate('settings-account')}
                 className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
-                  isGlass ? 'hover:bg-white/10 text-white/60 hover:text-white' : 'hover:bg-slate-100 dark:hover:bg-white/10 text-neutral-500'
+                  isGlass 
+                    ? 'hover:bg-white/10 text-white/60 hover:text-white' 
+                    : theme === 'natural'
+                      ? 'hover:bg-[#dfdbcf] text-emerald-900/75 hover:text-emerald-950'
+                      : 'hover:bg-slate-100 dark:hover:bg-white/10 text-neutral-500'
                 }`}
                 title="Account Settings"
               >
@@ -106,7 +120,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className={`flex items-center space-x-1 py-1.5 px-3 border rounded-xl text-xs transition-colors cursor-pointer font-bold ${
                   isGlass 
                     ? 'border-white/15 text-white/80 hover:bg-white/5 hover:text-white' 
-                    : 'border-neutral-300 dark:border-white/15 text-neutral-750 dark:text-neutral-300 hover:bg-red-50 hover:text-red-600'
+                    : theme === 'natural'
+                      ? 'border-[#c4c0b1] text-black hover:bg-[#dfdbcf] hover:text-black'
+                      : 'border-neutral-300 dark:border-white/15 text-neutral-750 dark:text-neutral-300 hover:bg-red-50 hover:text-red-600'
                 }`}
               >
                 <LogOut className="w-3.5 h-3.5" />
