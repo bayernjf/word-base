@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   initialVocabularyBooks, initialWords, initialStories, listeningQuizzes, mockDefaultModels 
@@ -37,8 +37,75 @@ export default function App() {
   const [books, setBooks] = useState<VocabularyBook[]>(initialVocabularyBooks);
   const [models, setModels] = useState<AIModel[]>(mockDefaultModels);
   const [selectedWordId, setSelectedWordId] = useState<string>('w1');
+  const [apiToken, setApiToken] = useState<string>(() => {
+    try {
+      return localStorage.getItem('wordbase_token') || '';
+    } catch {
+      return '';
+    }
+  });
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
+
+  useEffect(() => {
+    const ensureToken = async () => {
+      if (apiToken) {
+        return apiToken;
+      }
+      try {
+        const res = await fetch('/api/v1/session/bootstrap', { method: 'POST' });
+        if (!res.ok) throw new Error('bootstrap_failed');
+        const data = await res.json();
+        const token = typeof data?.token === 'string' ? data.token : '';
+        if (!token) throw new Error('bootstrap_failed');
+        localStorage.setItem('wordbase_token', token);
+        setApiToken(token);
+        return token;
+      } catch {
+        return '';
+      }
+    };
+
+    const loadWords = async () => {
+      const token = await ensureToken();
+      if (!token) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/v1/words', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          return;
+        }
+        const data = await res.json();
+        if (Array.isArray(data?.words)) {
+          setWords(data.words);
+        }
+      } catch {
+        return;
+      }
+    };
+
+    loadWords();
+  }, [apiToken]);
+
+  useEffect(() => {
+    setBooks(prev => prev.map(b => {
+      const count = words.filter(w => w.bookId === b.id).length;
+      return { ...b, wordCount: count };
+    }));
+  }, [words]);
+
+  useEffect(() => {
+    if (words.length === 0) {
+      return;
+    }
+    const exists = words.some(w => w.id === selectedWordId);
+    if (!exists) {
+      setSelectedWordId(words[0].id);
+    }
+  }, [words, selectedWordId]);
 
   const handleToggleModel = (modelId: string) => {
     setModels(prev => prev.map(m => {
@@ -60,21 +127,53 @@ export default function App() {
     setModels(prev => [...prev, modelItem]);
   };
 
-  const handleAddWord = (newWordData: Omit<Word, 'id'>) => {
-    const wordId = `word-${Date.now()}`;
-    const item: Word = {
-      ...newWordData,
-      id: wordId
-    };
-    setWords(prev => [item, ...prev]);
-    
-    // Update word count inside the corresponding book state
-    setBooks(prev => prev.map(b => {
-      if (b.id === newWordData.bookId) {
-        return { ...b, wordCount: b.wordCount + 1 };
+  const handleAddWord = async (newWordData: Omit<Word, 'id'>) => {
+    try {
+      let token = apiToken || '';
+      if (!token) {
+        const bootstrap = await fetch('/api/v1/session/bootstrap', { method: 'POST' });
+        if (bootstrap.ok) {
+          const data = await bootstrap.json();
+          const next = typeof data?.token === 'string' ? data.token : '';
+          if (next) {
+            localStorage.setItem('wordbase_token', next);
+            setApiToken(next);
+            token = next;
+          }
+        }
       }
-      return b;
-    }));
+      if (!token) {
+        throw new Error('bootstrap_failed');
+      }
+      const res = await fetch('/api/v1/words', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newWordData)
+      });
+      if (!res.ok) {
+        throw new Error('request_failed');
+      }
+      const data = await res.json();
+      const savedWord = data?.word as Word | undefined;
+      const duplicate = Boolean(data?.duplicate);
+      if (savedWord && !duplicate) {
+        setWords(prev => [savedWord, ...prev]);
+      }
+      if (savedWord && duplicate) {
+        setWords(prev => {
+          const exists = prev.some(w => w.id === savedWord.id);
+          return exists ? prev : [savedWord, ...prev];
+        });
+      }
+      return;
+    } catch {
+      const wordId = `word-${Date.now()}`;
+      const item: Word = {
+        ...newWordData,
+        id: wordId
+      };
+      setWords(prev => [item, ...prev]);
+    }
   };
 
   const handleCreateBook = (bookData: Omit<VocabularyBook, 'id' | 'wordCount' | 'progress'>) => {
