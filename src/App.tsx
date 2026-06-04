@@ -27,68 +27,186 @@ import {
   SyncStorageView
 } from './components/Views';
 
+interface AuthState {
+  accessToken: string | null;
+  refreshToken: string | null;
+  user: { id: string; email: string; createdAt: number } | null;
+}
+
 export default function App() {
   const [theme, setTheme] = useState<ThemeType>('glass');
   const [activeView, setActiveView] = useState<string>('dashboard');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // start logged in for immediate preview fidelity
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      const auth = localStorage.getItem('wordbase_auth');
+      if (auth) {
+        const parsed = JSON.parse(auth);
+        return !!(parsed?.accessToken && parsed?.refreshToken && parsed?.user);
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
   const [isCompactMode, setIsCompactMode] = useState<boolean>(false);
   const [isSmallTypography, setIsSmallTypography] = useState<boolean>(false);
   const [words, setWords] = useState<Word[]>(initialWords);
   const [books, setBooks] = useState<VocabularyBook[]>(initialVocabularyBooks);
   const [models, setModels] = useState<AIModel[]>(mockDefaultModels);
   const [selectedWordId, setSelectedWordId] = useState<string>('w1');
-  const [apiToken, setApiToken] = useState<string>(() => {
+  const [auth, setAuth] = useState<AuthState>(() => {
     try {
-      return localStorage.getItem('wordbase_token') || '';
+      const auth = localStorage.getItem('wordbase_auth');
+      if (auth) {
+        return JSON.parse(auth);
+      }
     } catch {
-      return '';
+      // ignore
     }
+    return { accessToken: null, refreshToken: null, user: null };
   });
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
 
-  useEffect(() => {
-    const ensureToken = async () => {
-      if (apiToken) {
-        return apiToken;
-      }
-      try {
-        const res = await fetch('/api/v1/session/bootstrap', { method: 'POST' });
-        if (!res.ok) throw new Error('bootstrap_failed');
-        const data = await res.json();
-        const token = typeof data?.token === 'string' ? data.token : '';
-        if (!token) throw new Error('bootstrap_failed');
-        localStorage.setItem('wordbase_token', token);
-        setApiToken(token);
-        return token;
-      } catch {
-        return '';
-      }
-    };
+  const saveAuth = (newAuth: AuthState) => {
+    setAuth(newAuth);
+    try {
+      localStorage.setItem('wordbase_auth', JSON.stringify(newAuth));
+    } catch {
+      // ignore
+    }
+  };
 
-    const loadWords = async () => {
-      const token = await ensureToken();
-      if (!token) {
-        return;
+  const refreshAccessToken = async (): Promise<string | null> => {
+    if (!auth.refreshToken) {
+      return null;
+    }
+    try {
+      const res = await fetch('/api/v1/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: auth.refreshToken })
+      });
+      if (!res.ok) {
+        throw new Error('refresh_failed');
       }
-      try {
-        const res = await fetch('/api/v1/words', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) {
+      const data = await res.json();
+      if (!data.accessToken) {
+        throw new Error('invalid_refresh_response');
+      }
+      const newAuth: AuthState = {
+        ...auth,
+        accessToken: data.accessToken,
+        user: data.user || auth.user
+      };
+      saveAuth(newAuth);
+      return data.accessToken;
+    } catch {
+      saveAuth({ accessToken: null, refreshToken: null, user: null });
+      setIsLoggedIn(false);
+      return null;
+    }
+  };
+
+  const loadWords = async (token: string) => {
+    try {
+      let res = await fetch('/api/v1/words', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          res = await fetch('/api/v1/words', {
+            headers: { Authorization: `Bearer ${newToken}` }
+          });
+        } else {
           return;
         }
-        const data = await res.json();
-        if (Array.isArray(data?.words)) {
-          setWords(data.words);
-        }
-      } catch {
+      }
+      if (!res.ok) {
         return;
       }
-    };
+      const data = await res.json();
+      if (Array.isArray(data?.words)) {
+        setWords(data.words);
+      }
+    } catch {
+      return;
+    }
+  };
 
-    loadWords();
-  }, [apiToken]);
+  const handleRegister = async (email: string, password: string): Promise<boolean> => {
+    setAuthError(null);
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAuthError(data?.error || 'registration_failed');
+        return false;
+      }
+      const data = await res.json();
+      const newAuth: AuthState = {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: data.user
+      };
+      saveAuth(newAuth);
+      setIsLoggedIn(true);
+      setActiveView('dashboard');
+      await loadWords(data.accessToken);
+      return true;
+    } catch {
+      setAuthError('network_error');
+      return false;
+    }
+  };
+
+  const handleLogin = async (email: string, password: string): Promise<boolean> => {
+    setAuthError(null);
+    try {
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAuthError(data?.error || 'login_failed');
+        return false;
+      }
+      const data = await res.json();
+      const newAuth: AuthState = {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: data.user
+      };
+      saveAuth(newAuth);
+      setIsLoggedIn(true);
+      setActiveView('dashboard');
+      await loadWords(data.accessToken);
+      return true;
+    } catch {
+      setAuthError('network_error');
+      return false;
+    }
+  };
+
+  const handleLogout = () => {
+    saveAuth({ accessToken: null, refreshToken: null, user: null });
+    setIsLoggedIn(false);
+    setActiveView('welcome');
+  };
+
+  useEffect(() => {
+    if (isLoggedIn && auth.accessToken) {
+      loadWords(auth.accessToken);
+    }
+  }, [isLoggedIn, auth.accessToken]);
 
   useEffect(() => {
     setBooks(prev => prev.map(b => {
@@ -129,27 +247,27 @@ export default function App() {
 
   const handleAddWord = async (newWordData: Omit<Word, 'id'>) => {
     try {
-      let token = apiToken || '';
+      let token = auth.accessToken;
       if (!token) {
-        const bootstrap = await fetch('/api/v1/session/bootstrap', { method: 'POST' });
-        if (bootstrap.ok) {
-          const data = await bootstrap.json();
-          const next = typeof data?.token === 'string' ? data.token : '';
-          if (next) {
-            localStorage.setItem('wordbase_token', next);
-            setApiToken(next);
-            token = next;
-          }
-        }
+        throw new Error('not_logged_in');
       }
-      if (!token) {
-        throw new Error('bootstrap_failed');
-      }
-      const res = await fetch('/api/v1/words', {
+      let res = await fetch('/api/v1/words', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(newWordData)
       });
+      if (res.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          res = await fetch('/api/v1/words', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
+            body: JSON.stringify(newWordData)
+          });
+        } else {
+          throw new Error('token_refresh_failed');
+        }
+      }
       if (!res.ok) {
         throw new Error('request_failed');
       }
@@ -205,7 +323,9 @@ export default function App() {
       return (
         <WelcomeLoginView 
           themeStyles={themeStyles} 
-          onLogin={() => { setIsLoggedIn(true); setActiveView('dashboard'); }} 
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+          authError={authError}
         />
       );
     }
@@ -367,7 +487,7 @@ export default function App() {
         themeStyles={themeStyles} 
         isLoggedIn={isLoggedIn}
         onNavigate={setActiveView}
-        onLogout={() => { setIsLoggedIn(false); setActiveView('welcome'); }}
+        onLogout={handleLogout}
         activeView={activeView}
       />
 
