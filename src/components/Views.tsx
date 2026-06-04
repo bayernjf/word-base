@@ -12,31 +12,159 @@ import { ThemeClasses } from './ThemeStyles';
 // ==========================================
 interface LoginProps {
   themeStyles: ThemeClasses;
-  onLogin: (email: string, password: string) => Promise<boolean>;
-  onRegister: (email: string, password: string) => Promise<boolean>;
+  onLogin: (email: string, password: string, remember: boolean) => Promise<boolean>;
+  onRegister: (email: string, password: string, code: string, nickname?: string) => Promise<boolean>;
+  onSendCode: (email: string, type: 'register' | 'reset') => Promise<{ ok: boolean; error?: string }>;
+  onResetPasswordVerify: (email: string, code: string) => Promise<{ ok: boolean; resetToken?: string; error?: string }>;
+  onResetPassword: (resetToken: string, newPassword: string) => Promise<boolean>;
   authError?: string | null;
+  setAuthError?: (error: string | null) => void;
 }
 
-export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin, onRegister, authError }) => {
+type AuthStep = 'login' | 'register' | 'forgot-email' | 'forgot-code' | 'forgot-password';
+
+export const WelcomeLoginView: React.FC<LoginProps> = ({ 
+  themeStyles, 
+  onLogin, 
+  onRegister, 
+  onSendCode, 
+  onResetPasswordVerify, 
+  onResetPassword, 
+  authError, 
+  setAuthError 
+}) => {
+  const [step, setStep] = useState<AuthStep>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isRegister, setIsRegister] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [code, setCode] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(0);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const clearMessages = () => {
+    setAuthError?.(null);
+    setMessage(null);
+  };
+
+  const handleSendCode = async (type: 'register' | 'reset') => {
+    clearMessages();
+    if (!email) {
+      setMessage({ text: '请输入邮箱地址', type: 'error' });
+      return;
+    }
+    if (countdown > 0) return;
+
     setIsLoading(true);
     try {
-      if (isRegister) {
-        await onRegister(email, password);
+      const result = await onSendCode(email, type);
+      if (result.ok) {
+        setMessage({ text: '验证码已发送，请查看控制台', type: 'success' });
+        setCountdown(60);
       } else {
-        await onLogin(email, password);
+        setMessage({ text: result.error || '发送失败', type: 'error' });
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearMessages();
+    setIsLoading(true);
+    try {
+      await onLogin(email, password, rememberMe);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearMessages();
+    if (password !== confirmPassword) {
+      setMessage({ text: '两次输入的密码不一致', type: 'error' });
+      return;
+    }
+    if (password.length < 6) {
+      setMessage({ text: '密码至少需要6个字符', type: 'error' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await onRegister(email, password, code, nickname);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearMessages();
+    await handleSendCode('reset');
+    if (!message || message.type === 'success') {
+      setStep('forgot-code');
+    }
+  };
+
+  const handleForgotCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearMessages();
+    setIsLoading(true);
+    try {
+      const result = await onResetPasswordVerify(email, code);
+      if (result.ok && result.resetToken) {
+        setResetToken(result.resetToken);
+        setStep('forgot-password');
+      } else {
+        setMessage({ text: result.error || '验证失败', type: 'error' });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearMessages();
+    if (password !== confirmPassword) {
+      setMessage({ text: '两次输入的密码不一致', type: 'error' });
+      return;
+    }
+    if (password.length < 6) {
+      setMessage({ text: '密码至少需要6个字符', type: 'error' });
+      return;
+    }
+    if (!resetToken) return;
+    setIsLoading(true);
+    try {
+      await onResetPassword(resetToken, password);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetToLogin = () => {
+    setStep('login');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setNickname('');
+    setCode('');
+    setResetToken(null);
+    clearMessages();
   };
 
   return (
@@ -50,41 +178,27 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin, o
             WordScene AI
           </h2>
           <p className={`text-sm mt-1 ${themeStyles.textSecondary}`}>
-            {isRegister ? 'Begin your contextual fluency journey' : 'Contextual language learning workspace'}
+            {step === 'register' ? 'Begin your contextual fluency journey' : 
+             step.startsWith('forgot') ? 'Reset your password' :
+             'Contextual language learning workspace'}
           </p>
         </div>
 
-        {isForgotPassword ? (
-          <div>
-            <h3 className={`text-lg font-semibold mb-3 ${themeStyles.textPrimary}`}>Reset Password</h3>
-            <p className={`text-xs mb-4 ${themeStyles.textSecondary}`}>
-              Enter your email to receive a password recovery link.
-            </p>
-            <form onSubmit={(e) => { e.preventDefault(); setIsForgotPassword(false); }} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium mb-1 uppercase tracking-wider">Email Address</label>
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
-                  required
-                />
-              </div>
-              <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5`}>
-                Send Recovery Instructions
-              </button>
-              <button 
-                type="button" 
-                onClick={() => setIsForgotPassword(false)} 
-                className="w-full text-center text-xs underline mt-2 block"
-              >
-                Back to Sign In
-              </button>
-            </form>
+        {(message || authError) && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${
+            (message?.type === 'success' || !authError) ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
+            'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+          }`}>
+            <div className="flex items-center space-x-2">
+              {message?.type === 'error' || authError ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+              <span>{message?.text || authError}</span>
+            </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        )}
+
+        {/* Login Step */}
+        {step === 'login' && (
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium mb-1 uppercase tracking-wider">Email Address</label>
               <input 
@@ -101,7 +215,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin, o
                 <label className="block text-xs font-medium uppercase tracking-wider">Password</label>
                 <button 
                   type="button" 
-                  onClick={() => setIsForgotPassword(true)}
+                  onClick={() => { clearMessages(); setStep('forgot-email'); }}
                   className="text-xs hover:underline"
                 >
                   Forgot?
@@ -116,70 +230,265 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({ themeStyles, onLogin, o
               />
             </div>
 
-            {!isRegister && (
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="remember" 
-                  checked={rememberMe} 
-                  onChange={() => setRememberMe(!rememberMe)}
-                  className="rounded border-neutral-300Accent focus:ring-0 cursor-pointer"
-                />
-                <label htmlFor="remember" className={`text-xs select-none cursor-pointer ${themeStyles.textSecondary}`}>
-                  Remember this device for 30 days
-                </label>
-              </div>
-            )}
+            <div className="flex items-center space-x-2">
+              <input 
+                type="checkbox" 
+                id="remember" 
+                checked={rememberMe} 
+                onChange={() => setRememberMe(!rememberMe)}
+                className="rounded border-neutral-300Accent focus:ring-0 cursor-pointer"
+              />
+              <label htmlFor="remember" className={`text-xs select-none cursor-pointer ${themeStyles.textSecondary}`}>
+                Remember this device for 7 days
+              </label>
+            </div>
 
-            {authError && (
-              <div className="flex items-center space-x-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-xs">
-                <AlertCircle className="w-4 h-4" />
-                <span>{authError}</span>
-              </div>
-            )}
             <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5 flex items-center justify-center space-x-2`} disabled={isLoading}>
               {isLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  <span>{isRegister ? 'Create Free Account' : 'Sign In'}</span>
+                  <span>Sign In</span>
                   <ChevronRight className="w-4 h-4" />
                 </>
               )}
             </button>
 
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-neutral-300 dark:border-white/10"></div>
-              <span className="flex-shrink mx-4 text-[10px] text-neutral-400 uppercase tracking-widest">Or Continue With</span>
-              <div className="flex-grow border-t border-neutral-300 dark:border-white/10"></div>
+            <div className="text-center pt-2">
+              <button 
+                type="button" 
+                onClick={() => { clearMessages(); setStep('register'); }}
+                className="text-xs text-indigo-650 dark:text-indigo-400 font-medium hover:underline"
+              >
+                Don't have an account? Create an account
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Register Step */}
+        {step === 'register' && (
+          <form onSubmit={handleRegisterSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium mb-1 uppercase tracking-wider">Email Address</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                required
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 font-mono text-xs">
-              <button disabled
-                type="button" 
-                onClick={onLogin}
-                className="flex items-center justify-center space-x-1.5 py-2 border border-neutral-300 dark:border-white/10 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-              >
-                <span>Google</span>
-              </button>
-              <button disabled
-                type="button" 
-                onClick={onLogin}
-                className="flex items-center justify-center space-x-1.5 py-2 border border-neutral-300 dark:border-white/10 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-              >
-                <span>Apple</span>
-              </button>
+            <div>
+              <label className="block text-xs font-medium mb-1 uppercase tracking-wider">Nickname (Optional)</label>
+              <input 
+                type="text" 
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+              />
             </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1 uppercase tracking-wider">Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                required
+                minLength={6}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1 uppercase tracking-wider">Confirm Password</label>
+              <input 
+                type="password" 
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                required
+                minLength={6}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium uppercase tracking-wider">Verification Code</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                  required
+                  maxLength={6}
+                />
+                <button 
+                  type="button"
+                  onClick={() => handleSendCode('register')}
+                  disabled={isLoading || countdown > 0}
+                  className={`px-4 py-2 text-xs font-medium rounded-xl ${
+                    countdown > 0 
+                      ? 'bg-neutral-200 text-neutral-500 dark:bg-white/5 dark:text-neutral-400' 
+                      : `${themeStyles.btnSecondary}`
+                  }`}
+                >
+                  {countdown > 0 ? `${countdown}s` : 'Send Code'}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5 flex items-center justify-center space-x-2`} disabled={isLoading}>
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <span>Create Free Account</span>
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
 
             <div className="text-center pt-2">
               <button 
                 type="button" 
-                onClick={() => setIsRegister(!isRegister)}
+                onClick={() => resetToLogin()}
                 className="text-xs text-indigo-650 dark:text-indigo-400 font-medium hover:underline"
               >
-                {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Create an account"}
+                Already have an account? Sign In
               </button>
             </div>
+          </form>
+        )}
+
+        {/* Forgot Password - Email Step */}
+        {step === 'forgot-email' && (
+          <form onSubmit={handleForgotEmailSubmit} className="space-y-4">
+            <div>
+              <h3 className={`text-lg font-semibold mb-3 ${themeStyles.textPrimary}`}>Reset Password</h3>
+              <p className={`text-xs mb-4 ${themeStyles.textSecondary}`}>
+                Enter your email to receive a verification code.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1 uppercase tracking-wider">Email Address</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                required
+              />
+            </div>
+            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5`} disabled={isLoading}>
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : 'Send Verification Code'}
+            </button>
+            <button 
+              type="button" 
+              onClick={resetToLogin}
+              className="w-full text-center text-xs underline mt-2 block"
+            >
+              Back to Sign In
+            </button>
+          </form>
+        )}
+
+        {/* Forgot Password - Code Step */}
+        {step === 'forgot-code' && (
+          <form onSubmit={handleForgotCodeSubmit} className="space-y-4">
+            <div>
+              <h3 className={`text-lg font-semibold mb-3 ${themeStyles.textPrimary}`}>Enter Verification Code</h3>
+              <p className={`text-xs mb-4 ${themeStyles.textSecondary}`}>
+                We've sent a verification code to {email}. Check the server console.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-medium uppercase tracking-wider">Verification Code</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                  required
+                  maxLength={6}
+                />
+                <button 
+                  type="button"
+                  onClick={() => handleSendCode('reset')}
+                  disabled={isLoading || countdown > 0}
+                  className={`px-4 py-2 text-xs font-medium rounded-xl ${
+                    countdown > 0 
+                      ? 'bg-neutral-200 text-neutral-500 dark:bg-white/5 dark:text-neutral-400' 
+                      : `${themeStyles.btnSecondary}`
+                  }`}
+                >
+                  {countdown > 0 ? `${countdown}s` : 'Resend'}
+                </button>
+              </div>
+            </div>
+            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5`} disabled={isLoading}>
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : 'Verify Code'}
+            </button>
+            <button 
+              type="button" 
+              onClick={() => { clearMessages(); setStep('forgot-email'); }}
+              className="w-full text-center text-xs underline mt-2 block"
+            >
+              Change Email
+            </button>
+          </form>
+        )}
+
+        {/* Forgot Password - New Password Step */}
+        {step === 'forgot-password' && (
+          <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+            <div>
+              <h3 className={`text-lg font-semibold mb-3 ${themeStyles.textPrimary}`}>Set New Password</h3>
+              <p className={`text-xs mb-4 ${themeStyles.textSecondary}`}>
+                Enter your new password below.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium uppercase tracking-wider">New Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                required
+                minLength={6}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium uppercase tracking-wider">Confirm New Password</label>
+              <input 
+                type="password" 
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                required
+                minLength={6}
+              />
+            </div>
+            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5`} disabled={isLoading}>
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : 'Reset Password'}
+            </button>
+            <button 
+              type="button" 
+              onClick={resetToLogin}
+              className="w-full text-center text-xs underline mt-2 block"
+            >
+              Back to Sign In
+            </button>
           </form>
         )}
       </div>
@@ -1963,12 +2272,82 @@ export const WritingPracticeView: React.FC<WritingPracticeProps> = ({ themeStyle
 // ==========================================
 interface AccountSettingsProps {
   themeStyles: ThemeClasses;
+  user: { id: string; email: string; nickname?: string; createdAt: number } | null;
+  onUpdateProfile: (nickname: string) => Promise<boolean>;
+  onChangePassword: (oldPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
-export const AccountSettingsView: React.FC<AccountSettingsProps> = ({ themeStyles }) => {
-  const [name, setName] = useState('Learner Pro 2026');
-  const [email, setEmail] = useState('learner@wordscene.ai');
-  const [showPass, setShowPass] = useState(false);
+export const AccountSettingsView: React.FC<AccountSettingsProps> = ({ 
+  themeStyles, 
+  user, 
+  onUpdateProfile, 
+  onChangePassword 
+}) => {
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nickname, setNickname] = useState(user?.nickname || user?.email?.split('@')[0] || '');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const handleUpdateNickname = async () => {
+    if (!nickname.trim()) return;
+    setIsUpdating(true);
+    setProfileMessage(null);
+    try {
+      const success = await onUpdateProfile(nickname.trim());
+      if (success) {
+        setProfileMessage({ text: '昵称更新成功！', type: 'success' });
+        setIsEditingNickname(false);
+      } else {
+        setProfileMessage({ text: '更新失败，请稍后重试', type: 'error' });
+      }
+    } catch {
+      setProfileMessage({ text: '更新失败，请稍后重试', type: 'error' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ text: '两次输入的密码不一致', type: 'error' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordMessage({ text: '密码至少需要6个字符', type: 'error' });
+      return;
+    }
+    setIsChangingPassword(true);
+    setPasswordMessage(null);
+    try {
+      const result = await onChangePassword(oldPassword, newPassword);
+      if (result.ok) {
+        setPasswordMessage({ text: '密码修改成功！', type: 'success' });
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setPasswordMessage({ text: result.error || '修改失败', type: 'error' });
+      }
+    } catch {
+      setPasswordMessage({ text: '修改失败，请稍后重试', type: 'error' });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const initials = (user?.nickname || user?.email?.split('@')[0] || 'User')
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -1977,11 +2356,11 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({ themeStyle
         <p className="text-xs text-neutral-400">Configure personal account metadata, profile image and subscriptions.</p>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-8">
         {/* Avatars */}
         <div className="flex items-center space-x-4">
           <div className="relative group cursor-pointer w-16 h-16 rounded-full overflow-hidden bg-indigo-600 flex items-center justify-center font-bold text-white text-lg">
-            <span>LP</span>
+            <span>{initials}</span>
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] uppercase font-mono transition-opacity">
               Upload
             </div>
@@ -1992,46 +2371,108 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({ themeStyle
           </div>
         </div>
 
-        {/* Inputs */}
+        {/* User Info */}
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Username Display</label>
-            <input 
-              type="text" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-            />
+          <div className={`p-4 rounded-lg ${themeStyles.secondaryBg}`}>
+            <label className="block text-sm font-medium text-neutral-500 mb-2">邮箱</label>
+            <div className={themeStyles.textPrimary}>{user?.email || '未登录'}</div>
           </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Email Registration</label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-            />
+          <div className={`p-4 rounded-lg ${themeStyles.secondaryBg}`}>
+            <label className="block text-sm font-medium text-neutral-500 mb-2">昵称</label>
+            {profileMessage && (
+              <div className={`mb-3 p-2 rounded-lg text-xs ${profileMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                {profileMessage.text}
+              </div>
+            )}
+            {isEditingNickname ? (
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  className={`flex-1 px-3 py-2 bg-white dark:bg-zinc-800 border border-neutral-300 dark:border-white/10 rounded-lg ${themeStyles.textPrimary}`}
+                  autoFocus
+                />
+                <button 
+                  onClick={handleUpdateNickname}
+                  disabled={isUpdating}
+                  className={`${themeStyles.btnPrimary} px-4 py-2 text-xs`}
+                >
+                  {isUpdating ? '保存中...' : '保存'}
+                </button>
+                <button 
+                  onClick={() => { 
+                    setIsEditingNickname(false); 
+                    setNickname(user?.nickname || user?.email?.split('@')[0] || ''); 
+                  }}
+                  className={`${themeStyles.btnSecondary} px-4 py-2 text-xs`}
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span className={themeStyles.textPrimary}>{nickname}</span>
+                <button 
+                  onClick={() => setIsEditingNickname(true)}
+                  className="text-xs text-indigo-650 dark:text-indigo-400 hover:underline"
+                >
+                  编辑
+                </button>
+              </div>
+            )}
           </div>
+        </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Reset Account Security Password</label>
-            <div className="relative">
+        {/* Change Password */}
+        <div>
+          <h4 className={`text-sm font-semibold ${themeStyles.textPrimary} mb-4`}>修改密码</h4>
+          <form onSubmit={handleChangePassword} className={`space-y-4 p-6 rounded-lg ${themeStyles.card}`}>
+            {passwordMessage && (
+              <div className={`p-3 rounded-lg text-xs ${passwordMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                {passwordMessage.text}
+              </div>
+            )}
+            <div>
+              <label className={`block text-xs font-semibold mb-2 ${themeStyles.textPrimary}`}>当前密码</label>
               <input 
-                type={showPass ? 'text' : 'password'} 
-                value="secretPasswd2026" 
-                readOnly
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs pr-10"
+                type="password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
+                required
               />
-              <button 
-                type="button" 
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-2.5 text-neutral-400 hover:text-indigo-650"
-              >
-                <Eye className="w-4 h-4" />
-              </button>
             </div>
-          </div>
+            <div>
+              <label className={`block text-xs font-semibold mb-2 ${themeStyles.textPrimary}`}>新密码</label>
+              <input 
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
+                required
+                minLength={6}
+              />
+            </div>
+            <div>
+              <label className={`block text-xs font-semibold mb-2 ${themeStyles.textPrimary}`}>确认新密码</label>
+              <input 
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
+                required
+                minLength={6}
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={isChangingPassword}
+              className={`w-full ${themeStyles.btnPrimary} py-2.5 mt-2 text-xs font-semibold`}
+            >
+              {isChangingPassword ? '修改中...' : '修改密码'}
+            </button>
+          </form>
         </div>
 
         {/* Subscriptions badge */}
