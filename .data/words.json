@@ -1,5 +1,190 @@
 [
   {
+    "id": "d4749838-31ad-4b9c-8af1-fc7b4a2f04e0",
+    "word": "over",
+    "phonetic": "/ˈəʊ.və(ɹ)/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 超過",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Join over 5 million learners worldwide",
+        "translation": "n. 超過",
+        "source": "Learn Languages Online with Real Content | LingQ Language App"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://www.lingq.com/en/",
+      "sourceTitle": "Learn Languages Online with Real Content | LingQ Language App",
+      "createdAt": 1780600606902,
+      "userId": "caa8b58b-fd03-41ca-a0a9-61ba8d215091",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "d4749838-31ad-4b9c-8af1-fc7b4a2f04e0"
+      }
+    }
+  },
+  {
+    "id": "e920e3fd-1edf-42b3-a781-d4351ed90445",
+    "word": "Keyboard",
+    "phonetic": "/ˈkiːbɔːd/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 键盘热键",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "Multica 常用快捷键（Keyboard Shortcuts）",
+        "translation": "n. 键盘热键",
+        "source": "Grok / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/i/grok?conversation=2062079022037929986",
+      "sourceTitle": "Grok / X",
+      "createdAt": 1780594598231,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "e920e3fd-1edf-42b3-a781-d4351ed90445"
+      }
+    }
+  },
+  {
+    "id": "4d4f7f67-fb56-41d3-ab1b-16b090fc4047",
+    "word": "mishap",
+    "phonetic": "/ˈmɪs.hæp/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. n.事故, 意外",
+    "synonyms": [],
+    "examples": [
+      {
+        "en": "Since the mishap with the banana peel, he watches his step.",
+        "zh": "自从香蕉皮的事故发生后，他看着自己的脚步。"
+      }
+    ],
+    "usageHistory": [
+      {
+        "context": "South Korean singer Yoon March having a little heels mishap on stage",
+        "translation": "n. n.事故, 意外",
+        "source": "Home / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/home",
+      "sourceTitle": "Home / X",
+      "createdAt": 1780593409677,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "4d4f7f67-fb56-41d3-ab1b-16b090fc4047"
+      }
+    }
+  },
+  {
+    "id": "c6fea157-c31e-4fd7-bf4d-a92e820fc5d4",
+    "word": "immigrant",
+    "phonetic": "/ˈɪmɪɡɹənt/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 移民",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "So if police show up at a crime scene and a British boy is bleeding out and an immigrant says the British boy is",
+        "translation": "n. 移民",
+        "source": "Home / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/home",
+      "sourceTitle": "Home / X",
+      "createdAt": 1780593350817,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "c6fea157-c31e-4fd7-bf4d-a92e820fc5d4"
+      }
+    }
+  },
+  {
+    "id": "9ca055dd-1ab8-4a78-b605-81e3b9d2fec3",
+    "word": "West",
+    "phonetic": "/wɛst/",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "n. 正西",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "The West has created an utterly evil state religion where an accusation of “racism” is the gravest offense that can be committed, even worse than rape or murder",
+        "translation": "n. 正西",
+        "source": "Home / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/home",
+      "sourceTitle": "Home / X",
+      "createdAt": 1780593344422,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "9ca055dd-1ab8-4a78-b605-81e3b9d2fec3"
+      }
+    }
+  },
+  {
+    "id": "d9cc3f5b-0656-4fe7-b5b0-da68b64bb0a9",
+    "word": "gravest",
+    "phonetic": "",
+    "partOfSpeech": "noun",
+    "definition": "",
+    "chineseTranslation": "v. 坟墓",
+    "synonyms": [],
+    "examples": [],
+    "usageHistory": [
+      {
+        "context": "The West has created an utterly evil state religion where an accusation of “racism” is the gravest offense that can be committed, even worse than rape or murder",
+        "translation": "v. 坟墓",
+        "source": "Home / X"
+      }
+    ],
+    "level": "B2",
+    "familiarity": 0,
+    "bookId": "inbox",
+    "meta": {
+      "sourceUrl": "https://x.com/home",
+      "sourceTitle": "Home / X",
+      "createdAt": 1780593341885,
+      "workspaceId": "bc490b7b-2a2e-4367-9b9f-f87c7b011ee4",
+      "client": {
+        "deviceId": "49cc9f5a-4607-4e4e-bc35-7d2ec57eac2a",
+        "entryId": "d9cc3f5b-0656-4fe7-b5b0-da68b64bb0a9"
+      }
+    }
+  },
+  {
     "id": "831c83a8-4689-4809-8f27-f20523906db6",
     "word": "Join",
     "phonetic": "/ˈdʒɔɪn/",
