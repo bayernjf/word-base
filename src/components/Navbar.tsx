@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown } from 'lucide-react';
 import { ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
+import { AVATARS } from '../avatars';
 
 interface NavbarProps {
   theme: ThemeType;
@@ -11,7 +12,7 @@ interface NavbarProps {
   onLogout: () => void;
   onNavigate: (view: string) => void;
   activeView: string;
-  user?: { id: string; email: string; nickname?: string; createdAt: number } | null;
+  user?: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
@@ -19,6 +20,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const isGlass = theme === 'glass';
   const [showDropdown, setShowDropdown] = useState(false);
+  const avatarIndex = user?.avatar ?? 0;
+  const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
 
   return (
     <nav className={`${themeStyles.navClass} sticky top-0 z-40 backdrop-blur-md bg-opacity-95`}>
@@ -113,15 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'border-neutral-300 dark:border-white/15 text-neutral-750 dark:text-neutral-300 hover:bg-slate-50'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                  isGlass 
-                    ? 'bg-white/20' 
-                    : theme === 'natural'
-                      ? 'bg-emerald-700/20'
-                      : 'bg-indigo-100 dark:bg-indigo-900/30'
-                }`}>
-                  <User className="w-3.5 h-3.5" />
-                </div>
+                <div className="w-6 h-6" dangerouslySetInnerHTML={{ __html: avatarSvg }} />
                 <span>{user?.nickname || user?.email?.split('@')[0] || 'User'}</span>
                 <ChevronDown className="w-3 h-3" />
               </button>

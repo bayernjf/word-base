@@ -30,7 +30,7 @@ import {
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
-  user: { id: string; email: string; nickname?: string; createdAt: number } | null;
+  user: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
 }
 
 export default function App() {
@@ -271,7 +271,7 @@ export default function App() {
     }
   };
 
-  const handleUpdateProfile = async (nickname: string): Promise<boolean> => {
+  const handleUpdateProfile = async (data: { nickname?: string; avatar?: number }): Promise<boolean> => {
     try {
       let token = auth.accessToken;
       if (!token) {
@@ -280,7 +280,7 @@ export default function App() {
       let res = await fetch('/api/v1/user', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ nickname })
+        body: JSON.stringify(data)
       });
       if (res.status === 401) {
         const newToken = await refreshAccessToken();
@@ -288,7 +288,7 @@ export default function App() {
           res = await fetch('/api/v1/user', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
-            body: JSON.stringify({ nickname })
+            body: JSON.stringify(data)
           });
         } else {
           throw new Error('token_refresh_failed');
@@ -297,17 +297,30 @@ export default function App() {
       if (!res.ok) {
         throw new Error('request_failed');
       }
-      const data = await res.json();
-      if (data.user) {
+      const result = await res.json();
+      if (result.user) {
         const newAuth: AuthState = {
           ...auth,
-          user: data.user
+          user: result.user
         };
         saveAuth(newAuth);
       }
       return true;
     } catch {
       return false;
+    }
+  };
+
+  const getAvatars = async (): Promise<string[]> => {
+    try {
+      const res = await fetch('/api/v1/avatars');
+      if (!res.ok) {
+        return [];
+      }
+      const data = await res.json();
+      return data.avatars || [];
+    } catch {
+      return [];
     }
   };
 
@@ -588,6 +601,17 @@ export default function App() {
             </div>
             
             <div className="space-y-8">
+              {/* 头像 */}
+              <div>
+                <h3 className={`text-lg font-semibold ${themeStyles.textPrimary} mb-4`}>头像</h3>
+                <ProfileAvatarSelect 
+                  themeStyles={themeStyles}
+                  currentAvatar={auth.user?.avatar || 0}
+                  onUpdate={handleUpdateProfile}
+                  getAvatars={getAvatars}
+                />
+              </div>
+              
               {/* 个人信息 */}
               <div>
                 <h3 className={`text-lg font-semibold ${themeStyles.textPrimary} mb-4`}>基本信息</h3>
@@ -737,6 +761,7 @@ export default function App() {
                 activeView={activeView} 
                 onNavigate={setActiveView} 
                 themeStyles={themeStyles} 
+                user={auth.user}
               />
             </div>
 
@@ -782,7 +807,7 @@ function ProfileNicknameEdit({
 }: { 
   themeStyles: any;
   currentNickname: string;
-  onUpdate: (nickname: string) => Promise<boolean>;
+  onUpdate: (data: { nickname?: string; avatar?: number }) => Promise<boolean>;
 }) {
   const [nickname, setNickname] = useState(currentNickname);
   const [isEditing, setIsEditing] = useState(false);
@@ -794,7 +819,7 @@ function ProfileNicknameEdit({
     setIsLoading(true);
     setMessage(null);
     try {
-      const success = await onUpdate(nickname.trim());
+      const success = await onUpdate({ nickname: nickname.trim() });
       if (success) {
         setMessage({ text: '更新成功！', type: 'success' });
         setIsEditing(false);
@@ -942,5 +967,75 @@ function ProfilePasswordChange({
         {isLoading ? '修改中...' : '修改密码'}
       </button>
     </form>
+  );
+}
+
+function ProfileAvatarSelect({
+  themeStyles,
+  currentAvatar,
+  onUpdate,
+  getAvatars
+}: {
+  themeStyles: any;
+  currentAvatar: number;
+  onUpdate: (data: { nickname?: string; avatar?: number }) => Promise<boolean>;
+  getAvatars: () => Promise<string[]>;
+}) {
+  const [avatars, setAvatars] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    const loadAvatars = async () => {
+      const avatarsList = await getAvatars();
+      setAvatars(avatarsList);
+    };
+    loadAvatars();
+  }, []);
+
+  const handleSelectAvatar = async (index: number) => {
+    setIsLoading(true);
+    setMessage(null);
+    try {
+      const success = await onUpdate({ avatar: index });
+      if (success) {
+        setMessage({ text: '头像更新成功！', type: 'success' });
+      } else {
+        setMessage({ text: '更新失败', type: 'error' });
+      }
+    } catch {
+      setMessage({ text: '更新失败', type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {message && (
+        <div className={`mb-4 p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+          {message.text}
+        </div>
+      )}
+      <div className="grid grid-cols-5 gap-3">
+        {avatars.map((avatar, index) => (
+          <button
+            key={index}
+            onClick={() => handleSelectAvatar(index)}
+            disabled={isLoading}
+            className={`p-2 rounded-lg border-2 transition-all ${
+              currentAvatar === index
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                : 'border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-600'
+            }`}
+          >
+            <div
+              dangerouslySetInnerHTML={{ __html: avatar }}
+              className="w-16 h-16 mx-auto"
+            />
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
