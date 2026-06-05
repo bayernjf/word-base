@@ -6,15 +6,118 @@ export const initialVocabularyBooks: VocabularyBook[] = [
     userId: '',
     name: '默认',
     description: '用于存放单词的默认单词本',
-    wordCount: 0,
+    wordCount: 5,
     icon: 'BookOpen',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     isSync: true
+  },
+  {
+    id: 'business',
+    userId: '',
+    name: '商务英语',
+    description: '商务场景常用词汇',
+    wordCount: 0,
+    icon: 'BookOpen',
+    createdAt: Date.now() - 86400000,
+    updatedAt: Date.now() - 86400000,
+    isSync: false
   }
 ];
 
-export const initialWords: Word[] = [];
+const now = Date.now();
+const day = 86400000;
+
+export const initialWords: Word[] = [
+  {
+    id: 'w1',
+    word: 'negotiate',
+    frequency: 2,
+    translation: '协商，谈判',
+    timeAdded: now - 7 * day,
+    timeUpdated: now - 2 * day,
+    contexts: [
+      {
+        context: 'We need to negotiate the contract terms before signing.',
+        timeAdded: now - 6 * day,
+        sourceLink: 'https://example.com/business-contracts',
+        translation: '我们需要在签约前协商合同条款。'
+      },
+      {
+        context: 'The two companies are negotiating a merger.',
+        timeAdded: now - 3 * day,
+        translation: '两家公司正在谈判合并事宜。'
+      }
+    ],
+    bookId: 'default'
+  },
+  {
+    id: 'w2',
+    word: 'leverage',
+    frequency: 1,
+    translation: '利用，杠杆作用',
+    timeAdded: now - 6 * day,
+    timeUpdated: now - 1 * day,
+    contexts: [
+      {
+        context: 'We can leverage our existing resources to expand.',
+        timeAdded: now - 5 * day,
+        sourceLink: 'https://example.com/strategy',
+        translation: '我们可以利用现有资源进行扩张。'
+      }
+    ],
+    bookId: 'default'
+  },
+  {
+    id: 'w3',
+    word: 'synergize',
+    frequency: 1,
+    translation: '协同，协作',
+    timeAdded: now - 5 * day,
+    timeUpdated: now - 5 * day,
+    contexts: [
+      {
+        context: 'The teams need to synergize to achieve our goals.',
+        timeAdded: now - 5 * day,
+        translation: '团队需要协同合作以实现我们的目标。'
+      }
+    ],
+    bookId: 'default'
+  },
+  {
+    id: 'w4',
+    word: 'bandwidth',
+    frequency: 1,
+    translation: '带宽，精力',
+    timeAdded: now - 4 * day,
+    timeUpdated: now - 4 * day,
+    contexts: [
+      {
+        context: 'I don\'t have the bandwidth for another project right now.',
+        timeAdded: now - 4 * day,
+        translation: '我现在没有精力再做另一个项目了。'
+      }
+    ],
+    bookId: 'default'
+  },
+  {
+    id: 'w5',
+    word: 'pivot',
+    frequency: 1,
+    translation: '转向，关键',
+    timeAdded: now - 3 * day,
+    timeUpdated: now - 3 * day,
+    contexts: [
+      {
+        context: 'The startup decided to pivot to a new business model.',
+        timeAdded: now - 3 * day,
+        sourceLink: 'https://example.com/startup-stories',
+        translation: '这家初创公司决定转向新的商业模式。'
+      }
+    ],
+    bookId: 'default'
+  }
+];
 
 export const initialStories: Story[] = [
   {
