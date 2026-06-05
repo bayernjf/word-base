@@ -636,7 +636,8 @@ export default function App() {
   const handleUpdateFamiliarity = (wordId: string, levelValue: number) => {
     setWords(prev => prev.map(w => {
       if (w.id === wordId) {
-        return { ...w, familiarity: levelValue };
+        const now = Date.now();
+        return { ...w, familiarity: levelValue, timeUpdated: now, dateUpdated: now };
       }
       return w;
     }));
