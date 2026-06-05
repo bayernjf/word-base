@@ -1537,19 +1537,33 @@ interface MyListsProps {
   onCreateBook: (book: { name: string; description?: string; icon?: string; isSync: boolean }) => void;
   onSetSyncBook: (bookId: string) => void;
   onDeleteBooks: (bookIds: string[]) => void;
+  onUpdateBook: (bookId: string, updates: { name?: string; description?: string; icon?: string }) => Promise<boolean>;
 }
 
-export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, books, onCreateBook, onSetSyncBook, onDeleteBooks }) => {
+export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, books, onCreateBook, onSetSyncBook, onDeleteBooks, onUpdateBook }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [notification, setNotification] = useState<string | null>(null);
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
   // 检查单词本名称是否已存在（忽略大小写）
   const isNameExists = name.trim().length > 0 && 
     books.some(book => book.name.toLowerCase() === name.trim().toLowerCase());
+
+  // 检查编辑中的名称是否已存在
+  const isEditNameExists = (currentBookId: string, newName: string) => {
+    const trimmedName = newName.trim();
+    if (trimmedName.length === 0) return false;
+    return books.some(
+      book => book.id !== currentBookId && 
+      book.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1620,6 +1634,51 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
     setShowConfirmModal(false);
     setDeleteMode(false);
     setSelectedBookIds([]);
+  };
+
+  // 编辑单词本名称
+  const handleStartEdit = (bookId: string, currentName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (deleteMode) return;
+    setEditingBookId(bookId);
+    setEditingName(currentName);
+    setEditError(null);
+  };
+
+  const handleSaveEdit = async (bookId: string) => {
+    const trimmedName = editingName.trim();
+    if (!trimmedName) {
+      setEditError('单词本名称不能为空');
+      return;
+    }
+    if (isEditNameExists(bookId, trimmedName)) {
+      setEditError('单词本已存在');
+      return;
+    }
+    try {
+      const success = await onUpdateBook(bookId, { name: trimmedName });
+      if (success) {
+        setEditingBookId(null);
+        setEditError(null);
+      } else {
+        setEditError('更新失败');
+      }
+    } catch {
+      setEditError('更新失败');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBookId(null);
+    setEditError(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, bookId: string) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit(bookId);
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
   };
 
   // Switch component
@@ -1760,13 +1819,46 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
                   </div>
                 )}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                  <div className="flex items-center flex-1 min-w-0">
+                    <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl flex-shrink-0">
                       <BookOpen className="w-4 h-4" />
                     </span>
-                    <div className="ml-3">
-                      <h3 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{b.name}</h3>
-                      <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{b.wordCount} words</p>
+                    <div className="ml-3 flex-1 min-w-0">
+                      {editingBookId === b.id ? (
+                        <div className="space-y-1">
+                          <input
+                            type="text"
+                            value={editingName}
+                            onChange={(e) => {
+                              setEditingName(e.target.value);
+                              setEditError(null);
+                            }}
+                            onBlur={() => handleSaveEdit(b.id)}
+                            onKeyDown={(e) => handleKeyDown(e, b.id)}
+                            autoFocus
+                            className={`w-full px-2 py-1 bg-black/5 dark:bg-white/5 border rounded text-xs ${
+                              editError
+                                ? 'border-red-500 focus:ring-red-500'
+                                : 'border-neutral-300 dark:border-white/10'
+                            }`}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          {editError && (
+                            <p className="text-xs text-red-500">{editError}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <h3
+                            className={`font-bold text-sm ${themeStyles.textPrimary} cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors`}
+                            onClick={(e) => handleStartEdit(b.id, b.name, e)}
+                            title="点击编辑名称"
+                          >
+                            {b.name}
+                          </h3>
+                          <p className={`text-xs ${themeStyles.textSecondary}`}>{b.wordCount} words</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {!deleteMode && (

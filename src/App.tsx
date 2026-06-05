@@ -633,6 +633,33 @@ export default function App() {
     }
   };
 
+  const handleUpdateBook = async (bookId: string, updates: { name?: string; description?: string; icon?: string }) => {
+    try {
+      if (auth.accessToken) {
+        const res = await fetch(`/api/v1/books/${bookId}`, {
+          method: 'PATCH',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${auth.accessToken}` 
+          },
+          body: JSON.stringify(updates)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.book) {
+            // 更新本地状态
+            setBooks(prev => prev.map(b => b.id === bookId ? { ...b, ...data.book } : b));
+            return true;
+          }
+        }
+        return false;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
   const handleUpdateFamiliarity = (wordId: string, levelValue: number) => {
     setWords(prev => prev.map(w => {
       if (w.id === wordId) {
@@ -761,6 +788,7 @@ export default function App() {
             onCreateBook={handleCreateBook}
             onSetSyncBook={handleSetSyncBook}
             onDeleteBooks={handleDeleteBooks}
+            onUpdateBook={handleUpdateBook}
           />
         );
       case 'stories':
