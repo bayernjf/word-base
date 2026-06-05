@@ -2147,6 +2147,7 @@ interface AccountSettingsProps {
   user: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
   onUpdateProfile: (data: { nickname?: string; avatar?: number }) => Promise<boolean>;
   onChangePassword: (oldPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
+  onDeleteAccount: () => void;
 }
 
 // Avatar Select Component for Account Settings
@@ -2231,7 +2232,8 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
   themeStyles, 
   user, 
   onUpdateProfile, 
-  onChangePassword 
+  onChangePassword,
+  onDeleteAccount
 }) => {
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [nickname, setNickname] = useState(user?.nickname || user?.email?.split('@')[0] || '');
@@ -2243,6 +2245,9 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const [showFirstModal, setShowFirstModal] = useState(false);
+  const [showSecondModal, setShowSecondModal] = useState(false);
 
   const handleUpdateNickname = async () => {
     if (!nickname.trim()) return;
@@ -2424,7 +2429,77 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
             Your custom spaced learning books, cloud storage backups and real AI pronunciations are active until Jan 2027.
           </p>
         </div>
+
+        {/* Delete Account */}
+        <div className="pt-4 border-t border-neutral-200 dark:border-white/10">
+          <button 
+            type="button"
+            onClick={() => setShowFirstModal(true)}
+            className="text-xs text-red-600 dark:text-red-400 font-semibold hover:underline"
+          >
+            注销账号
+          </button>
+        </div>
       </div>
+
+      {/* First Modal */}
+      {showFirstModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`${themeStyles.card} p-6 max-w-sm w-full mx-4`}>
+            <h3 className="text-base font-bold mb-4">是否注销账号</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-6">
+              如果注销此账号，所有数据都会被删除
+            </p>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setShowFirstModal(false)}
+                className={`flex-1 ${themeStyles.btnSecondary} py-2 text-sm font-semibold`}
+              >
+                取消
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowFirstModal(false);
+                  setShowSecondModal(true);
+                }}
+                className={`px-4 py-2 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50`}
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Second Modal */}
+      {showSecondModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`${themeStyles.card} p-6 max-w-sm w-full mx-4`}>
+            <h3 className="text-base font-bold mb-4">确认删除？</h3>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setShowSecondModal(false)}
+                className={`flex-1 ${themeStyles.btnSecondary} py-2 text-sm font-semibold`}
+              >
+                取消
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowSecondModal(false);
+                  onDeleteAccount();
+                }}
+                className={`px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700`}
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
