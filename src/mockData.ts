@@ -2,14 +2,15 @@ import { Word, VocabularyBook, Story, PracticeQuiz, AIModel } from './types';
 
 export const initialVocabularyBooks: VocabularyBook[] = [
   {
-    id: 'inbox',
+    id: 'default',
     userId: '',
-    name: 'Inbox (插件同步)',
-    description: 'Words synced from browser extension.',
+    name: '默认',
+    description: 'Words synced from word-picker2.',
     wordCount: 0,
     icon: 'Download',
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    isSync: true
   },
   {
     id: 'biz-eng',
@@ -19,7 +20,8 @@ export const initialVocabularyBooks: VocabularyBook[] = [
     wordCount: 120,
     icon: 'Briefcase',
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    isSync: false
   },
   {
     id: 'toefl-core',
@@ -29,7 +31,8 @@ export const initialVocabularyBooks: VocabularyBook[] = [
     wordCount: 350,
     icon: 'GraduationCap',
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    isSync: false
   },
   {
     id: 'daily-life',
@@ -39,7 +42,8 @@ export const initialVocabularyBooks: VocabularyBook[] = [
     wordCount: 88,
     icon: 'MessageSquare',
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    isSync: false
   }
 ];
 

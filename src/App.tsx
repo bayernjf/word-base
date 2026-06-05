@@ -532,8 +532,34 @@ export default function App() {
         setBooks(prev => [...prev, data.book]);
       }
     } catch {
-      return;
+      // Fallback to local creation
+      const newBook: VocabularyBook = {
+        ...bookData,
+        id: `book-${Date.now()}`,
+        userId: '',
+        wordCount: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        isSync: false
+      };
+      setBooks(prev => [...prev, newBook]);
     }
+  };
+
+  const handleSetSyncBook = (bookId: string) => {
+    setBooks(prev => {
+      const newBooks = prev.map(b => ({
+        ...b,
+        isSync: b.id === bookId
+      }));
+      // 将选中的同步单词本置顶
+      const syncBook = newBooks.find(b => b.id === bookId);
+      const otherBooks = newBooks.filter(b => b.id !== bookId);
+      if (syncBook) {
+        return [syncBook, ...otherBooks];
+      }
+      return newBooks;
+    });
   };
 
   const handleUpdateFamiliarity = (wordId: string, levelValue: number) => {
@@ -635,6 +661,7 @@ export default function App() {
             }}
             books={books}
             onCreateBook={handleCreateBook}
+            onSetSyncBook={handleSetSyncBook}
           />
         );
       case 'stories':
