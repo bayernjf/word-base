@@ -36,6 +36,7 @@ export interface VocabularyBook {
   icon: string;
   createdAt: number;
   updatedAt: number;
+  isSync: boolean;
 }
 
 export interface ChatMessage {
