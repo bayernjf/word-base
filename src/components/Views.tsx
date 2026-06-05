@@ -7,6 +7,44 @@ import {
 import { Word, VocabularyBook, Story, ChatMessage, PracticeQuiz, AIModel, ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
 
+// 辅助函数：获取单词的frequency值
+function getFrequency(word: Word): number {
+  return (word.contexts?.length) ?? (word.frequency ?? 0);
+}
+
+// 辅助函数：获取单词的frequency显示值（用于进度条，限制在0-100）
+function getDisplayFrequency(word: Word): number {
+  const freq = getFrequency(word);
+  return Math.min(freq, 100);
+}
+
+// 辅助函数：格式化日期时间为 YYYY/M/D H:MM:SS 格式
+function formatDateTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '-';
+  
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
+  
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// 辅助函数：只格式化日期为 YYYY/M/D 格式
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '-';
+  
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  
+  return `${year}/${month}/${day}`;
+}
+
 // ==========================================
 // 1. WELCOME / LOGIN VIEW (Page 1)
 // ==========================================
@@ -693,8 +731,53 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const filteredWords = words
     .filter(w => w.bookId === selectedBookId)
     .filter(w => w.word.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                 w.definition.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                 w.chineseTranslation.includes(searchQuery));
+                 (w.translation && w.translation.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                 (w.definition && w.definition.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                 (w.chineseTranslation && w.chineseTranslation.includes(searchQuery)));
+
+  // 计算当前单词本中最大context数量N
+  const currentBookWords = words.filter(w => w.bookId === selectedBookId);
+  const maxContextCount = currentBookWords.reduce((max, word) => {
+    const count = getFrequency(word);
+    return count > max ? count : max;
+  }, 1); // 至少为1，避免除以0
+
+  // 计算单词的进度百分比
+  const getProgressPercent = (word: Word): number => {
+    const count = getFrequency(word);
+    if (count <= 1) return 1;
+    const percent = (count / maxContextCount) * 100;
+    return Math.min(Math.max(percent, 1), 100); // 限制在1-100之间
+  };
+
+  // 计算进度条颜色（从浅绿→橙黄→酒红）
+  const getProgressColor = (percent: number) => {
+    // 1%: 浅绿色 (light green) - #90EE90
+    // 50%: 橙黄色 (orange-yellow) - #FFB600
+    // 100%: 酒红色 (wine red) - #722F37
+    
+    const r1 = 144, g1 = 238, b1 = 144; // 浅绿
+    const r2 = 255, g2 = 182, b2 = 0;    // 橙黄
+    const r3 = 114, g3 = 47, b3 = 55;    // 酒红
+    
+    let r, g, b;
+    
+    if (percent <= 50) {
+      // 从浅绿到橙黄
+      const t = percent / 50;
+      r = Math.round(r1 + (r2 - r1) * t);
+      g = Math.round(g1 + (g2 - g1) * t);
+      b = Math.round(b1 + (b2 - b1) * t);
+    } else {
+      // 从橙黄到酒红
+      const t = (percent - 50) / 50;
+      r = Math.round(r2 + (r3 - r2) * t);
+      g = Math.round(g2 + (g3 - g2) * t);
+      b = Math.round(b2 + (b3 - b2) * t);
+    }
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  };
 
   // 计算分页
   const totalPages = Math.ceil(filteredWords.length / itemsPerPage);
@@ -836,9 +919,9 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                   />
                 </th>
                 <th className="py-3 px-4">Word</th>
-                <th className="py-3 px-4">Lexical Unit</th>
-                <th className="py-3 px-4">Core Definition & Translation</th>
-                <th className="py-3 px-4">Confidence</th>
+                <th className="py-3 px-4">Frequency</th>
+                <th className="py-3 px-4">Translation</th>
+                <th className="py-3 px-4">Time Added</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
@@ -854,39 +937,46 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                         className="w-3.5 h-3.5"
                       />
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 cursor-pointer" onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}>
                       <button 
-                        onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
                         className={`font-semibold text-sm text-left hover:underline block ${themeStyles.accentText}`}
                       >
                         {w.word}
                       </button>
-                      <span className="text-[10px] font-mono text-neutral-400 block">{w.phonetic}</span>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-neutral-400 italic">
-                      {w.partOfSpeech}
-                    </td>
-                    <td className="py-3.5 px-4 max-w-sm">
-                      <div className={`font-medium line-clamp-1 ${themeStyles.textPrimary}`}>{w.definition}</div>
-                      <div className="text-neutral-400 text-[11px] mt-0.5">{w.chineseTranslation}</div>
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center space-x-2">
+                      <div 
+                        className="flex items-center space-x-2 cursor-help" 
+                        title={`已添加${getFrequency(w)}次，单词本中最多${maxContextCount}次`}
+                      >
                         <div className="w-16 bg-slate-200 dark:bg-white/10 h-2 rounded-xs overflow-hidden">
                           <div 
-                            className={`h-full ${w.familiarity > 75 ? 'bg-emerald-500' : w.familiarity > 40 ? 'bg-amber-400' : 'bg-rose-400'}`} 
-                            style={{ width: `${w.familiarity}%` }}
+                            className="h-full"
+                            style={{ 
+                              width: `${getProgressPercent(w)}%`,
+                              backgroundColor: getProgressColor(getProgressPercent(w))
+                            }}
                           />
                         </div>
-                        <span className="font-mono text-[10px]">{w.familiarity}%</span>
+                        <span className="font-mono text-[10px]">{getFrequency(w)}</span>
                       </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className={`font-medium ${themeStyles.textPrimary}`}>{w.translation || w.chineseTranslation}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-neutral-500">
+                      {(() => {
+                        const dateVal = w.timeAdded ?? w.dateAdded ?? w.meta?.createdAt;
+                        if (dateVal === undefined) return '-';
+                        return formatDateTime(dateVal);
+                      })()}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <button 
                         onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
                         className="text-xs text-indigo-650 dark:text-indigo-400 font-medium hover:underline inline-flex items-center"
                       >
-                        <span>Study Card</span>
+                        <span>View</span>
                         <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
                       </button>
                     </td>
@@ -894,7 +984,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-neutral-400">
+                  <td colSpan={6} className="text-center py-8 text-neutral-400">
                     No words matches your search parameters in this bookbook.
                   </td>
                 </tr>
@@ -1183,6 +1273,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showChineseExample, setShowChineseExample] = useState<Record<number, boolean>>({});
+  const [isDragging, setIsDragging] = useState(false);
+  const [topHeight, setTopHeight] = useState(50); // 百分比
+  const containerRef = useRef<HTMLDivElement>(null);
 
   if (!word) {
     return (
@@ -1204,8 +1297,38 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleMouseDown = () => {
+    setIsDragging(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const totalHeight = rect.height;
+      const newTopHeight = ((e.clientY - rect.top) / totalHeight) * 100;
+      // 限制在 20% 到 80% 之间
+      const clampedHeight = Math.max(20, Math.min(80, newTopHeight));
+      setTopHeight(clampedHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <button 
         onClick={() => onNavigate('vocabulary')}
         className="inline-flex items-center space-x-1 text-xs font-medium hover:underline text-neutral-500 cursor-pointer"
@@ -1214,123 +1337,187 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         <span>Back to Wordbook</span>
       </button>
 
-      {/* Hero card */}
-      <div className={`${themeStyles.card}`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 dark:border-white/10 pb-6 mb-6">
-          <div className="flex items-center space-x-3.5">
-            <div>
-              <div className="flex items-center space-x-2.5">
-                <h2 className={`text-3xl font-extrabold tracking-tight ${themeStyles.textPrimary}`}>
-                  {word.word}
-                </h2>
-                <span className="bg-indigo-500/10 px-2 py-0.5 text-indigo-600 dark:text-indigo-400 text-xs font-mono rounded-md uppercase font-semibold">
-                  {word.partOfSpeech}
-                </span>
-                <span className="bg-slate-100 dark:bg-white/10 px-2 py-0.5 text-neutral-500 text-xs font-mono rounded-md">
-                  {word.level}
-                </span>
-              </div>
-              <p className="text-sm text-neutral-400 font-mono mt-1 flex items-center space-x-2">
-                <span>{word.phonetic}</span>
-                <button 
-                  onClick={handleSpeech}
-                  disabled={isPlaying}
-                  className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-                >
-                  <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
-                </button>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] text-neutral-400 font-mono uppercase tracking-wider mb-1">Word Confidence</span>
-            <div className="flex items-center space-x-2">
-              <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                value={word.familiarity}
-                onChange={(e) => onUpdateFamiliarity(word.id, Number(e.target.value))}
-                className="w-32 accent-indigo-650 cursor-pointer"
-              />
-              <span className="font-mono text-xs font-bold">{word.familiarity}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Translation card */}
-        <div className="space-y-4">
-          <div>
-            <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider">Definition</span>
-            <p className={`text-base mt-0.5 font-medium ${themeStyles.textPrimary}`}>
-              {word.definition}
-            </p>
-          </div>
-          <div>
-            <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider">中文释义</span>
-            <p className="text-base text-indigo-650 dark:text-indigo-400 font-semibold mt-0.5">
-              {word.chineseTranslation}
-            </p>
-          </div>
-
-          {word.synonyms.length > 0 && (
-            <div>
-              <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider block mb-1">Synonyms / Thesaurus</span>
-              <div className="flex flex-wrap gap-1.5">
-                {word.synonyms.map((s, i) => (
-                  <span key={i} className="bg-slate-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-xs px-2.5 py-0.5 rounded-full">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Examples section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className={`${themeStyles.card}`}>
-          <h3 className={`text-sm font-semibold uppercase tracking-wider mb-3 ${themeStyles.textPrimary}`}>
-            Practice Examples
-          </h3>
-          <div className="space-y-4">
-            {word.examples.map((ex, i) => (
-              <div key={i} className="p-3 bg-linear-to-r from-indigo-500/5 to-purple-500/5 rounded-xl border border-dotted border-indigo-500/20">
-                <p className="text-xs font-medium italic">{ex.en}</p>
-                {showChineseExample[i] ? (
-                  <p className="text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-1">{ex.zh}</p>
-                ) : (
-                  <button 
-                    onClick={() => setShowChineseExample({...showChineseExample, [i]: true})} 
-                    className="text-[9px] font-mono uppercase text-neutral-400 hover:text-indigo-600 mt-2 block"
-                  >
-                    Reveal Translation
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Real context / publication history */}
-        <div className={`${themeStyles.card}`}>
-          <h3 className={`text-sm font-semibold uppercase tracking-wider mb-3 ${themeStyles.textPrimary}`}>
-            Real Publication Context
-          </h3>
-          <div className="space-y-4 font-serif">
-            {word.usageHistory && word.usageHistory.length > 0 ? (
-              word.usageHistory.map((hist, i) => (
-                <div key={i} className="border-l-2 border-indigo-400 pl-3">
-                  <p className="text-xs italic leading-relaxed">"{hist.context}"</p>
-                  <p className="text-[10px] font-sans font-mono mt-1 text-neutral-400">— Source: {hist.source}</p>
+      {/* 主容器，包含两部分和分隔条 */}
+      <div 
+        ref={containerRef}
+        className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]"
+      >
+        {/* 上面部分：字典翻译 */}
+        <div 
+          className={`${themeStyles.card} overflow-y-auto`}
+          style={{ height: `${topHeight}%` }}
+        >
+          <div className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 dark:border-white/10 pb-6 mb-6">
+              <div className="flex items-center space-x-3.5">
+                <div>
+                  <div className="flex items-center space-x-2.5">
+                    <h2 className={`text-3xl font-extrabold tracking-tight ${themeStyles.textPrimary}`}>
+                      {word.word}
+                    </h2>
+                    {word.partOfSpeech && (
+                      <span className="bg-indigo-500/10 px-2 py-0.5 text-indigo-600 dark:text-indigo-400 text-xs font-mono rounded-md uppercase font-semibold">
+                        {word.partOfSpeech}
+                      </span>
+                    )}
+                    {word.level && (
+                      <span className="bg-slate-100 dark:bg-white/10 px-2 py-0.5 text-neutral-500 text-xs font-mono rounded-md">
+                        {word.level}
+                      </span>
+                    )}
+                  </div>
+                  {word.phonetic && (
+                    <p className="text-sm text-neutral-400 font-mono mt-1 flex items-center space-x-2">
+                      <span>{word.phonetic}</span>
+                      <button 
+                        onClick={handleSpeech}
+                        disabled={isPlaying}
+                        className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+                      >
+                        <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
+                      </button>
+                    </p>
+                  )}
                 </div>
-              ))
+              </div>
+
+              <div className="flex flex-col items-end space-y-3">
+                {word.familiarity !== undefined && (
+                  <>
+                    <span className="text-[10px] text-neutral-400 font-mono uppercase tracking-wider">Word Confidence</span>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        value={word.familiarity}
+                        onChange={(e) => onUpdateFamiliarity(word.id, Number(e.target.value))}
+                        className="w-32 accent-indigo-650 cursor-pointer"
+                      />
+                      <span className="font-mono text-xs font-bold">{word.familiarity}%</span>
+                    </div>
+                  </>
+                )}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] text-neutral-400 font-mono uppercase tracking-wider">Frequency</span>
+                    <span className="font-mono text-xs font-bold text-indigo-600">{getFrequency(word)}</span>
+                  </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {word.definition && (
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider">Definition</span>
+                  <p className={`text-base mt-0.5 font-medium ${themeStyles.textPrimary}`}>
+                    {word.definition}
+                  </p>
+                </div>
+              )}
+              <div>
+                <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider">Translation</span>
+                <p className="text-base text-indigo-650 dark:text-indigo-400 font-semibold mt-0.5">
+                  {word.translation || word.chineseTranslation}
+                </p>
+              </div>
+
+              {word.synonyms && word.synonyms.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider block mb-1">Synonyms / Thesaurus</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {word.synonyms.map((s, i) => (
+                      <span key={i} className="bg-slate-100 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-xs px-2.5 py-0.5 rounded-full">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 可拖动的分隔条 */}
+        <div 
+          className={`h-2 cursor-row-resize flex items-center justify-center border-t border-b ${
+            isDragging 
+              ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/30' 
+              : 'border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-700'
+          } transition-colors`}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="flex gap-1">
+            <div className={`w-8 h-1 rounded-full ${isDragging ? 'bg-indigo-500' : 'bg-neutral-300 dark:bg-white/20'}`} />
+            <div className={`w-8 h-1 rounded-full ${isDragging ? 'bg-indigo-500' : 'bg-neutral-300 dark:bg-white/20'}`} />
+            <div className={`w-8 h-1 rounded-full ${isDragging ? 'bg-indigo-500' : 'bg-neutral-300 dark:bg-white/20'}`} />
+          </div>
+        </div>
+
+        {/* 下面部分：上下文列表 */}
+        <div 
+          className={`${themeStyles.card} overflow-y-auto`}
+          style={{ height: `${100 - topHeight}%` }}
+        >
+          <div className="p-6">
+            <h3 className={`text-lg font-semibold uppercase tracking-wider mb-4 ${themeStyles.textPrimary}`}>
+              Contexts
+            </h3>
+            {word.contexts && word.contexts.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="border-b border-neutral-200 dark:border-white/10">
+                    <tr className="text-neutral-400 font-mono uppercase tracking-wider text-xs">
+                      <th className="py-3 px-4">#</th>
+                      <th className="py-3 px-4">Context</th>
+                      <th className="py-3 px-4">Time Added</th>
+                      <th className="py-3 px-4">Source Link</th>
+                      <th className="py-3 px-4">Translation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {word.contexts.map((ctx, i) => (
+                      <tr 
+                        key={i} 
+                        className="border-b border-neutral-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5"
+                      >
+                        <td className="py-4 px-4 text-neutral-500 font-mono text-xs">{i + 1}</td>
+                        <td className="py-4 px-4">
+                          <p className={`text-sm ${themeStyles.textPrimary}`}>{ctx.context}</p>
+                        </td>
+                        <td className="py-4 px-4 text-neutral-500 text-xs">
+                          {(() => {
+                            const dateVal = ctx.timeAdded ?? ctx.addedDate;
+                            if (dateVal === undefined) return '-';
+                            return formatDateTime(dateVal);
+                          })()}
+                        </td>
+                        <td className="py-4 px-4">
+                          {ctx.sourceLink ? (
+                            <a 
+                              href={ctx.sourceLink} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                            >
+                              Source
+                            </a>
+                          ) : (
+                            <span className="text-neutral-400 text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm text-indigo-650 dark:text-indigo-400">{ctx.translation}</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <p className="text-xs text-neutral-400 font-sans italic">
-                No archived corporate logs context active currently for this word card.
-              </p>
+              <div className="text-center py-12">
+                <AlertCircle className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-neutral-500">No contexts available for this word.</p>
+              </div>
             )}
           </div>
         </div>

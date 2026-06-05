@@ -1,24 +1,43 @@
 export type ThemeType = 'glass' | 'natural';
 
+export interface WordContext {
+  context: string;
+  timeAdded: number;
+  sourceLink?: string;
+  translation: string;
+  // 向后兼容
+  addedDate?: number;
+}
+
 export interface Word {
   id: string;
   word: string;
-  phonetic: string;
-  partOfSpeech: string;
-  definition: string;
-  chineseTranslation: string;
-  synonyms: string[];
-  examples: Array<{
+  // 新字段，向后兼容设为可选
+  frequency?: number;
+  translation?: string;
+  timeAdded?: number;
+  timeUpdated?: number;
+  contexts?: WordContext[];
+  // 向后兼容旧字段
+  dateAdded?: number;
+  dateUpdated?: number;
+  // 保留原有字段以兼容旧代码
+  phonetic?: string;
+  partOfSpeech?: string;
+  definition?: string;
+  chineseTranslation?: string;
+  synonyms?: string[];
+  examples?: Array<{
     en: string;
     zh: string;
   }>;
-  usageHistory: Array<{
+  usageHistory?: Array<{
     context: string;
     translation: string;
     source: string;
   }>;
-  level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-  familiarity: number; // 0 to 100
+  level?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+  familiarity?: number; // 0 to 100
   bookId: string;
   meta?: {
     sourceUrl?: string;
