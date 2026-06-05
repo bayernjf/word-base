@@ -660,21 +660,29 @@ interface VocabularyProps {
   onAddWord: (word: Omit<Word, 'id'>) => void;
   initialSelectedBookId?: string;
   onBookChange?: (bookId: string) => void;
+  onDeleteWords?: (wordIds: string[]) => void;
+  onMoveWords?: (wordIds: string[], targetBookId: string) => void;
 }
 
 export const VocabularyListView: React.FC<VocabularyProps> = ({ 
-  themeStyles, onNavigate, words, books, onSelectWord, 
-  initialSelectedBookId = 'biz-eng', onBookChange
+  themeStyles, onNavigate, words, books, onSelectWord, onAddWord,
+  initialSelectedBookId = 'biz-eng', onBookChange, onDeleteWords, onMoveWords
 }) => {
   const [selectedBookId, setSelectedBookId] = useState(initialSelectedBookId);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showMoveConfirmModal, setShowMoveConfirmModal] = useState(false);
+  const [targetBookId, setTargetBookId] = useState<string | null>(null);
 
   // Update local state if initial prop changes
   useEffect(() => {
     setSelectedBookId(initialSelectedBookId);
     setCurrentPage(1); // 切换单词本时回到第一页
+    setSelectedWordIds([]); // 切换单词本时清空选择
   }, [initialSelectedBookId]);
 
   // 当搜索或每页条数变化时回到第一页
@@ -693,6 +701,47 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedWords = filteredWords.slice(startIndex, endIndex);
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedWordIds.length === paginatedWords.length) {
+      setSelectedWordIds([]);
+    } else {
+      setSelectedWordIds(paginatedWords.map(w => w.id));
+    }
+  };
+
+  // 切换单个选择
+  const toggleSelectWord = (wordId: string) => {
+    setSelectedWordIds(prev => 
+      prev.includes(wordId) 
+        ? prev.filter(id => id !== wordId) 
+        : [...prev, wordId]
+    );
+  };
+
+  // 取消选择
+  const clearSelection = () => {
+    setSelectedWordIds([]);
+  };
+
+  // 删除操作
+  const handleDelete = () => {
+    onDeleteWords?.(selectedWordIds);
+    setShowDeleteModal(false);
+    clearSelection();
+  };
+
+  // 移动操作
+  const handleMove = () => {
+    if (targetBookId) {
+      onMoveWords?.(selectedWordIds, targetBookId);
+      setShowMoveModal(false);
+      setShowMoveConfirmModal(false);
+      setTargetBookId(null);
+      clearSelection();
+    }
+  };
 
   const handleBookChange = (bookId: string) => {
     setSelectedBookId(bookId);
@@ -742,6 +791,35 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
         )}
       </div>
 
+      {/* 操作栏 */}
+      {selectedWordIds.length > 0 && (
+        <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 px-4 py-3 rounded-xl">
+          <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
+            已选择 {selectedWordIds.length} 个单词
+          </span>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setShowMoveModal(true)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border border-indigo-600 text-indigo-600 dark:text-indigo-300 dark:border-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/30`}
+            >
+              移动
+            </button>
+            <button 
+              onClick={() => setShowDeleteModal(true)}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-600 text-red-600 dark:text-red-400 dark:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
+            >
+              删除
+            </button>
+            <button 
+              onClick={clearSelection}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-300 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/10"
+            >
+              取消选择
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table Card */}
       <div className={`${themeStyles.card} overflow-hidden`}>
         {/* 表格容器添加滚动 */}
@@ -749,6 +827,14 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead className="sticky top-0 bg-inherit">
               <tr className="border-b border-neutral-200 dark:border-white/10 text-neutral-400 font-mono uppercase tracking-widest text-[10px]">
+                <th className="py-3 px-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={paginatedWords.length > 0 && selectedWordIds.length === paginatedWords.length}
+                    onChange={toggleSelectAll}
+                    className="w-3.5 h-3.5"
+                  />
+                </th>
                 <th className="py-3 px-4">Word</th>
                 <th className="py-3 px-4">Lexical Unit</th>
                 <th className="py-3 px-4">Core Definition & Translation</th>
@@ -760,6 +846,14 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
               {paginatedWords.length > 0 ? (
                 paginatedWords.map(w => (
                   <tr key={w.id} className="border-b border-neutral-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedWordIds.includes(w.id)}
+                        onChange={() => toggleSelectWord(w.id)}
+                        className="w-3.5 h-3.5"
+                      />
+                    </td>
                     <td className="py-3.5 px-4">
                       <button 
                         onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
@@ -940,6 +1034,135 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           </div>
         )}
       </div>
+
+      {/* 删除确认弹窗 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`${themeStyles.card} p-6 max-w-sm w-full mx-4`}>
+            <h3 className="text-base font-bold mb-4">确认删除？</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-6">
+              确定要删除选中的 {selectedWordIds.length} 个单词吗？此操作无法撤销。
+            </p>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className={`flex-1 ${themeStyles.btnSecondary} py-2 text-sm font-semibold`}
+              >
+                取消
+              </button>
+              <button 
+                type="button"
+                onClick={handleDelete}
+                className="px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 移动单词 - 选择单词本弹窗 */}
+      {showMoveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`${themeStyles.card} p-6 max-w-md w-full mx-4`}>
+            <h3 className="text-base font-bold mb-4">选择目标单词本</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
+              请选择要将 {selectedWordIds.length} 个单词移动到哪个单词本：
+            </p>
+            <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
+              {books.map(book => {
+                const isCurrentBook = book.id === selectedBookId;
+                const isSelected = targetBookId === book.id;
+                return (
+                  <button
+                    key={book.id}
+                    type="button"
+                    disabled={isCurrentBook}
+                    onClick={() => setTargetBookId(book.id)}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                      isCurrentBook 
+                        ? 'bg-neutral-100 dark:bg-white/5 border-neutral-200 dark:border-white/10 text-neutral-400 cursor-not-allowed' 
+                        : isSelected 
+                          ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500 text-indigo-700 dark:text-indigo-300' 
+                          : 'hover:bg-neutral-100 dark:hover:bg-white/5 border-neutral-200 dark:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-sm">{book.name}</div>
+                        <div className="text-xs text-neutral-400">{book.wordCount} 个单词</div>
+                      </div>
+                      {isCurrentBook && <span className="text-xs">当前</span>}
+                      {isSelected && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowMoveModal(false);
+                  setTargetBookId(null);
+                }}
+                className={`flex-1 ${themeStyles.btnSecondary} py-2 text-sm font-semibold`}
+              >
+                取消
+              </button>
+              <button 
+                type="button"
+                disabled={!targetBookId}
+                onClick={() => {
+                  setShowMoveModal(false);
+                  setShowMoveConfirmModal(true);
+                }}
+                className={`px-4 py-2 text-xs font-semibold rounded-xl ${
+                  targetBookId 
+                    ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                    : 'bg-neutral-300 text-neutral-500 cursor-not-allowed'
+                }`}
+              >
+                下一步
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 移动单词 - 确认弹窗 */}
+      {showMoveConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`${themeStyles.card} p-6 max-w-sm w-full mx-4`}>
+            <h3 className="text-base font-bold mb-4">确认移动？</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-6">
+              确定要将 {selectedWordIds.length} 个单词移动到 
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                {' '}{books.find(b => b.id === targetBookId)?.name}
+              </span>
+              吗？
+            </p>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setShowMoveConfirmModal(false)}
+                className={`flex-1 ${themeStyles.btnSecondary} py-2 text-sm font-semibold`}
+              >
+                返回
+              </button>
+              <button 
+                type="button"
+                onClick={handleMove}
+                className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
+              >
+                确认移动
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

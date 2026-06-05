@@ -642,6 +642,19 @@ export default function App() {
     }));
   };
 
+  const handleDeleteWords = (wordIds: string[]) => {
+    setWords(prev => prev.filter(w => !wordIds.includes(w.id)));
+  };
+
+  const handleMoveWords = (wordIds: string[], targetBookId: string) => {
+    setWords(prev => prev.map(w => {
+      if (wordIds.includes(w.id)) {
+        return { ...w, bookId: targetBookId };
+      }
+      return w;
+    }));
+  };
+
   // Find currently active word card
   const activeWordCard = words.find(w => w.id === selectedWordId) || words[0];
   
@@ -706,6 +719,8 @@ export default function App() {
             localStorage.setItem('wordbase-selected-book', id);
             setActiveView(`vocabulary-${id}`);
           }}
+          onDeleteWords={handleDeleteWords}
+          onMoveWords={handleMoveWords}
         />
       );
     }
