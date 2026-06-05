@@ -1,81 +1,227 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import dotenv from 'dotenv';
+import Database from 'better-sqlite3';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const DATA_DIR = path.join(__dirname, '.data');
-const WORDS_FILE = path.join(DATA_DIR, 'words.json');
-const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
-const PAIRINGS_FILE = path.join(DATA_DIR, 'pairings.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
-async function readJson(filePath, fallback) {
+// 确保数据目录存在
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// 初始化 SQLite 数据库
+const db = new Database(path.join(DATA_DIR, 'wordbase.db'));
+db.pragma('journal_mode = WAL');
+
+// 10个卡通头像SVG
+const AVATARS = [
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FFB6C1"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <path d="M 35 60 Q 50 75 65 60" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#87CEEB"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <rect x="35" y="55" width="30" height="15" rx="7" fill="#FFD700"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#90EE90"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <path d="M 35 65 Q 50 55 65 65" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#DDA0DD"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <path d="M 35 60 Q 50 50 65 60" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#F0E68C"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <ellipse cx="50" cy="60" rx="15" ry="10" fill="#FF6B6B"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#E6E6FA"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <polygon points="50,55 55,70 45,70" fill="#FFA500"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FFEFD5"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <circle cx="50" cy="62" r="8" fill="#FF69B4"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#B0E0E6"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <rect x="40" y="55" width="20" height="15" rx="3" fill="#8B4513"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FAFAD2"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="35" cy="42" r="4" fill="#333"/>
+    <circle cx="65" cy="42" r="4" fill="#333"/>
+    <ellipse cx="50" cy="65" rx="12" ry="8" fill="#20B2AA"/>
+  </svg>`,
+  `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#FFE4E1"/>
+    <circle cx="35" cy="40" r="8" fill="white"/>
+    <circle cx="65" cy="40" r="8" fill="white"/>
+    <circle cx="37" cy="42" r="4" fill="#333"/>
+    <circle cx="67" cy="42" r="4" fill="#333"/>
+    <path d="M 40 60 L 45 55 L 50 60 L 55 55 L 60 60" stroke="#333" stroke-width="3" fill="none"/>
+  </svg>`
+];
+
+// 创建数据库表
+function initDatabase() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      passwordHash TEXT NOT NULL,
+      passwordSalt TEXT NOT NULL,
+      nickname TEXT DEFAULT '',
+      avatar INTEGER DEFAULT 0,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS verification_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL,
+      code TEXT NOT NULL,
+      type TEXT NOT NULL,
+      expiresAt INTEGER NOT NULL,
+      usedAt INTEGER,
+      createdAt INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS tokens (
+      tokenHash TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      type TEXT NOT NULL,
+      expiresAt INTEGER NOT NULL,
+      createdAt INTEGER NOT NULL,
+      lastUsedAt INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS vocabulary_books (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      wordCount INTEGER DEFAULT 0,
+      icon TEXT DEFAULT 'BookOpen',
+      isSync INTEGER DEFAULT 0,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      UNIQUE(userId, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS words (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      word TEXT NOT NULL,
+      frequency INTEGER DEFAULT 1,
+      translation TEXT DEFAULT '',
+      timeAdded INTEGER,
+      timeUpdated INTEGER,
+      contexts TEXT DEFAULT '[]',
+      phonetic TEXT DEFAULT '',
+      partOfSpeech TEXT DEFAULT 'noun',
+      definition TEXT DEFAULT '',
+      chineseTranslation TEXT DEFAULT '',
+      synonyms TEXT DEFAULT '[]',
+      examples TEXT DEFAULT '[]',
+      usageHistory TEXT DEFAULT '[]',
+      level TEXT DEFAULT 'B2',
+      familiarity INTEGER DEFAULT 0,
+      bookId TEXT DEFAULT 'inbox',
+      meta TEXT DEFAULT '{}',
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      UNIQUE(userId, word, bookId)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_words_userId ON words(userId);
+    CREATE INDEX IF NOT EXISTS idx_vocabulary_books_userId ON vocabulary_books(userId);
+    CREATE INDEX IF NOT EXISTS idx_verification_email_type ON verification_codes(email, type);
+  `);
+
+  // 添加avatar列到现有用户表
   try {
-    const text = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(text);
-  } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-      return fallback;
+    db.prepare('ALTER TABLE users ADD COLUMN avatar INTEGER DEFAULT 0').run();
+  } catch (e) {
+    // 列可能已经存在，忽略错误
+  }
+
+  // 添加isSync列到现有单词本表
+  try {
+    db.prepare('ALTER TABLE vocabulary_books ADD COLUMN isSync INTEGER DEFAULT 0').run();
+  } catch (e) {
+    // 列可能已经存在，忽略错误
+  }
+
+  // 为 words 表添加新字段（新格式字段）
+  const addColumns = [
+    { name: 'frequency', type: 'INTEGER DEFAULT 1' },
+    { name: 'translation', type: 'TEXT DEFAULT \'\'' },
+    { name: 'timeAdded', type: 'INTEGER' },
+    { name: 'timeUpdated', type: 'INTEGER' },
+    { name: 'contexts', type: 'TEXT DEFAULT \'[]\'' }
+  ];
+  
+  for (const col of addColumns) {
+    try {
+      db.prepare(`ALTER TABLE words ADD COLUMN ${col.name} ${col.type}`).run();
+    } catch (e) {
+      // 列可能已经存在，忽略错误
     }
-    throw error;
   }
 }
 
-async function writeJsonAtomic(filePath, value) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  const tmpPath = `${filePath}.${crypto.randomUUID()}.tmp`;
-  await fs.writeFile(tmpPath, JSON.stringify(value, null, 2), 'utf8');
-  await fs.rename(tmpPath, filePath);
-}
+initDatabase();
 
-function sha256Hex(text) {
-  return crypto.createHash('sha256').update(text).digest('hex');
-}
-
+// 工具函数
 function randomToken() {
   return crypto.randomBytes(32).toString('base64url');
 }
 
-function randomPairingCode() {
-  return crypto.randomBytes(6).toString('base64url').slice(0, 8).toUpperCase();
-}
-
-function asyncHandler(fn) {
-  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-}
-
-async function readTokens() {
-  const data = await readJson(TOKENS_FILE, {});
-  return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
-}
-
-async function writeTokens(tokens) {
-  await writeJsonAtomic(TOKENS_FILE, tokens);
-}
-
-async function readPairings() {
-  const data = await readJson(PAIRINGS_FILE, {});
-  return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
-}
-
-async function writePairings(pairings) {
-  await writeJsonAtomic(PAIRINGS_FILE, pairings);
-}
-
-async function readUsers() {
-  const data = await readJson(USERS_FILE, {});
-  return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
-}
-
-async function writeUsers(users) {
-  await writeJsonAtomic(USERS_FILE, users);
+function randomVerificationCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 function hashPassword(password, salt) {
@@ -86,56 +232,1050 @@ function generateSalt() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function sha256Hex(text) {
+  return crypto.createHash('sha256').update(text).digest('hex');
+}
+
+const app = express();
+app.use(express.json({ limit: '1mb' }));
+
+// CORS
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
+// 发送验证码（为了演示，直接打印到控制台，实际项目可以使用 nodemailer 发送邮件）
+function sendVerificationCode(email, code, type) {
+  const typeText = type === 'register' ? '注册' : '重置密码';
+  console.log(`
+  ==========================================
+  邮箱验证码 (${typeText})
+  邮箱: ${email}
+  验证码: ${code}
+  有效期: 10分钟
+  ==========================================
+  `);
+  return true;
+}
+
+// 中间件：验证 access token
 async function requireAuth(req, res, next) {
-  const raw = typeof req.headers?.authorization === 'string' ? req.headers.authorization : '';
-  const token = raw.startsWith('Bearer ') ? raw.slice('Bearer '.length).trim() : '';
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : '';
+  
   if (!token) {
-    res.status(401).json({ error: 'unauthorized' });
-    return;
+    return res.status(401).json({ error: 'unauthorized' });
   }
 
-  const tokenId = sha256Hex(token);
-  const tokens = await readTokens();
-  const record = tokens[tokenId];
-  if (!record || typeof record !== 'object') {
-    res.status(401).json({ error: 'unauthorized' });
-    return;
+  const tokenHash = sha256Hex(token);
+  const tokenRow = db.prepare('SELECT * FROM tokens WHERE tokenHash = ?').get(tokenHash);
+
+  if (!tokenRow || tokenRow.type !== 'access' || Date.now() > tokenRow.expiresAt) {
+    return res.status(401).json({ error: 'token_expired' });
   }
 
-  if (record.type !== 'access') {
-    res.status(401).json({ error: 'unauthorized' });
-    return;
+  // 更新 lastUsedAt
+  db.prepare('UPDATE tokens SET lastUsedAt = ? WHERE tokenHash = ?').run(Date.now(), tokenHash);
+
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
+  if (!user) {
+    return res.status(401).json({ error: 'user_not_found' });
   }
 
-  const userId = typeof record.userId === 'string' ? record.userId : '';
-  if (!userId) {
-    res.status(401).json({ error: 'unauthorized' });
-    return;
-  }
-
-  if (Number(record.expiresAt) < Date.now()) {
-    res.status(401).json({ error: 'token_expired' });
-    return;
-  }
-
-  tokens[tokenId] = { ...record, lastUsedAt: Date.now() };
-  await writeTokens(tokens);
-
-  req.auth = { tokenId, userId, token };
+  req.user = user;
   next();
 }
 
-function normalizeWordInput(input, userId) {
+// 获取用户头像SVG
+function getAvatarSvg(avatarIndex) {
+  const index = Math.max(0, Math.min(AVATARS.length - 1, avatarIndex || 0));
+  return AVATARS[index];
+}
+
+// 根路径
+app.get('/', (_req, res) => {
+  res.type('text/plain').send('word-base api (SQLite)');
+});
+
+// 健康检查
+app.get('/api/v1/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
+// API: 发送验证码
+app.post('/api/v1/auth/send-code', (req, res) => {
+  const { email, type } = req.body;
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const validTypes = ['register', 'reset'];
+  
+  if (!normalizedEmail || !normalizedEmail.includes('@')) {
+    return res.status(400).json({ error: 'invalid_email' });
+  }
+  if (!validTypes.includes(type)) {
+    return res.status(400).json({ error: 'invalid_type' });
+  }
+
+  // 如果是注册类型，检查邮箱是否已注册
+  if (type === 'register') {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
+    if (existing) {
+      return res.status(409).json({ error: 'email_already_registered' });
+    }
+  }
+
+  // 如果是重置密码类型，检查邮箱是否存在
+  if (type === 'reset') {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
+    if (!existing) {
+      return res.status(404).json({ error: 'email_not_registered' });
+    }
+  }
+
+  // 生成验证码
+  const code = randomVerificationCode();
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10分钟
+
+  db.prepare(`
+    INSERT INTO verification_codes (email, code, type, expiresAt, createdAt)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(normalizedEmail, code, type, expiresAt, Date.now());
+
+  // 发送验证码
+  sendVerificationCode(normalizedEmail, code, type);
+
+  res.json({ ok: true, message: 'code_sent' });
+});
+
+// API: 注册
+app.post('/api/v1/auth/register', (req, res) => {
+  const { email, password, code, nickname } = req.body;
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const cleanPassword = password || '';
+  const cleanCode = (code || '').trim();
+
+  if (!normalizedEmail || !normalizedEmail.includes('@')) {
+    return res.status(400).json({ error: 'invalid_email' });
+  }
+  if (!cleanPassword || cleanPassword.length < 6) {
+    return res.status(400).json({ error: 'password_too_short' });
+  }
+  if (!cleanCode) {
+    return res.status(400).json({ error: 'code_required' });
+  }
+
+  // 验证验证码
   const now = Date.now();
+  const codeRow = db.prepare(`
+    SELECT * FROM verification_codes 
+    WHERE email = ? AND code = ? AND type = 'register' 
+    AND expiresAt > ? AND usedAt IS NULL
+    ORDER BY createdAt DESC LIMIT 1
+  `).get(normalizedEmail, cleanCode, now);
+
+  if (!codeRow) {
+    return res.status(400).json({ error: 'invalid_code' });
+  }
+
+  // 标记验证码已使用
+  db.prepare('UPDATE verification_codes SET usedAt = ? WHERE id = ?').run(now, codeRow.id);
+
+  // 创建用户
+  const userId = crypto.randomUUID();
+  const salt = generateSalt();
+  const passwordHash = hashPassword(cleanPassword, salt);
+  const cleanNickname = (nickname || '').trim() || normalizedEmail.split('@')[0];
+  const randomAvatar = Math.floor(Math.random() * AVATARS.length); // 随机选择一个头像
+
+  db.prepare(`
+    INSERT INTO users (id, email, passwordHash, passwordSalt, nickname, avatar, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(userId, normalizedEmail, passwordHash, salt, cleanNickname, randomAvatar, now, now);
+
+  // 创建用户的默认单词本
+  const insertBook = db.prepare(`
+    INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, isSync, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  insertBook.run(
+    `${userId}_default`,
+    userId,
+    '默认',
+    '用于存放单词的默认单词本',
+    0,
+    'BookOpen',
+    1, // isSync 设置为 1，默认是同步状态
+    now,
+    now
+  );
+
+  // 生成 token
+  const accessToken = randomToken();
+  const refreshToken = randomToken();
+  const accessExpiresAt = now + 24 * 60 * 60 * 1000; // 24小时
+  const refreshExpiresAt = now + 7 * 24 * 60 * 60 * 1000; // 7天
+
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(accessToken), userId, 'access', accessExpiresAt, now, now);
+
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(refreshToken), userId, 'refresh', refreshExpiresAt, now, now);
+
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(userId);
+  res.json({
+    ok: true,
+    accessToken,
+    refreshToken,
+    user
+  });
+});
+
+// API: 登录
+app.post('/api/v1/auth/login', (req, res) => {
+  const { email, password, remember } = req.body;
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const cleanPassword = password || '';
+
+  if (!normalizedEmail || !cleanPassword) {
+    return res.status(400).json({ error: 'invalid_credentials' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail);
+  if (!user) {
+    return res.status(404).json({ error: 'email_not_registered' });
+  }
+
+  const expectedHash = hashPassword(cleanPassword, user.passwordSalt);
+  if (expectedHash !== user.passwordHash) {
+    return res.status(401).json({ error: 'wrong_password' });
+  }
+
+  const now = Date.now();
+  const accessToken = randomToken();
+  const refreshToken = randomToken();
+  const accessExpiresAt = now + 24 * 60 * 60 * 1000; // 24小时
+  const refreshExpiresAt = remember === true ? now + 7 * 24 * 60 * 60 * 1000 : now + 24 * 60 * 60 * 1000; // 记住我就是7天
+
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(accessToken), user.id, 'access', accessExpiresAt, now, now);
+
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(refreshToken), user.id, 'refresh', refreshExpiresAt, now, now);
+
+  const safeUser = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(user.id);
+  res.json({
+    ok: true,
+    accessToken,
+    refreshToken,
+    user: safeUser
+  });
+});
+
+// API: 获取头像列表
+app.get('/api/v1/avatars', (_req, res) => {
+  res.json({ ok: true, avatars: AVATARS });
+});
+
+// API: 刷新 token
+app.post('/api/v1/auth/refresh', (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'refresh_token_required' });
+  }
+
+  const tokenHash = sha256Hex(refreshToken);
+  const tokenRow = db.prepare('SELECT * FROM tokens WHERE tokenHash = ?').get(tokenHash);
+
+  if (!tokenRow || tokenRow.type !== 'refresh' || Date.now() > tokenRow.expiresAt) {
+    return res.status(401).json({ error: 'invalid_refresh_token' });
+  }
+
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
+  if (!user) {
+    return res.status(401).json({ error: 'user_not_found' });
+  }
+
+  const now = Date.now();
+  const newAccessToken = randomToken();
+  const newRefreshToken = randomToken();
+  const accessExpiresAt = now + 24 * 60 * 60 * 1000;
+  const refreshExpiresAt = tokenRow.expiresAt; // 保持原 refresh token 的有效期
+
+  // 删除旧的 token
+  db.prepare('DELETE FROM tokens WHERE tokenHash = ?').run(tokenHash);
+
+  // 插入新的 token
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(newAccessToken), user.id, 'access', accessExpiresAt, now, now);
+
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(newRefreshToken), user.id, 'refresh', refreshExpiresAt, now, now);
+
+  res.json({
+    ok: true,
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+    user
+  });
+});
+
+// API: 重置密码 - 验证验证码
+app.post('/api/v1/auth/reset-password-verify', (req, res) => {
+  const { email, code } = req.body;
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const cleanCode = (code || '').trim();
+
+  if (!normalizedEmail || !cleanCode) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+
+  const now = Date.now();
+  const codeRow = db.prepare(`
+    SELECT * FROM verification_codes 
+    WHERE email = ? AND code = ? AND type = 'reset' 
+    AND expiresAt > ? AND usedAt IS NULL
+    ORDER BY createdAt DESC LIMIT 1
+  `).get(normalizedEmail, cleanCode, now);
+
+  if (!codeRow) {
+    return res.status(400).json({ error: 'invalid_code' });
+  }
+
+  // 临时标记验证码为已使用但保留一段时间，或者返回临时 token，这里简化处理，直接返回成功
+  db.prepare('UPDATE verification_codes SET usedAt = ? WHERE id = ?').run(now, codeRow.id);
+
+  // 生成一个临时 token 用于重置密码（5分钟有效期）
+  const tempToken = randomToken();
+  const tempExpiresAt = now + 5 * 60 * 1000;
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(tempToken), db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail).id, 'reset', tempExpiresAt, now, now);
+
+  res.json({
+    ok: true,
+    resetToken: tempToken
+  });
+});
+
+// API: 重置密码 - 设置新密码
+app.post('/api/v1/auth/reset-password', (req, res) => {
+  const { resetToken, newPassword } = req.body;
+  const cleanPassword = newPassword || '';
+
+  if (!resetToken) {
+    return res.status(400).json({ error: 'reset_token_required' });
+  }
+  if (!cleanPassword || cleanPassword.length < 6) {
+    return res.status(400).json({ error: 'password_too_short' });
+  }
+
+  const tokenHash = sha256Hex(resetToken);
+  const tokenRow = db.prepare('SELECT * FROM tokens WHERE tokenHash = ?').get(tokenHash);
+
+  if (!tokenRow || tokenRow.type !== 'reset' || Date.now() > tokenRow.expiresAt) {
+    return res.status(401).json({ error: 'invalid_reset_token' });
+  }
+
+  const now = Date.now();
+  const salt = generateSalt();
+  const passwordHash = hashPassword(cleanPassword, salt);
+
+  db.prepare(`
+    UPDATE users SET passwordHash = ?, passwordSalt = ?, updatedAt = ? WHERE id = ?
+  `).run(passwordHash, salt, now, tokenRow.userId);
+
+  // 删除临时 token
+  db.prepare('DELETE FROM tokens WHERE tokenHash = ?').run(tokenHash);
+
+  // 可选：清除该用户所有其他 token，强制重新登录
+  db.prepare('DELETE FROM tokens WHERE userId = ? AND type IN (\'access\', \'refresh\')').run(tokenRow.userId);
+
+  // 生成新的 token
+  const accessToken = randomToken();
+  const refreshToken = randomToken();
+  const accessExpiresAt = now + 24 * 60 * 60 * 1000;
+  const refreshExpiresAt = now + 7 * 24 * 60 * 60 * 1000;
+
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(accessToken), tokenRow.userId, 'access', accessExpiresAt, now, now);
+
+  db.prepare(`
+    INSERT INTO tokens (tokenHash, userId, type, expiresAt, createdAt, lastUsedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sha256Hex(refreshToken), tokenRow.userId, 'refresh', refreshExpiresAt, now, now);
+
+  const user = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(tokenRow.userId);
+  res.json({
+    ok: true,
+    accessToken,
+    refreshToken,
+    user
+  });
+});
+
+// API: 登出
+app.post('/api/v1/auth/logout', requireAuth, (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : '';
+  
+  if (token) {
+    db.prepare('DELETE FROM tokens WHERE tokenHash = ?').run(sha256Hex(token));
+  }
+  res.json({ ok: true });
+});
+
+// API: 删除账号
+app.delete('/api/v1/auth/delete-account', requireAuth, (req, res) => {
+  const userId = req.user.id;
+  
+  // 删除该用户的所有单词
+  db.prepare('DELETE FROM words WHERE userId = ?').run(userId);
+  
+  // 删除该用户的所有单词本
+  db.prepare('DELETE FROM vocabulary_books WHERE userId = ?').run(userId);
+  
+  // 删除该用户的所有 tokens
+  db.prepare('DELETE FROM tokens WHERE userId = ?').run(userId);
+  
+  // 删除该用户
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  
+  res.json({ ok: true });
+});
+
+// API: 获取当前用户信息
+app.get('/api/v1/user', requireAuth, (req, res) => {
+  res.json({ ok: true, user: req.user });
+});
+
+// API: 更新用户信息
+app.patch('/api/v1/user', requireAuth, (req, res) => {
+  const { nickname, avatar } = req.body;
+  const updates = { updatedAt: Date.now() };
+  
+  if (nickname !== undefined) {
+    const cleanNickname = (nickname || '').trim();
+    if (!cleanNickname) {
+      return res.status(400).json({ error: 'nickname_required' });
+    }
+    updates.nickname = cleanNickname;
+  }
+  
+  if (avatar !== undefined) {
+    const cleanAvatar = Number.isFinite(avatar) ? Math.max(0, Math.min(AVATARS.length - 1, avatar)) : 0;
+    updates.avatar = cleanAvatar;
+  }
+
+  // 如果没有需要更新的字段
+  if (Object.keys(updates).length === 1) {
+    return res.status(400).json({ error: 'nothing_to_update' });
+  }
+
+  const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+  const values = [...Object.values(updates), req.user.id];
+
+  db.prepare(`UPDATE users SET ${setClauses} WHERE id = ?`).run(...values);
+
+  const updatedUser = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(req.user.id);
+  res.json({ ok: true, user: updatedUser });
+});
+
+// API: 获取用户的所有单词本
+app.get('/api/v1/books', requireAuth, (req, res) => {
+  const userId = req.user.id;
+  
+  // 获取单词本，并更新每个单词本的 wordCount
+  const books = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY isSync DESC, createdAt ASC').all(userId);
+  
+  // 查询每个单词本的实际单词数量
+  const booksWithCounts = books.map(book => {
+    const countResult = db.prepare('SELECT COUNT(*) as count FROM words WHERE userId = ? AND bookId = ?').get(userId, book.id);
+    return {
+      ...book,
+      isSync: !!book.isSync, // 转换为布尔值
+      wordCount: countResult.count
+    };
+  });
+  
+  res.json({ ok: true, books: booksWithCounts });
+});
+
+// API: 创建新单词本
+app.post('/api/v1/books', requireAuth, (req, res) => {
+  const { name, description, icon } = req.body;
+  const userId = req.user.id;
+  const now = Date.now();
+  
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'name_required' });
+  }
+  
+  // 检查该用户是否已有同名的单词本（忽略大小写）
+  const existingBook = db.prepare(
+    'SELECT * FROM vocabulary_books WHERE userId = ? AND LOWER(name) = LOWER(?)'
+  ).get(userId, name.trim());
+  
+  if (existingBook) {
+    return res.status(409).json({ error: 'book_name_already_exists' });
+  }
+  
+  const bookId = crypto.randomUUID();
+  
+  try {
+    db.prepare(`
+      INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, isSync, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      bookId, 
+      userId, 
+      name.trim(), 
+      description || '', 
+      0, 
+      icon || 'BookOpen', 
+      0, // 默认isSync为false
+      now, 
+      now
+    );
+  } catch (e) {
+    return res.status(409).json({ error: 'book_already_exists' });
+  }
+  
+  const newBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ?').get(bookId);
+  res.json({ ok: true, book: { ...newBook, isSync: !!newBook.isSync } });
+});
+
+// API: 设置同步单词本
+app.patch('/api/v1/books/:bookId/set-sync', requireAuth, (req, res) => {
+  const { bookId } = req.params;
+  const userId = req.user.id;
+  const now = Date.now();
+  
+  // 先检查单词本是否存在
+  const existingBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ? AND userId = ?').get(bookId, userId);
+  if (!existingBook) {
+    return res.status(404).json({ error: 'book_not_found' });
+  }
+  
+  // 把该用户所有其他单词本的isSync设为0
+  db.prepare('UPDATE vocabulary_books SET isSync = 0, updatedAt = ? WHERE userId = ?').run(now, userId);
+  
+  // 把选中的单词本isSync设为1
+  db.prepare('UPDATE vocabulary_books SET isSync = 1, updatedAt = ? WHERE id = ? AND userId = ?').run(now, bookId, userId);
+  
+  // 返回更新后的单词本列表（同步的在首位）
+  const books = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY isSync DESC, createdAt ASC').all(userId);
+  const booksWithCounts = books.map(book => {
+    const countResult = db.prepare('SELECT COUNT(*) as count FROM words WHERE userId = ? AND bookId = ?').get(userId, book.id);
+    return { ...book, isSync: !!book.isSync, wordCount: countResult.count };
+  });
+  
+  res.json({ ok: true, books: booksWithCounts });
+});
+
+// API: 更新单词本
+app.patch('/api/v1/books/:bookId', requireAuth, (req, res) => {
+  const { bookId } = req.params;
+  const { name, description, icon } = req.body;
+  const userId = req.user.id;
+  const now = Date.now();
+  
+  const existingBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ? AND userId = ?').get(bookId, userId);
+  if (!existingBook) {
+    return res.status(404).json({ error: 'book_not_found' });
+  }
+  
+  const updates = { updatedAt: now };
+  if (name !== undefined && name.trim()) {
+    updates.name = name.trim();
+  }
+  if (description !== undefined) {
+    updates.description = description;
+  }
+  if (icon !== undefined) {
+    updates.icon = icon;
+  }
+  
+  if (Object.keys(updates).length === 1) {
+    return res.status(400).json({ error: 'nothing_to_update' });
+  }
+  
+  const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+  const values = [...Object.values(updates), bookId, userId];
+  
+  try {
+    db.prepare(`UPDATE vocabulary_books SET ${setClauses} WHERE id = ? AND userId = ?`).run(...values);
+  } catch (e) {
+    return res.status(409).json({ error: 'book_name_already_exists' });
+  }
+  
+  const updatedBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ?').get(bookId);
+  res.json({ ok: true, book: updatedBook });
+});
+
+// API: 删除单词本
+app.delete('/api/v1/books/:bookId', requireAuth, (req, res) => {
+  const { bookId } = req.params;
+  const userId = req.user.id;
+  
+  const existingBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ? AND userId = ?').get(bookId, userId);
+  if (!existingBook) {
+    return res.status(404).json({ error: 'book_not_found' });
+  }
+  
+  // 不能删除同步单词本
+  if (existingBook.isSync) {
+    return res.status(400).json({ error: 'cannot_delete_sync_book' });
+  }
+  
+  // 删除该单词本的所有单词
+  db.prepare('DELETE FROM words WHERE userId = ? AND bookId = ?').run(userId, bookId);
+  
+  // 删除单词本
+  db.prepare('DELETE FROM vocabulary_books WHERE id = ? AND userId = ?').run(bookId, userId);
+  
+  res.json({ ok: true });
+});
+
+// API: 批量删除单词本
+app.post('/api/v1/books/batch-delete', requireAuth, (req, res) => {
+  const { bookIds } = req.body;
+  const userId = req.user.id;
+  
+  if (!bookIds || !Array.isArray(bookIds)) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+  
+  const userBooks = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ?').all(userId);
+  const syncBook = userBooks.find(b => b.isSync === 1);
+  
+  // 检查是否试图删除同步单词本
+  if (syncBook && bookIds.includes(syncBook.id)) {
+    return res.status(400).json({ error: 'cannot_delete_sync_book' });
+  }
+  
+  // 删除每个单词本及其单词
+  const deleteWordStmt = db.prepare('DELETE FROM words WHERE userId = ? AND bookId = ?');
+  const deleteBookStmt = db.prepare('DELETE FROM vocabulary_books WHERE id = ? AND userId = ?');
+  
+  for (const bookId of bookIds) {
+    deleteWordStmt.run(userId, bookId);
+    deleteBookStmt.run(bookId, userId);
+  }
+  
+  res.json({ ok: true });
+});
+
+// API: 修改密码
+app.post('/api/v1/user/change-password', requireAuth, (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const cleanOld = oldPassword || '';
+  const cleanNew = newPassword || '';
+
+  if (!cleanOld || !cleanNew || cleanNew.length < 6) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  const expectedHash = hashPassword(cleanOld, user.passwordSalt);
+  if (expectedHash !== user.passwordHash) {
+    return res.status(401).json({ error: 'wrong_old_password' });
+  }
+
+  const salt = generateSalt();
+  const passwordHash = hashPassword(cleanNew, salt);
+  db.prepare(`
+    UPDATE users SET passwordHash = ?, passwordSalt = ?, updatedAt = ? WHERE id = ?
+  `).run(passwordHash, salt, Date.now(), req.user.id);
+
+  res.json({ ok: true });
+});
+
+// API: 获取单词
+app.get('/api/v1/words', requireAuth, (req, res) => {
+  const { bookId } = req.query;
+  let stmt;
+  if (bookId) {
+    stmt = db.prepare('SELECT * FROM words WHERE userId = ? AND bookId = ? ORDER BY createdAt DESC');
+    stmt = stmt.bind(req.user.id, bookId);
+  } else {
+    stmt = db.prepare('SELECT * FROM words WHERE userId = ? ORDER BY createdAt DESC');
+    stmt = stmt.bind(req.user.id);
+  }
+
+  const rows = stmt.all();
+  const words = rows.map(row => {
+    const word = {
+      ...row,
+      synonyms: JSON.parse(row.synonyms),
+      examples: JSON.parse(row.examples),
+      usageHistory: JSON.parse(row.usageHistory),
+      meta: JSON.parse(row.meta)
+    };
+    // 解析 contexts 字段，如果存在的话
+    if (row.contexts) {
+      try {
+        word.contexts = JSON.parse(row.contexts);
+      } catch (e) {
+        word.contexts = [];
+      }
+    }
+    return word;
+  });
+
+  res.json({ words });
+});
+
+// API: 添加单词
+app.post('/api/v1/words', requireAuth, (req, res) => {
+  const now = Date.now();
+  const userId = req.user.id;
+  
+  // 获取用户的同步单词本
+  let syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? AND isSync = 1').get(userId);
+  if (!syncBook) {
+    // 如果没有同步单词本，选择第一个
+    syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY createdAt ASC LIMIT 1').get(userId);
+  }
+  
+  const input = req.body;
+  // 如果请求没有指定 bookId，使用同步单词本
+  if (!input.bookId && syncBook) {
+    input.bookId = syncBook.id;
+  }
+  
+  // 检查是否是新格式的单词（带 frequency 或 contexts）
+  if (input.frequency !== undefined || input.contexts !== undefined) {
+    // 新格式处理
+    return handleAddNewFormatWord(input, userId, now, res);
+  }
+  
+  // 旧格式处理
+  const normalized = normalizeWordInput(input, userId, now);
+  
+  if (!normalized.ok) {
+    return res.status(400).json({ error: normalized.error });
+  }
+
+  const { word } = normalized;
+
+  // 检查是否已存在
+  const existing = db.prepare('SELECT * FROM words WHERE userId = ? AND word = ? AND bookId = ?').get(req.user.id, word.word, word.bookId);
+  if (existing) {
+    return res.json({ ok: true, saved: false, duplicate: true, word: { ...existing, synonyms: JSON.parse(existing.synonyms), examples: JSON.parse(existing.examples), usageHistory: JSON.parse(existing.usageHistory), meta: JSON.parse(existing.meta) } });
+  }
+
+  db.prepare(`
+    INSERT INTO words (id, userId, word, phonetic, partOfSpeech, definition, chineseTranslation, synonyms, examples, usageHistory, level, familiarity, bookId, meta, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    word.id, word.meta.userId, word.word, word.phonetic, word.partOfSpeech, word.definition, word.chineseTranslation,
+    JSON.stringify(word.synonyms), JSON.stringify(word.examples), JSON.stringify(word.usageHistory),
+    word.level, word.familiarity, word.bookId, JSON.stringify(word.meta), word.meta.createdAt, now
+  );
+
+  res.json({ ok: true, saved: true, duplicate: false, word });
+});
+
+// 处理新格式单词的添加
+function handleAddNewFormatWord(input, userId, now, res) {
+  const wordId = input.id || crypto.randomUUID();
+  const bookId = input.bookId || `${userId}_default`;
+  
+  // 检查是否已存在
+  const existing = db.prepare('SELECT * FROM words WHERE userId = ? AND word = ? AND bookId = ?').get(userId, input.word, bookId);
+  
+  if (existing) {
+    // 单词已存在：追加新的上下文
+    let existingContexts = [];
+    if (existing.contexts) {
+      try {
+        existingContexts = JSON.parse(existing.contexts);
+      } catch (e) {
+        existingContexts = [];
+      }
+    }
+    
+    // 合并上下文（去重）
+    const newContexts = input.contexts || [];
+    const mergedContexts = [...existingContexts];
+    for (const newCtx of newContexts) {
+      const isDuplicate = mergedContexts.some(existingCtx => 
+        existingCtx.context === newCtx.context && 
+        existingCtx.sourceLink === newCtx.sourceLink
+      );
+      if (!isDuplicate) {
+        mergedContexts.push(newCtx);
+      }
+    }
+    
+    // 更新数据库
+    db.prepare(`
+      UPDATE words 
+      SET contexts = ?, 
+          frequency = ?, 
+          timeUpdated = ?, 
+          updatedAt = ?
+      WHERE id = ?
+    `).run(
+      JSON.stringify(mergedContexts),
+      mergedContexts.length,
+      input.timeUpdated || now,
+      now,
+      existing.id
+    );
+    
+    // 重新获取更新后的单词
+    const updatedWordRow = db.prepare('SELECT * FROM words WHERE id = ?').get(existing.id);
+    const updatedWord = {
+      ...updatedWordRow,
+      synonyms: JSON.parse(updatedWordRow.synonyms),
+      examples: JSON.parse(updatedWordRow.examples),
+      usageHistory: JSON.parse(updatedWordRow.usageHistory),
+      meta: JSON.parse(updatedWordRow.meta),
+      contexts: mergedContexts
+    };
+    
+    return res.json({ ok: true, saved: true, duplicate: false, word: updatedWord });
+  }
+  
+  // 不存在，插入新单词
+  const frequency = input.frequency || (input.contexts?.length || 1);
+  const timeAdded = input.timeAdded || now;
+  
+  db.prepare(`
+    INSERT INTO words (id, userId, word, frequency, translation, timeAdded, timeUpdated, contexts, 
+                      phonetic, partOfSpeech, definition, chineseTranslation, synonyms, examples, 
+                      usageHistory, level, familiarity, bookId, meta, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    wordId,
+    userId,
+    input.word,
+    frequency,
+    input.translation || '',
+    timeAdded,
+    input.timeUpdated || now,
+    JSON.stringify(input.contexts || []),
+    input.phonetic || '',
+    input.partOfSpeech || 'noun',
+    input.definition || '',
+    input.chineseTranslation || input.translation || '',
+    JSON.stringify(input.synonyms || []),
+    JSON.stringify(input.examples || []),
+    JSON.stringify(input.usageHistory || []),
+    input.level || 'B2',
+    input.familiarity || 0,
+    bookId,
+    JSON.stringify(input.meta || {}),
+    timeAdded,
+    now
+  );
+  
+  const newWordRow = db.prepare('SELECT * FROM words WHERE id = ?').get(wordId);
+  const newWord = {
+    ...newWordRow,
+    synonyms: JSON.parse(newWordRow.synonyms),
+    examples: JSON.parse(newWordRow.examples),
+    usageHistory: JSON.parse(newWordRow.usageHistory),
+    meta: JSON.parse(newWordRow.meta),
+    contexts: input.contexts || []
+  };
+  
+  res.json({ ok: true, saved: true, duplicate: false, word: newWord });
+}
+
+// API: 批量同步单词
+app.post('/api/v1/words/batch', requireAuth, (req, res) => {
+  const { deviceId, entries } = req.body;
+  const userId = req.user.id;
+
+  if (!deviceId || !Array.isArray(entries)) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+
+  // 获取用户的同步单词本
+  let syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? AND isSync = 1').get(userId);
+  if (!syncBook) {
+    // 如果没有同步单词本，选择第一个
+    syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY createdAt ASC LIMIT 1').get(userId);
+  }
+
+  const processedEntryIds = [];
+  let savedCount = 0;
+  let duplicateCount = 0;
+  const now = Date.now();
+
+  for (const entry of entries) {
+    // entry 可能是新格式或旧格式
+    const entryId = entry._legacy?.id || entry.id;
+    if (!entryId) continue;
+
+    const input = {
+      ...entry,
+      client: { deviceId, entryId }
+    };
+    if (!input.bookId && syncBook) {
+      input.bookId = syncBook.id;
+    }
+    
+    // 检查是否是新格式
+    if (entry.frequency !== undefined || entry.contexts !== undefined) {
+      // 新格式处理
+      handleBatchNewFormatWord(input, userId, now, processedEntryIds, savedCount, duplicateCount);
+      savedCount++;
+      processedEntryIds.push(entryId);
+      continue;
+    }
+    
+    // 旧格式处理
+    const normalized = normalizeWordInput(input, userId, now);
+    if (!normalized.ok) continue;
+    
+    const { word } = normalized;
+    
+    // 检查是否已存在
+    const existing = db.prepare('SELECT * FROM words WHERE userId = ? AND word = ? AND bookId = ?').get(userId, word.word, word.bookId);
+    if (existing) {
+      duplicateCount++;
+      processedEntryIds.push(entryId);
+      continue;
+    }
+
+    db.prepare(`
+      INSERT INTO words (id, userId, word, phonetic, partOfSpeech, definition, chineseTranslation, synonyms, examples, usageHistory, level, familiarity, bookId, meta, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      word.id, word.meta.userId, word.word, word.phonetic, word.partOfSpeech, word.definition, word.chineseTranslation,
+      JSON.stringify(word.synonyms), JSON.stringify(word.examples), JSON.stringify(word.usageHistory),
+      word.level, word.familiarity, word.bookId, JSON.stringify(word.meta), word.meta.createdAt, now
+    );
+
+    savedCount++;
+    processedEntryIds.push(entryId);
+  }
+
+  res.json({
+    ok: true,
+    received: entries.length,
+    savedCount,
+    duplicateCount,
+    processedEntryIds
+  });
+});
+
+// 批量同步新格式单词
+function handleBatchNewFormatWord(input, userId, now, processedEntryIds) {
+  const wordId = input.id || crypto.randomUUID();
+  const bookId = input.bookId || `${userId}_default`;
+  const entryId = input._legacy?.id || input.id;
+  
+  // 检查是否已存在
+  const existing = db.prepare('SELECT * FROM words WHERE userId = ? AND word = ? AND bookId = ?').get(userId, input.word, bookId);
+  
+  if (existing) {
+    // 追加上下文
+    let existingContexts = [];
+    if (existing.contexts) {
+      try {
+        existingContexts = JSON.parse(existing.contexts);
+      } catch (e) {
+        existingContexts = [];
+      }
+    }
+    
+    const newContexts = input.contexts || [];
+    const mergedContexts = [...existingContexts];
+    for (const newCtx of newContexts) {
+      const isDuplicate = mergedContexts.some(existingCtx => 
+        existingCtx.context === newCtx.context && 
+        existingCtx.sourceLink === newCtx.sourceLink
+      );
+      if (!isDuplicate) {
+        mergedContexts.push(newCtx);
+      }
+    }
+    
+    db.prepare(`
+      UPDATE words 
+      SET contexts = ?, 
+          frequency = ?, 
+          timeUpdated = ?, 
+          updatedAt = ?
+      WHERE id = ?
+    `).run(
+      JSON.stringify(mergedContexts),
+      mergedContexts.length,
+      input.timeUpdated || now,
+      now,
+      existing.id
+    );
+    return;
+  }
+  
+  // 插入新单词
+  const frequency = input.frequency || (input.contexts?.length || 1);
+  const timeAdded = input.timeAdded || now;
+  
+  db.prepare(`
+    INSERT INTO words (id, userId, word, frequency, translation, timeAdded, timeUpdated, contexts, 
+                      phonetic, partOfSpeech, definition, chineseTranslation, synonyms, examples, 
+                      usageHistory, level, familiarity, bookId, meta, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    wordId,
+    userId,
+    input.word,
+    frequency,
+    input.translation || '',
+    timeAdded,
+    input.timeUpdated || now,
+    JSON.stringify(input.contexts || []),
+    input.phonetic || input._legacy?.phonetic || '',
+    input.partOfSpeech || 'noun',
+    input.definition || '',
+    input.chineseTranslation || input.translation || '',
+    JSON.stringify(input.synonyms || []),
+    JSON.stringify(input.examples || []),
+    JSON.stringify(input.usageHistory || []),
+    input.level || 'B2',
+    input.familiarity || 0,
+    bookId,
+    JSON.stringify(input.meta || {}),
+    timeAdded,
+    now
+  );
+}
+
+// 标准化单词输入的辅助函数
+function normalizeWordInput(input, userId, now) {
   const wordRaw = typeof input?.word === 'string' ? input.word.trim() : '';
   if (!wordRaw) {
     return { ok: false, error: 'word 不能为空' };
   }
 
-  const id = typeof input?.id === 'string' && input.id.trim()
-    ? input.id.trim()
-    : crypto.randomUUID();
-
+  const id = typeof input?.id === 'string' && input.id.trim() ? input.id.trim() : crypto.randomUUID();
   const phonetic = typeof input?.phonetic === 'string' ? input.phonetic.trim() : '';
   const meaning = typeof input?.meaning === 'string' ? input.meaning.trim() : '';
   const exampleEn = typeof input?.exampleEn === 'string' ? input.exampleEn.trim() : '';
@@ -146,10 +1286,7 @@ function normalizeWordInput(input, userId) {
   const createdAt = Number.isFinite(input?.createdAt) ? Number(input.createdAt) : now;
   const clientDeviceId = typeof input?.client?.deviceId === 'string' ? input.client.deviceId.trim() : '';
   const clientEntryId = typeof input?.client?.entryId === 'string' ? input.client.entryId.trim() : '';
-
-  const bookId = typeof input?.bookId === 'string' && input.bookId.trim()
-    ? input.bookId.trim()
-    : 'inbox';
+  const bookId = typeof input?.bookId === 'string' && input.bookId.trim() ? input.bookId.trim() : `${userId}_default`;
 
   return {
     ok: true,
@@ -162,29 +1299,16 @@ function normalizeWordInput(input, userId) {
       chineseTranslation: typeof input?.chineseTranslation === 'string' ? input.chineseTranslation : meaning,
       synonyms: Array.isArray(input?.synonyms) ? input.synonyms.filter((s) => typeof s === 'string') : [],
       examples: Array.isArray(input?.examples)
-        ? input.examples
-            .filter((ex) => ex && typeof ex === 'object')
-            .map((ex) => ({
-              en: typeof ex.en === 'string' ? ex.en : '',
-              zh: typeof ex.zh === 'string' ? ex.zh : ''
-            }))
+        ? input.examples.filter((ex) => ex && typeof ex === 'object').map((ex) => ({ en: typeof ex.en === 'string' ? ex.en : '', zh: typeof ex.zh === 'string' ? ex.zh : '' }))
         : (exampleEn || exampleZh ? [{ en: exampleEn, zh: exampleZh }] : []),
       usageHistory: Array.isArray(input?.usageHistory)
-        ? input.usageHistory
-            .filter((h) => h && typeof h === 'object')
-            .map((h) => ({
-              context: typeof h.context === 'string' ? h.context : '',
-              translation: typeof h.translation === 'string' ? h.translation : '',
-              source: typeof h.source === 'string' ? h.source : ''
-            }))
+        ? input.usageHistory.filter((h) => h && typeof h === 'object').map((h) => ({
+            context: typeof h.context === 'string' ? h.context : '',
+            translation: typeof h.translation === 'string' ? h.translation : '',
+            source: typeof h.source === 'string' ? h.source : ''
+          }))
         : (sentence || sourceTitle || sourceUrl
-            ? [
-                {
-                  context: sentence,
-                  translation: meaning,
-                  source: sourceTitle || sourceUrl
-                }
-              ]
+            ? [{ context: sentence, translation: meaning, source: sourceTitle || sourceUrl }]
             : []),
       level: typeof input?.level === 'string' ? input.level : 'B2',
       familiarity: Number.isFinite(input?.familiarity) ? Number(input.familiarity) : 0,
@@ -194,474 +1318,21 @@ function normalizeWordInput(input, userId) {
         sourceTitle,
         createdAt,
         userId,
-        client: clientDeviceId && clientEntryId
-          ? { deviceId: clientDeviceId, entryId: clientEntryId }
-          : undefined
+        client: clientDeviceId && clientEntryId ? { deviceId: clientDeviceId, entryId: clientEntryId } : undefined
       }
     }
   };
 }
 
-function clientKeyForWord(w) {
-  const userId = String(w?.meta?.userId || '').trim();
-  const deviceId = String(w?.meta?.client?.deviceId || '').trim();
-  const entryId = String(w?.meta?.client?.entryId || '').trim();
-  return userId && deviceId && entryId ? `user:${userId}|client:${deviceId}:${entryId}` : '';
-}
-
-function wordKeyForWord(w) {
-  const userId = String(w?.meta?.userId || '').trim();
-  const wordKey = String(w?.word || '').trim().toLowerCase();
-  const bookKey = String(w?.bookId || '').trim().toLowerCase();
-  return `${userId}::${bookKey}::${wordKey}`;
-}
-
-const app = express();
-app.use(express.json({ limit: '1mb' }));
-
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
-  next();
-});
-
-app.get('/', (_req, res) => {
-  res.type('text/plain').send('word-base api');
-});
-
-app.get('/api/v1/info', (_req, res) => {
-  res.json({
-    name: 'word-base-api',
-    features: {
-      batch: true,
-      auth: true,
-      pairing: true
-    }
-  });
-});
-
-app.get('/api/v1/health', (_req, res) => {
-  res.json({ ok: true });
-});
-
-app.post('/api/v1/auth/register', asyncHandler(async (req, res) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-
-  if (!email) {
-    res.status(400).json({ error: 'email 不能为空' });
-    return;
-  }
-  if (!email.includes('@')) {
-    res.status(400).json({ error: 'email 格式无效' });
-    return;
-  }
-  if (!password || password.length < 6) {
-    res.status(400).json({ error: 'password 至少需要 6 个字符' });
-    return;
-  }
-
-  const users = await readUsers();
-  if (Object.values(users).some(u => u && u.email === email)) {
-    res.status(409).json({ error: 'email 已被注册' });
-    return;
-  }
-
-  const userId = crypto.randomUUID();
-  const salt = generateSalt();
-  const passwordHash = hashPassword(password, salt);
-
-  users[userId] = {
-    id: userId,
-    email,
-    passwordHash,
-    passwordSalt: salt,
-    createdAt: Date.now()
-  };
-  await writeUsers(users);
-
-  const accessToken = randomToken();
-  const refreshToken = randomToken();
-  const now = Date.now();
-
-  const tokens = await readTokens();
-  tokens[sha256Hex(accessToken)] = {
-    type: 'access',
-    userId,
-    createdAt: now,
-    expiresAt: now + 24 * 60 * 60 * 1000,
-    lastUsedAt: now
-  };
-  tokens[sha256Hex(refreshToken)] = {
-    type: 'refresh',
-    userId,
-    createdAt: now,
-    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
-    lastUsedAt: now
-  };
-  await writeTokens(tokens);
-
-  res.json({
-    accessToken,
-    refreshToken,
-    user: { id: userId, email, createdAt: users[userId].createdAt }
-  });
-}));
-
-app.post('/api/v1/auth/login', asyncHandler(async (req, res) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-
-  if (!email || !password) {
-    res.status(400).json({ error: 'email 和 password 不能为空' });
-    return;
-  }
-
-  const users = await readUsers();
-  const user = Object.values(users).find(u => u && u.email === email);
-  if (!user) {
-    res.status(401).json({ error: 'invalid_credentials' });
-    return;
-  }
-
-  const expectedHash = hashPassword(password, user.passwordSalt);
-  if (expectedHash !== user.passwordHash) {
-    res.status(401).json({ error: 'invalid_credentials' });
-    return;
-  }
-
-  const accessToken = randomToken();
-  const refreshToken = randomToken();
-  const now = Date.now();
-
-  const tokens = await readTokens();
-  tokens[sha256Hex(accessToken)] = {
-    type: 'access',
-    userId: user.id,
-    createdAt: now,
-    expiresAt: now + 24 * 60 * 60 * 1000,
-    lastUsedAt: now
-  };
-  tokens[sha256Hex(refreshToken)] = {
-    type: 'refresh',
-    userId: user.id,
-    createdAt: now,
-    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
-    lastUsedAt: now
-  };
-  await writeTokens(tokens);
-
-  res.json({
-    accessToken,
-    refreshToken,
-    user: { id: user.id, email: user.email, createdAt: user.createdAt }
-  });
-}));
-
-app.post('/api/v1/auth/refresh', asyncHandler(async (req, res) => {
-  const refreshToken = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken.trim() : '';
-  if (!refreshToken) {
-    res.status(400).json({ error: 'refreshToken 不能为空' });
-    return;
-  }
-
-  const tokenId = sha256Hex(refreshToken);
-  const tokens = await readTokens();
-  const record = tokens[tokenId];
-  if (!record || typeof record !== 'object' || record.type !== 'refresh') {
-    res.status(401).json({ error: 'invalid_refresh_token' });
-    return;
-  }
-
-  if (Number(record.expiresAt) < Date.now()) {
-    res.status(401).json({ error: 'refresh_token_expired' });
-    return;
-  }
-
-  const userId = String(record.userId);
-  const users = await readUsers();
-  const user = users[userId];
-  if (!user) {
-    res.status(401).json({ error: 'user_not_found' });
-    return;
-  }
-
-  const accessToken = randomToken();
-  const now = Date.now();
-
-  tokens[sha256Hex(accessToken)] = {
-    type: 'access',
-    userId,
-    createdAt: now,
-    expiresAt: now + 24 * 60 * 60 * 1000,
-    lastUsedAt: now
-  };
-  tokens[tokenId] = { ...record, lastUsedAt: now };
-  await writeTokens(tokens);
-
-  res.json({
-    accessToken,
-    user: { id: user.id, email: user.email, createdAt: user.createdAt }
-  });
-}));
-
-app.post('/api/v1/session/bootstrap', asyncHandler(async (_req, res) => {
-  const workspaceId = crypto.randomUUID();
-  const token = randomToken();
-  const tokenId = sha256Hex(token);
-  const tokens = await readTokens();
-  tokens[tokenId] = {
-    workspaceId,
-    createdAt: Date.now(),
-    lastUsedAt: Date.now()
-  };
-  await writeTokens(tokens);
-  res.json({ token });
-}));
-
-app.get('/api/v1/pairing/code', requireAuth, asyncHandler(async (req, res) => {
-  const now = Date.now();
-  const workspaceId = req.auth.workspaceId;
-  const pairings = await readPairings();
-
-  const existing = Object.entries(pairings).find(([, value]) => {
-    if (!value || typeof value !== 'object') {
-      return false;
-    }
-    return value.workspaceId === workspaceId && Number(value.expiresAt) > now;
-  });
-
-  if (existing) {
-    const [code, value] = existing;
-    res.json({ code, expiresAt: Number(value.expiresAt) });
-    return;
-  }
-
-  let code = randomPairingCode();
-  while (pairings[code]) {
-    code = randomPairingCode();
-  }
-
-  pairings[code] = {
-    workspaceId,
-    createdAt: now,
-    expiresAt: now + 10 * 60 * 1000,
-    claimCount: 0
-  };
-  await writePairings(pairings);
-  res.json({ code, expiresAt: pairings[code].expiresAt });
-}));
-
-app.post('/api/v1/pairing/new', requireAuth, asyncHandler(async (req, res) => {
-  const now = Date.now();
-  const workspaceId = req.auth.workspaceId;
-  const pairings = await readPairings();
-
-  let code = randomPairingCode();
-  while (pairings[code]) {
-    code = randomPairingCode();
-  }
-
-  pairings[code] = {
-    workspaceId,
-    createdAt: now,
-    expiresAt: now + 10 * 60 * 1000,
-    claimCount: 0
-  };
-  await writePairings(pairings);
-  res.json({ code, expiresAt: pairings[code].expiresAt });
-}));
-
-app.post('/api/v1/pairing/claim', asyncHandler(async (req, res) => {
-  const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
-  const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim() : '';
-  if (!code) {
-    res.status(400).json({ error: 'code 不能为空' });
-    return;
-  }
-  if (!deviceId) {
-    res.status(400).json({ error: 'deviceId 不能为空' });
-    return;
-  }
-
-  const now = Date.now();
-  const pairings = await readPairings();
-  const record = pairings[code];
-  if (!record || typeof record !== 'object') {
-    res.status(404).json({ error: 'code_not_found' });
-    return;
-  }
-  if (!(Number(record.expiresAt) > now)) {
-    res.status(410).json({ error: 'code_expired' });
-    return;
-  }
-  const workspaceId = typeof record.workspaceId === 'string' ? record.workspaceId : '';
-  if (!workspaceId) {
-    res.status(400).json({ error: 'invalid_code' });
-    return;
-  }
-
-  const token = randomToken();
-  const tokenId = sha256Hex(token);
-  const tokens = await readTokens();
-  tokens[tokenId] = {
-    workspaceId,
-    deviceId,
-    createdAt: now,
-    lastUsedAt: now
-  };
-  await writeTokens(tokens);
-
-  pairings[code] = {
-    ...record,
-    claimCount: Number.isFinite(record.claimCount) ? record.claimCount + 1 : 1,
-    lastClaimAt: now
-  };
-  await writePairings(pairings);
-
-  res.json({ token });
-}));
-
-async function loadWordsForUser(userId) {
-  const all = await readJson(WORDS_FILE, []);
-  const words = Array.isArray(all) ? all : [];
-  return words.filter((w) => String(w?.meta?.userId || '').trim() === userId);
-}
-
-app.get('/api/v1/words', requireAuth, asyncHandler(async (req, res) => {
-  const userId = req.auth.userId;
-  const words = await loadWordsForUser(userId);
-  const bookId = typeof req.query.bookId === 'string' ? req.query.bookId.trim() : '';
-  const filtered = bookId ? words.filter((w) => w?.bookId === bookId) : words;
-  res.json({ words: filtered });
-}));
-
-app.post('/api/v1/words', requireAuth, asyncHandler(async (req, res) => {
-  const userId = req.auth.userId;
-  const normalized = normalizeWordInput(req.body, userId);
-  if (!normalized.ok) {
-    res.status(400).json({ error: normalized.error });
-    return;
-  }
-
-  const nextWord = normalized.word;
-  const userWords = await loadWordsForUser(userId);
-  const nextClientKey = clientKeyForWord(nextWord);
-  const nextWordKey = wordKeyForWord(nextWord);
-  const existing = userWords.find((w) => {
-    const wClientKey = clientKeyForWord(w);
-    if (nextClientKey && wClientKey === nextClientKey) {
-      return true;
-    }
-    return wordKeyForWord(w) === nextWordKey;
-  });
-  if (existing) {
-    res.json({ saved: true, duplicate: true, word: existing });
-    return;
-  }
-
-  const all = await readJson(WORDS_FILE, []);
-  const words = Array.isArray(all) ? all : [];
-  const nextWords = [nextWord, ...words].sort((a, b) => {
-    const aAt = a?.meta?.createdAt || 0;
-    const bAt = b?.meta?.createdAt || 0;
-    return bAt - aAt;
-  });
-
-  await writeJsonAtomic(WORDS_FILE, nextWords);
-  res.json({ saved: true, duplicate: false, word: nextWord });
-}));
-
-app.post('/api/v1/words/batch', requireAuth, asyncHandler(async (req, res) => {
-  const userId = req.auth.userId;
-  const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim() : '';
-  const entries = Array.isArray(req.body?.entries) ? req.body.entries : [];
-
-  if (!deviceId) {
-    res.status(400).json({ error: 'deviceId 不能为空' });
-    return;
-  }
-  if (entries.length === 0) {
-    res.json({
-      received: 0,
-      savedCount: 0,
-      duplicateCount: 0,
-      processedEntryIds: []
-    });
-    return;
-  }
-  if (entries.length > 200) {
-    res.status(413).json({ error: 'entries 过多（最多 200）' });
-    return;
-  }
-
-  const userWords = await loadWordsForUser(userId);
-  const existingClientKeys = new Set(userWords.map(clientKeyForWord).filter(Boolean));
-  const existingWordKeys = new Set(userWords.map(wordKeyForWord));
-
-  const processedEntryIds = [];
-  const savedWords = [];
-  let duplicateCount = 0;
-
-  for (const entry of entries) {
-    const entryId = typeof entry?.id === 'string' ? entry.id.trim() : '';
-    if (!entryId) {
-      continue;
-    }
-
-    const normalized = normalizeWordInput({
-      ...(entry || {}),
-      client: {
-        deviceId,
-        entryId
-      }
-    }, userId);
-    if (!normalized.ok) {
-      continue;
-    }
-
-    const nextWord = normalized.word;
-    const nextClientKey = clientKeyForWord(nextWord);
-    const nextWordKey = wordKeyForWord(nextWord);
-    processedEntryIds.push(entryId);
-
-    if ((nextClientKey && existingClientKeys.has(nextClientKey)) || existingWordKeys.has(nextWordKey)) {
-      duplicateCount += 1;
-      continue;
-    }
-
-    if (nextClientKey) {
-      existingClientKeys.add(nextClientKey);
-    }
-    existingWordKeys.add(nextWordKey);
-    savedWords.push(nextWord);
-  }
-
-  if (savedWords.length > 0) {
-    const all = await readJson(WORDS_FILE, []);
-    const words = Array.isArray(all) ? all : [];
-    const nextWords = [...savedWords, ...words].sort((a, b) => {
-      const aAt = a?.meta?.createdAt || 0;
-      const bAt = b?.meta?.createdAt || 0;
-      return bAt - aAt;
-    });
-    await writeJsonAtomic(WORDS_FILE, nextWords);
-  }
-
-  res.json({
-    received: entries.length,
-    savedCount: savedWords.length,
-    duplicateCount,
-    processedEntryIds
-  });
-}));
-
-const port = Number(process.env.PORT || 3001);
-app.listen(port, () => {
-  process.stdout.write(`word-base api listening on http://localhost:${port}\n`);
+const PORT = Number(process.env.PORT || 3001);
+app.listen(PORT, () => {
+  console.log(`
+  ==========================================
+  word-base API (SQLite) 已启动
+  地址: http://localhost:${PORT}
+  数据库: ${path.join(DATA_DIR, 'wordbase.db')}
+  
+  📧 邮箱验证码会打印在控制台中！
+  ==========================================
+  `);
 });
