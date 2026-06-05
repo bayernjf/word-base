@@ -80,6 +80,13 @@ export default function App() {
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
 
+  useEffect(() => {
+    if (isLoggedIn && auth.accessToken) {
+      loadWords(auth.accessToken);
+      loadBooks(auth.accessToken);
+    }
+  }, [isLoggedIn, auth.accessToken]);
+
   const saveAuth = (newAuth: AuthState) => {
     setAuth(newAuth);
     try {
@@ -148,6 +155,33 @@ export default function App() {
     }
   };
 
+  const loadBooks = async (token: string) => {
+    try {
+      let res = await fetch('/api/v1/books', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          res = await fetch('/api/v1/books', {
+            headers: { Authorization: `Bearer ${newToken}` }
+          });
+        } else {
+          return;
+        }
+      }
+      if (!res.ok) {
+        return;
+      }
+      const data = await res.json();
+      if (Array.isArray(data?.books)) {
+        setBooks(data.books);
+      }
+    } catch {
+      return;
+    }
+  };
+
   const sendVerificationCode = async (email: string, type: 'register' | 'reset'): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/v1/auth/send-code', {
@@ -188,6 +222,7 @@ export default function App() {
       setIsLoggedIn(true);
       setActiveView('dashboard');
       await loadWords(data.accessToken);
+      await loadBooks(data.accessToken);
       return true;
     } catch {
       setAuthError('network_error');
@@ -218,6 +253,7 @@ export default function App() {
       setIsLoggedIn(true);
       setActiveView('dashboard');
       await loadWords(data.accessToken);
+      await loadBooks(data.accessToken);
       return true;
     } catch {
       setAuthError('network_error');
@@ -264,6 +300,7 @@ export default function App() {
       setIsLoggedIn(true);
       setActiveView('profile');
       await loadWords(data.accessToken);
+      await loadBooks(data.accessToken);
       return true;
     } catch {
       setAuthError('network_error');
@@ -464,15 +501,39 @@ export default function App() {
     }
   };
 
-  const handleCreateBook = (bookData: Omit<VocabularyBook, 'id' | 'wordCount' | 'progress'>) => {
-    const bId = `book-${Date.now()}`;
-    const item: VocabularyBook = {
-      ...bookData,
-      id: bId,
-      wordCount: 0,
-      progress: 0
-    };
-    setBooks(prev => [...prev, item]);
+  const handleCreateBook = async (bookData: Omit<VocabularyBook, 'id' | 'wordCount' | 'userId' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      let token = auth.accessToken;
+      if (!token) {
+        throw new Error('not_logged_in');
+      }
+      let res = await fetch('/api/v1/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(bookData)
+      });
+      if (res.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          res = await fetch('/api/v1/books', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
+            body: JSON.stringify(bookData)
+          });
+        } else {
+          return;
+        }
+      }
+      if (!res.ok) {
+        return;
+      }
+      const data = await res.json();
+      if (data.book) {
+        setBooks(prev => [...prev, data.book]);
+      }
+    } catch {
+      return;
+    }
   };
 
   const handleUpdateFamiliarity = (wordId: string, levelValue: number) => {
@@ -486,6 +547,12 @@ export default function App() {
 
   // Find currently active word card
   const activeWordCard = words.find(w => w.id === selectedWordId) || words[0];
+  
+  // State to track the selected book ID
+  const [selectedBookId, setSelectedBookId] = useState<string>(() => {
+    const saved = localStorage.getItem('wordbase-selected-book');
+    return saved || 'biz-eng';
+  });
 
   // Router dispatcher
   const renderMainView = () => {
@@ -504,6 +571,38 @@ export default function App() {
       );
     }
 
+    // Extract book ID from activeView if it's a special format
+    const navigateToBook = activeView.startsWith('vocabulary-');
+    const bookIdFromNavigation = navigateToBook ? activeView.slice('vocabulary-'.length) : null;
+    const finalSelectedBookId = bookIdFromNavigation || selectedBookId;
+
+    // Update state and localStorage if we're navigating to a specific book
+    if (navigateToBook && bookIdFromNavigation && bookIdFromNavigation !== selectedBookId) {
+      setSelectedBookId(bookIdFromNavigation);
+      localStorage.setItem('wordbase-selected-book', bookIdFromNavigation);
+    }
+
+    // Vocabulary view (including specific book)
+    if (activeView === 'vocabulary' || navigateToBook) {
+      return (
+        <VocabularyListView 
+          themeStyles={themeStyles} 
+          onNavigate={setActiveView} 
+          words={words}
+          books={books}
+          onSelectWord={setSelectedWordId}
+          onAddWord={handleAddWord}
+          initialSelectedBookId={finalSelectedBookId}
+          onBookChange={(id) => {
+            setSelectedBookId(id);
+            localStorage.setItem('wordbase-selected-book', id);
+            setActiveView(`vocabulary-${id}`);
+          }}
+        />
+      );
+    }
+
+    // Other views
     switch (activeView) {
       case 'dashboard':
         return (
@@ -512,17 +611,6 @@ export default function App() {
             onNavigate={setActiveView} 
             books={books}
             words={words}
-          />
-        );
-      case 'vocabulary':
-        return (
-          <VocabularyListView 
-            themeStyles={themeStyles} 
-            onNavigate={setActiveView} 
-            words={words}
-            books={books}
-            onSelectWord={setSelectedWordId}
-            onAddWord={handleAddWord}
           />
         );
       case 'worddetail':
@@ -538,7 +626,13 @@ export default function App() {
         return (
           <MyListsView 
             themeStyles={themeStyles} 
-            onNavigate={setActiveView} 
+            onNavigate={(view) => {
+              if (view.startsWith('vocabulary-')) {
+                setActiveView(view);
+              } else {
+                setActiveView(view);
+              }
+            }}
             books={books}
             onCreateBook={handleCreateBook}
           />

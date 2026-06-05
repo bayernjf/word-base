@@ -625,26 +625,19 @@ export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, onNavigat
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {books.map((book) => (
-            <div key={book.id} className={`${themeStyles.card} flex flex-col justify-between hover:scale-[1.01] transition-transform`}>
-              <div>
-                <span className={`${themeStyles.badgeClass} mb-2 inline-block`}>{book.level || 'B2'}</span>
-                <h4 className={`text-sm font-bold ${themeStyles.textPrimary}`}>{book.name}</h4>
-                <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{book.description}</p>
-              </div>
-              <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-white/10">
-                <div className="flex justify-between text-[10px] font-mono mb-1">
-                  <span>Progress</span>
-                  <span>{book.progress}%</span>
+            <div 
+              key={book.id} 
+              className={`${themeStyles.card} hover:scale-[1.01] transition-transform cursor-pointer`}
+              onClick={() => onNavigate(`vocabulary-${book.id}`)}
+            >
+              <div className="flex items-center">
+                <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                  <BookOpen className="w-4 h-4" />
+                </span>
+                <div className="ml-3">
+                  <h4 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{book.name}</h4>
+                  <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{book.wordCount} words</p>
                 </div>
-                <div className="w-full bg-slate-200 dark:bg-white/10 rounded-xs h-1.5 overflow-hidden">
-                  <div className="bg-indigo-650 dark:bg-indigo-400 h-full" style={{ width: `${book.progress}%` }} />
-                </div>
-                <button 
-                  onClick={() => onNavigate('vocabulary')} 
-                  className="w-full text-center text-xs mt-3 font-medium bg-indigo-550/10 hover:bg-indigo-550/20 py-1.5 rounded-lg text-indigo-600 dark:text-indigo-450 transition-colors"
-                >
-                  Open Study Desk
-                </button>
               </div>
             </div>
           ))}
@@ -665,24 +658,21 @@ interface VocabularyProps {
   books: VocabularyBook[];
   onSelectWord: (wordId: string) => void;
   onAddWord: (word: Omit<Word, 'id'>) => void;
+  initialSelectedBookId?: string;
+  onBookChange?: (bookId: string) => void;
 }
 
 export const VocabularyListView: React.FC<VocabularyProps> = ({ 
-  themeStyles, onNavigate, words, books, onSelectWord, onAddWord 
+  themeStyles, onNavigate, words, books, onSelectWord, 
+  initialSelectedBookId = 'biz-eng', onBookChange
 }) => {
-  const [selectedBookId, setSelectedBookId] = useState('biz-eng');
+  const [selectedBookId, setSelectedBookId] = useState(initialSelectedBookId);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newWord, setNewWord] = useState({
-    word: '',
-    phonetic: '',
-    partOfSpeech: 'noun',
-    definition: '',
-    chineseTranslation: '',
-    synonymsString: '',
-    exampleEn: '',
-    exampleZh: ''
-  });
+
+  // Update local state if initial prop changes
+  useEffect(() => {
+    setSelectedBookId(initialSelectedBookId);
+  }, [initialSelectedBookId]);
 
   const filteredWords = words
     .filter(w => w.bookId === selectedBookId)
@@ -690,27 +680,9 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                  w.definition.toLowerCase().includes(searchQuery.toLowerCase()) ||
                  w.chineseTranslation.includes(searchQuery));
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    onAddWord({
-      word: newWord.word,
-      phonetic: newWord.phonetic || '/.../',
-      partOfSpeech: newWord.partOfSpeech,
-      definition: newWord.definition,
-      chineseTranslation: newWord.chineseTranslation,
-      synonyms: newWord.synonymsString ? newWord.synonymsString.split(',').map(s => s.trim()) : [],
-      examples: [{ en: newWord.exampleEn, zh: newWord.exampleZh }],
-      usageHistory: [],
-      level: 'B2',
-      familiarity: 10,
-      bookId: selectedBookId
-    });
-    
-    // reset form
-    setNewWord({
-      word: '', phonetic: '', partOfSpeech: 'noun', definition: '', chineseTranslation: '', synonymsString: '', exampleEn: '', exampleZh: ''
-    });
-    setShowAddModal(false);
+  const handleBookChange = (bookId: string) => {
+    setSelectedBookId(bookId);
+    onBookChange?.(bookId);
   };
 
   return (
@@ -729,8 +701,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           <div className="relative">
             <select 
               value={selectedBookId}
-              onChange={(e) => setSelectedBookId(e.target.value)}
-              className="px-3 py-2 bg-slate-100 dark:bg-white/10 border border-neutral-300 dark:border-white/15 rounded-xl text-xs pr-8 font-medium focus:outline-hidden text-neutral-800 dark:text-neutral-100 cursor-pointer"
+              onChange={(e) => handleBookChange(e.target.value)}
+              className="px-3 py-2 bg-slate-100 dark:bg-white/10 border border-neutral-300 dark:border-white/15 rounded-xl text-xs pr-8 font-medium focus:outline-hidden text-neutral-800 dark:text-neutral-100 cursor-pointer appearance-none"
             >
               {books.map(b => (
                 <option key={b.id} value={b.id} className="text-black bg-stone-100">{b.name}</option>
@@ -738,14 +710,6 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
             </select>
             <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-3 text-neutral-400 pointer-events-none" />
           </div>
-
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className={`${themeStyles.btnPrimary} flex items-center space-x-1.5 py-2 text-xs font-semibold`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Word</span>
-          </button>
         </div>
       </div>
 
@@ -828,122 +792,6 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           </tbody>
         </table>
       </div>
-
-      {/* Add word modal overlays */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className={`w-full max-w-xl ${themeStyles.card} shadow-2xl relative max-h-[90vh] overflow-y-auto`}>
-            <div className="flex justify-between items-center mb-4 pb-2 border-b border-neutral-200 dark:border-white/10">
-              <h3 className={`text-lg font-bold ${themeStyles.textPrimary}`}>Add Word to book</h3>
-              <button 
-                onClick={() => setShowAddModal(false)}
-                className="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 p-1.5 rounded-lg"
-              >
-                Cancel
-              </button>
-            </div>
-            
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Word Spelling *</label>
-                  <input 
-                    type="text" 
-                    value={newWord.word}
-                    onChange={(e) => setNewWord({...newWord, word: e.target.value})}
-                    placeholder="e.g., pivot"
-                    className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1">IPA Phonetics</label>
-                  <input 
-                    type="text" 
-                    value={newWord.phonetic}
-                    onChange={(e) => setNewWord({...newWord, phonetic: e.target.value})}
-                    placeholder="/ˈpɪvət/"
-                    className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Part of Speech *</label>
-                  <select 
-                    value={newWord.partOfSpeech}
-                    onChange={(e) => setNewWord({...newWord, partOfSpeech: e.target.value})}
-                    className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                  >
-                    <option value="noun">noun</option>
-                    <option value="verb">verb</option>
-                    <option value="adjective">adjective</option>
-                    <option value="adverb">adverb</option>
-                    <option value="phrase">phrase</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Synonyms (Comma sep)</label>
-                  <input 
-                    type="text" 
-                    value={newWord.synonymsString}
-                    onChange={(e) => setNewWord({...newWord, synonymsString: e.target.value})}
-                    placeholder="reorient, veer, strategy cycle"
-                    className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Definition (English) *</label>
-                <textarea 
-                  value={newWord.definition}
-                  onChange={(e) => setNewWord({...newWord, definition: e.target.value})}
-                  placeholder="Define the word in conversational language."
-                  rows={2}
-                  className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Chinese Translation *</label>
-                <input 
-                  type="text" 
-                  value={newWord.chineseTranslation}
-                  onChange={(e) => setNewWord({...newWord, chineseTranslation: e.target.value})}
-                  placeholder="中文释义"
-                  className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2 border-t border-neutral-200 dark:border-white/5 pt-2">
-                <span className="block text-xs font-bold uppercase tracking-wider text-neutral-400">Context Example sentence</span>
-                <input 
-                  type="text" 
-                  value={newWord.exampleEn}
-                  onChange={(e) => setNewWord({...newWord, exampleEn: e.target.value})}
-                  placeholder="English sentence"
-                  className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                />
-                <input 
-                  type="text" 
-                  value={newWord.exampleZh}
-                  onChange={(e) => setNewWord({...newWord, exampleZh: e.target.value})}
-                  placeholder="中文翻译"
-                  className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-                />
-              </div>
-
-              <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2 text-xs font-bold`}>
-                Insert Into Selected book
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -1128,24 +976,21 @@ interface MyListsProps {
   themeStyles: ThemeClasses;
   onNavigate: (view: string) => void;
   books: VocabularyBook[];
-  onCreateBook: (book: Omit<VocabularyBook, 'id' | 'wordCount' | 'progress'>) => void;
+  onCreateBook: (book: { name: string; description?: string; icon?: string }) => void;
 }
 
 export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, books, onCreateBook }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
-  const [desc, setDesc] = useState('');
-  const [level, setLevel] = useState('B2');
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     onCreateBook({
-      name: `${name} (${level})`,
-      description: desc,
+      name,
+      description: '',
       icon: 'BookOpen'
     });
     setName('');
-    setDesc('');
     setShowCreate(false);
   };
 
@@ -1167,52 +1012,21 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
 
       {showCreate && (
         <form onSubmit={handleCreate} className={`${themeStyles.card} space-y-4 max-w-xl`}>
-          <h3 className="font-bold text-sm">Assemble New Word List</h3>
+          <h3 className="font-bold text-sm">Create New Wordbook</h3>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Book Name</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Wordbook Name</label>
             <input 
               type="text" 
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Marketing Masterclass, Medical Terminology"
+              placeholder="e.g., My Favorite Words, Business English"
               className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
               required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Focus Difficulty Tier</label>
-              <select 
-                value={level} 
-                onChange={(e) => setLevel(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
-              >
-                <option value="A1">Elementary (A1-A2)</option>
-                <option value="B1">Pre-Intermediate (B1)</option>
-                <option value="B2">Intermediate (B2)</option>
-                <option value="C1">Advanced (C1)</option>
-                <option value="C2">Expert Fluent (C2)</option>
-              </select>
-            </div>
-            <div>
-              <span className="block text-xs font-semibold uppercase tracking-wider mb-1">Methodology</span>
-              <span className="text-[10px] text-neutral-400 bg-neutral-200 dark:bg-white/10 p-2 rounded-lg block">Spacing intervals AI Tutor generated</span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Short Description</label>
-            <input 
-              type="text" 
-              value={desc}
-              required
-              onChange={(e) => setDesc(e.target.value)}
-              placeholder="Aim or core target area details..."
-              className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
             />
           </div>
           <div className="flex gap-2">
             <button type="submit" className={`${themeStyles.btnPrimary} py-2 text-xs font-bold flex-1`}>
-              Assemble Spacing Book
+              Create Wordbook
             </button>
             <button type="button" onClick={() => setShowCreate(false)} className={`${themeStyles.btnSecondary} py-2 text-xs flex-1`}>
               Cancel
@@ -1221,37 +1035,22 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
         </form>
       )}
 
-      {/* Wordbooks Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Wordbooks Grid - simplified */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {books.map(b => (
-          <div key={b.id} className={`${themeStyles.card} flex flex-col justify-between hover:scale-[1.01] transition-transform`}>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                  <BookOpen className="w-4 h-4" />
-                </span>
-                <span className="font-mono text-[10px] tracking-widest text-neutral-400 uppercase">
-                  {b.wordCount} words loaded
-                </span>
+          <div 
+            key={b.id} 
+            className={`${themeStyles.card} hover:scale-[1.01] transition-transform cursor-pointer`}
+            onClick={() => onNavigate(`vocabulary-${b.id}`)}
+          >
+            <div className="flex items-center">
+              <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                <BookOpen className="w-4 h-4" />
+              </span>
+              <div className="ml-3">
+                <h3 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{b.name}</h3>
+                <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{b.wordCount} words</p>
               </div>
-              <h3 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{b.name}</h3>
-              <p className={`text-xs mt-1 leading-relaxed ${themeStyles.textSecondary}`}>{b.description}</p>
-            </div>
-            
-            <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-white/10 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-neutral-400">Confidence Rate</span>
-                <span className="font-mono font-semibold">{b.progress}%</span>
-              </div>
-              <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500" style={{ width: `${b.progress}%` }} />
-              </div>
-              <button 
-                onClick={() => onNavigate('vocabulary')}
-                className="w-full bg-indigo-600 text-white dark:bg-indigo-500/20 py-2 rounded-xl text-xs font-semibold hover:bg-indigo-700 dark:hover:bg-indigo-500/30 transition-colors"
-              >
-                Access Workbook
-              </button>
             </div>
           </div>
         ))}

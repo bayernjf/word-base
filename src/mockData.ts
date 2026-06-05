@@ -3,35 +3,43 @@ import { Word, VocabularyBook, Story, PracticeQuiz, AIModel } from './types';
 export const initialVocabularyBooks: VocabularyBook[] = [
   {
     id: 'inbox',
+    userId: '',
     name: 'Inbox (插件同步)',
     description: 'Words synced from browser extension.',
     wordCount: 0,
     icon: 'Download',
-    progress: 0
+    createdAt: Date.now(),
+    updatedAt: Date.now()
   },
   {
     id: 'biz-eng',
+    userId: '',
     name: 'Business English (商务英语核心)',
     description: 'Master negotiation, presentation, and collaboration terminology.',
     wordCount: 120,
     icon: 'Briefcase',
-    progress: 68
+    createdAt: Date.now(),
+    updatedAt: Date.now()
   },
   {
     id: 'toefl-core',
+    userId: '',
     name: 'TOEFL Academic Core (托福高频)',
     description: 'High-frequency academic vocabulary for humanities and sciences.',
     wordCount: 350,
     icon: 'GraduationCap',
-    progress: 42
+    createdAt: Date.now(),
+    updatedAt: Date.now()
   },
   {
     id: 'daily-life',
+    userId: '',
     name: 'Daily Conversational (日常口语)',
     description: 'Practical idioms and casual phrasing for travel and lifestyle.',
     wordCount: 88,
     icon: 'MessageSquare',
-    progress: 95
+    createdAt: Date.now(),
+    updatedAt: Date.now()
   }
 ];
 

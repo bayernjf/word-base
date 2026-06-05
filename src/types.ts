@@ -29,11 +29,13 @@ export interface Word {
 
 export interface VocabularyBook {
   id: string;
+  userId: string;
   name: string;
   description: string;
   wordCount: number;
   icon: string;
-  progress: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ChatMessage {
