@@ -138,6 +138,18 @@ function initDatabase() {
       lastUsedAt INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS vocabulary_books (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      wordCount INTEGER DEFAULT 0,
+      icon TEXT DEFAULT 'BookOpen',
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      UNIQUE(userId, name)
+    );
+
     CREATE TABLE IF NOT EXISTS words (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
@@ -159,6 +171,7 @@ function initDatabase() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_words_userId ON words(userId);
+    CREATE INDEX IF NOT EXISTS idx_vocabulary_books_userId ON vocabulary_books(userId);
     CREATE INDEX IF NOT EXISTS idx_verification_email_type ON verification_codes(email, type);
   `);
 
@@ -354,6 +367,47 @@ app.post('/api/v1/auth/register', (req, res) => {
     INSERT INTO users (id, email, passwordHash, passwordSalt, nickname, avatar, createdAt, updatedAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(userId, normalizedEmail, passwordHash, salt, cleanNickname, randomAvatar, now, now);
+
+  // 创建用户的默认单词本
+  const defaultBooks = [
+    {
+      id: 'inbox',
+      name: 'Inbox (插件同步)',
+      description: 'Words synced from browser extension.',
+      wordCount: 0,
+      icon: 'Download'
+    },
+    {
+      id: 'biz-eng',
+      name: 'Business English (商务英语核心)',
+      description: 'Master negotiation, presentation, and collaboration terminology.',
+      wordCount: 0,
+      icon: 'Briefcase'
+    },
+    {
+      id: 'toefl-core',
+      name: 'TOEFL Academic Core (托福高频)',
+      description: 'High-frequency academic vocabulary for humanities and sciences.',
+      wordCount: 0,
+      icon: 'GraduationCap'
+    },
+    {
+      id: 'daily-life',
+      name: 'Daily Conversational (日常口语)',
+      description: 'Practical idioms and casual phrasing for travel and lifestyle.',
+      wordCount: 0,
+      icon: 'MessageSquare'
+    }
+  ];
+
+  const insertBook = db.prepare(`
+    INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const book of defaultBooks) {
+    insertBook.run(book.id, userId, book.name, book.description, book.wordCount, book.icon, now, now);
+  }
 
   // 生成 token
   const accessToken = randomToken();
@@ -620,6 +674,117 @@ app.patch('/api/v1/user', requireAuth, (req, res) => {
 
   const updatedUser = db.prepare('SELECT id, email, nickname, avatar, createdAt FROM users WHERE id = ?').get(req.user.id);
   res.json({ ok: true, user: updatedUser });
+});
+
+// API: 获取用户的所有单词本
+app.get('/api/v1/books', requireAuth, (req, res) => {
+  const userId = req.user.id;
+  
+  // 获取单词本，并更新每个单词本的 wordCount
+  const books = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY createdAt ASC').all(userId);
+  
+  // 查询每个单词本的实际单词数量
+  const booksWithCounts = books.map(book => {
+    const countResult = db.prepare('SELECT COUNT(*) as count FROM words WHERE userId = ? AND bookId = ?').get(userId, book.id);
+    return {
+      ...book,
+      wordCount: countResult.count
+    };
+  });
+  
+  res.json({ ok: true, books: booksWithCounts });
+});
+
+// API: 创建新单词本
+app.post('/api/v1/books', requireAuth, (req, res) => {
+  const { name, description, icon } = req.body;
+  const userId = req.user.id;
+  const now = Date.now();
+  
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'name_required' });
+  }
+  
+  const bookId = crypto.randomUUID();
+  
+  try {
+    db.prepare(`
+      INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      bookId, 
+      userId, 
+      name.trim(), 
+      description || '', 
+      0, 
+      icon || 'BookOpen', 
+      now, 
+      now
+    );
+  } catch (e) {
+    return res.status(409).json({ error: 'book_already_exists' });
+  }
+  
+  const newBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ?').get(bookId);
+  res.json({ ok: true, book: newBook });
+});
+
+// API: 更新单词本
+app.patch('/api/v1/books/:bookId', requireAuth, (req, res) => {
+  const { bookId } = req.params;
+  const { name, description, icon } = req.body;
+  const userId = req.user.id;
+  const now = Date.now();
+  
+  const existingBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ? AND userId = ?').get(bookId, userId);
+  if (!existingBook) {
+    return res.status(404).json({ error: 'book_not_found' });
+  }
+  
+  const updates = { updatedAt: now };
+  if (name !== undefined && name.trim()) {
+    updates.name = name.trim();
+  }
+  if (description !== undefined) {
+    updates.description = description;
+  }
+  if (icon !== undefined) {
+    updates.icon = icon;
+  }
+  
+  if (Object.keys(updates).length === 1) {
+    return res.status(400).json({ error: 'nothing_to_update' });
+  }
+  
+  const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+  const values = [...Object.values(updates), bookId, userId];
+  
+  try {
+    db.prepare(`UPDATE vocabulary_books SET ${setClauses} WHERE id = ? AND userId = ?`).run(...values);
+  } catch (e) {
+    return res.status(409).json({ error: 'book_name_already_exists' });
+  }
+  
+  const updatedBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ?').get(bookId);
+  res.json({ ok: true, book: updatedBook });
+});
+
+// API: 删除单词本
+app.delete('/api/v1/books/:bookId', requireAuth, (req, res) => {
+  const { bookId } = req.params;
+  const userId = req.user.id;
+  
+  const existingBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ? AND userId = ?').get(bookId, userId);
+  if (!existingBook) {
+    return res.status(404).json({ error: 'book_not_found' });
+  }
+  
+  // 先把该单词本的单词移动到 inbox，或者删除它们（这里我们先移动到 inbox）
+  db.prepare('UPDATE words SET bookId = ?, updatedAt = ? WHERE userId = ? AND bookId = ?').run('inbox', Date.now(), userId, bookId);
+  
+  db.prepare('DELETE FROM vocabulary_books WHERE id = ? AND userId = ?').run(bookId, userId);
+  
+  res.json({ ok: true });
 });
 
 // API: 修改密码
