@@ -710,6 +710,15 @@ app.post('/api/v1/books', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'name_required' });
   }
   
+  // 检查该用户是否已有同名的单词本（忽略大小写）
+  const existingBook = db.prepare(
+    'SELECT * FROM vocabulary_books WHERE userId = ? AND LOWER(name) = LOWER(?)'
+  ).get(userId, name.trim());
+  
+  if (existingBook) {
+    return res.status(409).json({ error: 'book_name_already_exists' });
+  }
+  
   const bookId = crypto.randomUUID();
   
   try {
@@ -813,10 +822,45 @@ app.delete('/api/v1/books/:bookId', requireAuth, (req, res) => {
     return res.status(404).json({ error: 'book_not_found' });
   }
   
-  // 先把该单词本的单词移动到 default，或者删除它们（这里我们先移动到 default）
-  db.prepare('UPDATE words SET bookId = ?, updatedAt = ? WHERE userId = ? AND bookId = ?').run(`${userId}_default`, Date.now(), userId, bookId);
+  // 不能删除同步单词本
+  if (existingBook.isSync) {
+    return res.status(400).json({ error: 'cannot_delete_sync_book' });
+  }
   
+  // 删除该单词本的所有单词
+  db.prepare('DELETE FROM words WHERE userId = ? AND bookId = ?').run(userId, bookId);
+  
+  // 删除单词本
   db.prepare('DELETE FROM vocabulary_books WHERE id = ? AND userId = ?').run(bookId, userId);
+  
+  res.json({ ok: true });
+});
+
+// API: 批量删除单词本
+app.post('/api/v1/books/batch-delete', requireAuth, (req, res) => {
+  const { bookIds } = req.body;
+  const userId = req.user.id;
+  
+  if (!bookIds || !Array.isArray(bookIds)) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+  
+  const userBooks = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ?').all(userId);
+  const syncBook = userBooks.find(b => b.isSync === 1);
+  
+  // 检查是否试图删除同步单词本
+  if (syncBook && bookIds.includes(syncBook.id)) {
+    return res.status(400).json({ error: 'cannot_delete_sync_book' });
+  }
+  
+  // 删除每个单词本及其单词
+  const deleteWordStmt = db.prepare('DELETE FROM words WHERE userId = ? AND bookId = ?');
+  const deleteBookStmt = db.prepare('DELETE FROM vocabulary_books WHERE id = ? AND userId = ?');
+  
+  for (const bookId of bookIds) {
+    deleteWordStmt.run(userId, bookId);
+    deleteBookStmt.run(bookId, userId);
+  }
   
   res.json({ ok: true });
 });
