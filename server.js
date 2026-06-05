@@ -145,6 +145,7 @@ function initDatabase() {
       description TEXT DEFAULT '',
       wordCount INTEGER DEFAULT 0,
       icon TEXT DEFAULT 'BookOpen',
+      isSync INTEGER DEFAULT 0,
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL,
       UNIQUE(userId, name)
@@ -178,6 +179,13 @@ function initDatabase() {
   // 添加avatar列到现有用户表
   try {
     db.prepare('ALTER TABLE users ADD COLUMN avatar INTEGER DEFAULT 0').run();
+  } catch (e) {
+    // 列可能已经存在，忽略错误
+  }
+
+  // 添加isSync列到现有单词本表
+  try {
+    db.prepare('ALTER TABLE vocabulary_books ADD COLUMN isSync INTEGER DEFAULT 0').run();
   } catch (e) {
     // 列可能已经存在，忽略错误
   }
@@ -369,45 +377,22 @@ app.post('/api/v1/auth/register', (req, res) => {
   `).run(userId, normalizedEmail, passwordHash, salt, cleanNickname, randomAvatar, now, now);
 
   // 创建用户的默认单词本
-  const defaultBooks = [
-    {
-      id: 'inbox',
-      name: 'Inbox (插件同步)',
-      description: 'Words synced from browser extension.',
-      wordCount: 0,
-      icon: 'Download'
-    },
-    {
-      id: 'biz-eng',
-      name: 'Business English (商务英语核心)',
-      description: 'Master negotiation, presentation, and collaboration terminology.',
-      wordCount: 0,
-      icon: 'Briefcase'
-    },
-    {
-      id: 'toefl-core',
-      name: 'TOEFL Academic Core (托福高频)',
-      description: 'High-frequency academic vocabulary for humanities and sciences.',
-      wordCount: 0,
-      icon: 'GraduationCap'
-    },
-    {
-      id: 'daily-life',
-      name: 'Daily Conversational (日常口语)',
-      description: 'Practical idioms and casual phrasing for travel and lifestyle.',
-      wordCount: 0,
-      icon: 'MessageSquare'
-    }
-  ];
-
   const insertBook = db.prepare(`
-    INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, isSync, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  for (const book of defaultBooks) {
-    insertBook.run(book.id, userId, book.name, book.description, book.wordCount, book.icon, now, now);
-  }
+  insertBook.run(
+    `${userId}_default`,
+    userId,
+    '默认',
+    '用于存放单词的默认单词本',
+    0,
+    'BookOpen',
+    1, // isSync 设置为 1，默认是同步状态
+    now,
+    now
+  );
 
   // 生成 token
   const accessToken = randomToken();
@@ -639,6 +624,25 @@ app.post('/api/v1/auth/logout', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// API: 删除账号
+app.delete('/api/v1/auth/delete-account', requireAuth, (req, res) => {
+  const userId = req.user.id;
+  
+  // 删除该用户的所有单词
+  db.prepare('DELETE FROM words WHERE userId = ?').run(userId);
+  
+  // 删除该用户的所有单词本
+  db.prepare('DELETE FROM vocabulary_books WHERE userId = ?').run(userId);
+  
+  // 删除该用户的所有 tokens
+  db.prepare('DELETE FROM tokens WHERE userId = ?').run(userId);
+  
+  // 删除该用户
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  
+  res.json({ ok: true });
+});
+
 // API: 获取当前用户信息
 app.get('/api/v1/user', requireAuth, (req, res) => {
   res.json({ ok: true, user: req.user });
@@ -681,13 +685,14 @@ app.get('/api/v1/books', requireAuth, (req, res) => {
   const userId = req.user.id;
   
   // 获取单词本，并更新每个单词本的 wordCount
-  const books = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY createdAt ASC').all(userId);
+  const books = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY isSync DESC, createdAt ASC').all(userId);
   
   // 查询每个单词本的实际单词数量
   const booksWithCounts = books.map(book => {
     const countResult = db.prepare('SELECT COUNT(*) as count FROM words WHERE userId = ? AND bookId = ?').get(userId, book.id);
     return {
       ...book,
+      isSync: !!book.isSync, // 转换为布尔值
       wordCount: countResult.count
     };
   });
@@ -709,8 +714,8 @@ app.post('/api/v1/books', requireAuth, (req, res) => {
   
   try {
     db.prepare(`
-      INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vocabulary_books (id, userId, name, description, wordCount, icon, isSync, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       bookId, 
       userId, 
@@ -718,6 +723,7 @@ app.post('/api/v1/books', requireAuth, (req, res) => {
       description || '', 
       0, 
       icon || 'BookOpen', 
+      0, // 默认isSync为false
       now, 
       now
     );
@@ -726,7 +732,35 @@ app.post('/api/v1/books', requireAuth, (req, res) => {
   }
   
   const newBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ?').get(bookId);
-  res.json({ ok: true, book: newBook });
+  res.json({ ok: true, book: { ...newBook, isSync: !!newBook.isSync } });
+});
+
+// API: 设置同步单词本
+app.patch('/api/v1/books/:bookId/set-sync', requireAuth, (req, res) => {
+  const { bookId } = req.params;
+  const userId = req.user.id;
+  const now = Date.now();
+  
+  // 先检查单词本是否存在
+  const existingBook = db.prepare('SELECT * FROM vocabulary_books WHERE id = ? AND userId = ?').get(bookId, userId);
+  if (!existingBook) {
+    return res.status(404).json({ error: 'book_not_found' });
+  }
+  
+  // 把该用户所有其他单词本的isSync设为0
+  db.prepare('UPDATE vocabulary_books SET isSync = 0, updatedAt = ? WHERE userId = ?').run(now, userId);
+  
+  // 把选中的单词本isSync设为1
+  db.prepare('UPDATE vocabulary_books SET isSync = 1, updatedAt = ? WHERE id = ? AND userId = ?').run(now, bookId, userId);
+  
+  // 返回更新后的单词本列表（同步的在首位）
+  const books = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY isSync DESC, createdAt ASC').all(userId);
+  const booksWithCounts = books.map(book => {
+    const countResult = db.prepare('SELECT COUNT(*) as count FROM words WHERE userId = ? AND bookId = ?').get(userId, book.id);
+    return { ...book, isSync: !!book.isSync, wordCount: countResult.count };
+  });
+  
+  res.json({ ok: true, books: booksWithCounts });
 });
 
 // API: 更新单词本
@@ -779,8 +813,8 @@ app.delete('/api/v1/books/:bookId', requireAuth, (req, res) => {
     return res.status(404).json({ error: 'book_not_found' });
   }
   
-  // 先把该单词本的单词移动到 inbox，或者删除它们（这里我们先移动到 inbox）
-  db.prepare('UPDATE words SET bookId = ?, updatedAt = ? WHERE userId = ? AND bookId = ?').run('inbox', Date.now(), userId, bookId);
+  // 先把该单词本的单词移动到 default，或者删除它们（这里我们先移动到 default）
+  db.prepare('UPDATE words SET bookId = ?, updatedAt = ? WHERE userId = ? AND bookId = ?').run(`${userId}_default`, Date.now(), userId, bookId);
   
   db.prepare('DELETE FROM vocabulary_books WHERE id = ? AND userId = ?').run(bookId, userId);
   
@@ -839,7 +873,22 @@ app.get('/api/v1/words', requireAuth, (req, res) => {
 // API: 添加单词
 app.post('/api/v1/words', requireAuth, (req, res) => {
   const now = Date.now();
-  const normalized = normalizeWordInput(req.body, req.user.id, now);
+  const userId = req.user.id;
+  
+  // 获取用户的同步单词本
+  let syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? AND isSync = 1').get(userId);
+  if (!syncBook) {
+    // 如果没有同步单词本，选择第一个
+    syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY createdAt ASC LIMIT 1').get(userId);
+  }
+  
+  const input = req.body;
+  // 如果请求没有指定 bookId，使用同步单词本
+  if (!input.bookId && syncBook) {
+    input.bookId = syncBook.id;
+  }
+  
+  const normalized = normalizeWordInput(input, userId, now);
   
   if (!normalized.ok) {
     return res.status(400).json({ error: normalized.error });
@@ -874,6 +923,13 @@ app.post('/api/v1/words/batch', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'invalid_input' });
   }
 
+  // 获取用户的同步单词本
+  let syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? AND isSync = 1').get(userId);
+  if (!syncBook) {
+    // 如果没有同步单词本，选择第一个
+    syncBook = db.prepare('SELECT * FROM vocabulary_books WHERE userId = ? ORDER BY createdAt ASC LIMIT 1').get(userId);
+  }
+
   const processedEntryIds = [];
   let savedCount = 0;
   let duplicateCount = 0;
@@ -884,10 +940,16 @@ app.post('/api/v1/words/batch', requireAuth, (req, res) => {
     if (!entryId) continue;
 
     // 检查是否已经处理过（基于 userId + deviceId + entryId，这里简化处理）
-    const normalized = normalizeWordInput({
+    const input = {
       ...entry,
       client: { deviceId, entryId }
-    }, userId, now);
+    };
+    // 如果请求没有指定 bookId，使用同步单词本
+    if (!input.bookId && syncBook) {
+      input.bookId = syncBook.id;
+    }
+    
+    const normalized = normalizeWordInput(input, userId, now);
 
     if (!normalized.ok) continue;
 
@@ -941,7 +1003,7 @@ function normalizeWordInput(input, userId, now) {
   const createdAt = Number.isFinite(input?.createdAt) ? Number(input.createdAt) : now;
   const clientDeviceId = typeof input?.client?.deviceId === 'string' ? input.client.deviceId.trim() : '';
   const clientEntryId = typeof input?.client?.entryId === 'string' ? input.client.entryId.trim() : '';
-  const bookId = typeof input?.bookId === 'string' && input.bookId.trim() ? input.bookId.trim() : 'inbox';
+  const bookId = typeof input?.bookId === 'string' && input.bookId.trim() ? input.bookId.trim() : `${userId}_default`;
 
   return {
     ok: true,
