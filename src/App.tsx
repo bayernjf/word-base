@@ -611,6 +611,28 @@ export default function App() {
     }
   };
 
+  const handleDeleteBooks = async (bookIds: string[]) => {
+    try {
+      if (auth.accessToken) {
+        await fetch('/api/v1/books/batch-delete', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${auth.accessToken}` 
+          },
+          body: JSON.stringify({ bookIds })
+        });
+        // 更新本地状态
+        setBooks(prev => prev.filter(b => !bookIds.includes(b.id)));
+        setWords(prev => prev.filter(w => !bookIds.includes(w.bookId)));
+      }
+    } catch (e) {
+      // 网络错误时，回退到本地更新
+      setBooks(prev => prev.filter(b => !bookIds.includes(b.id)));
+      setWords(prev => prev.filter(w => !bookIds.includes(w.bookId)));
+    }
+  };
+
   const handleUpdateFamiliarity = (wordId: string, levelValue: number) => {
     setWords(prev => prev.map(w => {
       if (w.id === wordId) {
@@ -722,6 +744,7 @@ export default function App() {
             books={books}
             onCreateBook={handleCreateBook}
             onSetSyncBook={handleSetSyncBook}
+            onDeleteBooks={handleDeleteBooks}
           />
         );
       case 'stories':
