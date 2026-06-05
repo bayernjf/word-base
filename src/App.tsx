@@ -394,6 +394,7 @@ export default function App() {
     }
   };
 
+  // 正常的退出登录
   const handleLogout = async () => {
     try {
       if (auth.accessToken) {
@@ -405,9 +406,44 @@ export default function App() {
     } catch {
       // ignore
     }
-    saveAuth({ accessToken: null, refreshToken: null, user: null });
+    // Clear localStorage
+    localStorage.removeItem('wordbase_auth');
+    localStorage.removeItem('wordbase-selected-book');
+    // Reset state
+    setAuth({ accessToken: null, refreshToken: null, user: null });
     setIsLoggedIn(false);
     setActiveView('welcome');
+    setWords(initialWords);
+    setBooks(initialVocabularyBooks);
+    setModels(mockDefaultModels);
+    setSelectedWordId('w1');
+    setSelectedBookId('default');
+  };
+
+  // 注销账号（删除所有数据）
+  const handleDeleteAccount = async () => {
+    try {
+      if (auth.accessToken) {
+        await fetch('/api/v1/auth/delete-account', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${auth.accessToken}` }
+        }).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+    // Clear localStorage
+    localStorage.removeItem('wordbase_auth');
+    localStorage.removeItem('wordbase-selected-book');
+    // Reset state
+    setAuth({ accessToken: null, refreshToken: null, user: null });
+    setIsLoggedIn(false);
+    setActiveView('welcome');
+    setWords(initialWords);
+    setBooks(initialVocabularyBooks);
+    setModels(mockDefaultModels);
+    setSelectedWordId('w1');
+    setSelectedBookId('default');
   };
 
   useEffect(() => {
@@ -546,20 +582,33 @@ export default function App() {
     }
   };
 
-  const handleSetSyncBook = (bookId: string) => {
-    setBooks(prev => {
-      const newBooks = prev.map(b => ({
-        ...b,
-        isSync: b.id === bookId
-      }));
-      // 将选中的同步单词本置顶
-      const syncBook = newBooks.find(b => b.id === bookId);
-      const otherBooks = newBooks.filter(b => b.id !== bookId);
-      if (syncBook) {
-        return [syncBook, ...otherBooks];
+  const handleSetSyncBook = async (bookId: string) => {
+    try {
+      if (auth.accessToken) {
+        const response = await fetch(`/api/v1/books/${bookId}/set-sync`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${auth.accessToken}` }
+        });
+        const data = await response.json();
+        if (data.ok && data.books) {
+          setBooks(data.books);
+        }
       }
-      return newBooks;
-    });
+    } catch (e) {
+      // 网络错误时，回退到本地更新
+      setBooks(prev => {
+        const newBooks = prev.map(b => ({
+          ...b,
+          isSync: b.id === bookId
+        }));
+        const syncBook = newBooks.find(b => b.id === bookId);
+        const otherBooks = newBooks.filter(b => b.id !== bookId);
+        if (syncBook) {
+          return [syncBook, ...otherBooks];
+        }
+        return newBooks;
+      });
+    }
   };
 
   const handleUpdateFamiliarity = (wordId: string, levelValue: number) => {
@@ -575,10 +624,21 @@ export default function App() {
   const activeWordCard = words.find(w => w.id === selectedWordId) || words[0];
   
   // State to track the selected book ID
-  const [selectedBookId, setSelectedBookId] = useState<string>(() => {
-    const saved = localStorage.getItem('wordbase-selected-book');
-    return saved || 'biz-eng';
-  });
+  const [selectedBookId, setSelectedBookId] = useState<string>('');
+
+  // 当 books 加载完成或 auth 变化时，设置默认选中的单词本
+  useEffect(() => {
+    if (books.length > 0) {
+      // 优先选中同步的单词本
+      const syncBook = books.find(b => b.isSync);
+      if (syncBook) {
+        setSelectedBookId(syncBook.id);
+        return;
+      }
+      // 否则选中第一个
+      setSelectedBookId(books[0].id);
+    }
+  }, [books]);
 
   // Router dispatcher
   const renderMainView = () => {
@@ -782,6 +842,7 @@ export default function App() {
                 user={auth.user}
                 onUpdateProfile={handleUpdateProfile}
                 onChangePassword={handleChangePassword}
+                onDeleteAccount={handleDeleteAccount}
               />
             )}
             {activeView === 'settings-appearance' && (
