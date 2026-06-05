@@ -668,17 +668,31 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 }) => {
   const [selectedBookId, setSelectedBookId] = useState(initialSelectedBookId);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Update local state if initial prop changes
   useEffect(() => {
     setSelectedBookId(initialSelectedBookId);
+    setCurrentPage(1); // 切换单词本时回到第一页
   }, [initialSelectedBookId]);
+
+  // 当搜索或每页条数变化时回到第一页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, itemsPerPage]);
 
   const filteredWords = words
     .filter(w => w.bookId === selectedBookId)
     .filter(w => w.word.toLowerCase().includes(searchQuery.toLowerCase()) || 
                  w.definition.toLowerCase().includes(searchQuery.toLowerCase()) ||
                  w.chineseTranslation.includes(searchQuery));
+
+  // 计算分页
+  const totalPages = Math.ceil(filteredWords.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedWords = filteredWords.slice(startIndex, endIndex);
 
   const handleBookChange = (bookId: string) => {
     setSelectedBookId(bookId);
@@ -729,68 +743,202 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
       </div>
 
       {/* Table Card */}
-      <div className={`${themeStyles.card} overflow-x-auto`}>
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-neutral-200 dark:border-white/10 text-neutral-400 font-mono uppercase tracking-widest text-[10px]">
-              <th className="py-3 px-4">Word</th>
-              <th className="py-3 px-4">Lexical Unit</th>
-              <th className="py-3 px-4">Core Definition & Translation</th>
-              <th className="py-3 px-4">Confidence</th>
-              <th className="py-3 px-4 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredWords.length > 0 ? (
-              filteredWords.map(w => (
-                <tr key={w.id} className="border-b border-neutral-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <button 
-                      onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
-                      className={`font-semibold text-sm text-left hover:underline block ${themeStyles.accentText}`}
-                    >
-                      {w.word}
-                    </button>
-                    <span className="text-[10px] font-mono text-neutral-400 block">{w.phonetic}</span>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-neutral-400 italic">
-                    {w.partOfSpeech}
-                  </td>
-                  <td className="py-3.5 px-4 max-w-sm">
-                    <div className={`font-medium line-clamp-1 ${themeStyles.textPrimary}`}>{w.definition}</div>
-                    <div className="text-neutral-400 text-[11px] mt-0.5">{w.chineseTranslation}</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-16 bg-slate-200 dark:bg-white/10 h-2 rounded-xs overflow-hidden">
-                        <div 
-                          className={`h-full ${w.familiarity > 75 ? 'bg-emerald-500' : w.familiarity > 40 ? 'bg-amber-400' : 'bg-rose-400'}`} 
-                          style={{ width: `${w.familiarity}%` }}
-                        />
+      <div className={`${themeStyles.card} overflow-hidden`}>
+        {/* 表格容器添加滚动 */}
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 bg-inherit">
+              <tr className="border-b border-neutral-200 dark:border-white/10 text-neutral-400 font-mono uppercase tracking-widest text-[10px]">
+                <th className="py-3 px-4">Word</th>
+                <th className="py-3 px-4">Lexical Unit</th>
+                <th className="py-3 px-4">Core Definition & Translation</th>
+                <th className="py-3 px-4">Confidence</th>
+                <th className="py-3 px-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedWords.length > 0 ? (
+                paginatedWords.map(w => (
+                  <tr key={w.id} className="border-b border-neutral-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <button 
+                        onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
+                        className={`font-semibold text-sm text-left hover:underline block ${themeStyles.accentText}`}
+                      >
+                        {w.word}
+                      </button>
+                      <span className="text-[10px] font-mono text-neutral-400 block">{w.phonetic}</span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-neutral-400 italic">
+                      {w.partOfSpeech}
+                    </td>
+                    <td className="py-3.5 px-4 max-w-sm">
+                      <div className={`font-medium line-clamp-1 ${themeStyles.textPrimary}`}>{w.definition}</div>
+                      <div className="text-neutral-400 text-[11px] mt-0.5">{w.chineseTranslation}</div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-16 bg-slate-200 dark:bg-white/10 h-2 rounded-xs overflow-hidden">
+                          <div 
+                            className={`h-full ${w.familiarity > 75 ? 'bg-emerald-500' : w.familiarity > 40 ? 'bg-amber-400' : 'bg-rose-400'}`} 
+                            style={{ width: `${w.familiarity}%` }}
+                          />
+                        </div>
+                        <span className="font-mono text-[10px]">{w.familiarity}%</span>
                       </div>
-                      <span className="font-mono text-[10px]">{w.familiarity}%</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <button 
-                      onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
-                      className="text-xs text-indigo-650 dark:text-indigo-400 font-medium hover:underline inline-flex items-center"
-                    >
-                      <span>Study Card</span>
-                      <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                    </button>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <button 
+                        onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
+                        className="text-xs text-indigo-650 dark:text-indigo-400 font-medium hover:underline inline-flex items-center"
+                      >
+                        <span>Study Card</span>
+                        <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-neutral-400">
+                    No words matches your search parameters in this bookbook.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5} className="text-center py-8 text-neutral-400">
-                  No words matches your search parameters in this bookbook.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 分页控件 */}
+        {filteredWords.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 dark:border-white/10">
+            {/* 显示统计信息 */}
+            <div className="text-xs text-neutral-500">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredWords.length)} of {filteredWords.length}
+            </div>
+
+            <div className="flex items-center gap-4">
+              {/* 每页显示条数选择 */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-500">Show</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="px-2 py-1 bg-slate-100 dark:bg-white/10 border border-neutral-300 dark:border-white/15 rounded-lg text-xs cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-xs text-neutral-500">items</span>
+              </div>
+
+              {/* 页码导航 */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2 py-1 text-xs rounded-lg border border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {/* 第1页 */}
+                  <button
+                    key={1}
+                    onClick={() => setCurrentPage(1)}
+                    className={`px-2 py-1 text-xs rounded-lg border ${
+                      currentPage === 1
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {1}
+                  </button>
+                  
+                  {/* 左边省略号 */}
+                  {totalPages > 7 && currentPage > 4 && (
+                    <span className="text-xs text-neutral-400 px-1">...</span>
+                  )}
+
+                  {/* 中间页码 */}
+                  {(() => {
+                    // 计算要显示的中间页码
+                    const pages = [];
+                    
+                    if (totalPages <= 7) {
+                      // 页数少，直接显示所有
+                      for (let i = 2; i < totalPages; i++) {
+                        pages.push(i);
+                      }
+                    } else {
+                      // 页数多，显示中间5个
+                      let start = Math.max(2, currentPage - 2);
+                      let end = Math.min(totalPages - 1, currentPage + 2);
+                      
+                      // 确保始终有5个中间页码
+                      if (end - start + 1 < 5) {
+                        if (currentPage <= 4) {
+                          end = Math.min(totalPages - 1, 6);
+                        } else if (currentPage >= totalPages - 3) {
+                          start = Math.max(2, totalPages - 5);
+                        }
+                      }
+                      
+                      for (let i = start; i <= end; i++) {
+                        pages.push(i);
+                      }
+                    }
+                    
+                    return pages.map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-2 py-1 text-xs rounded-lg border ${
+                          currentPage === page
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ));
+                  })()}
+                  
+                  {/* 右边省略号 */}
+                  {totalPages > 7 && currentPage < totalPages - 3 && (
+                    <span className="text-xs text-neutral-400 px-1">...</span>
+                  )}
+                  
+                  {/* 最后一页 */}
+                  {totalPages > 1 && (
+                    <button
+                      key={totalPages}
+                      onClick={() => setCurrentPage(totalPages)}
+                      className={`px-2 py-1 text-xs rounded-lg border ${
+                        currentPage === totalPages
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      {totalPages}
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-2 py-1 text-xs rounded-lg border border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -978,12 +1126,20 @@ interface MyListsProps {
   books: VocabularyBook[];
   onCreateBook: (book: { name: string; description?: string; icon?: string; isSync: boolean }) => void;
   onSetSyncBook: (bookId: string) => void;
+  onDeleteBooks: (bookIds: string[]) => void;
 }
 
-export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, books, onCreateBook, onSetSyncBook }) => {
+export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, books, onCreateBook, onSetSyncBook, onDeleteBooks }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [notification, setNotification] = useState<string | null>(null);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // 检查单词本名称是否已存在（忽略大小写）
+  const isNameExists = name.trim().length > 0 && 
+    books.some(book => book.name.toLowerCase() === name.trim().toLowerCase());
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1018,6 +1174,42 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
         setTimeout(() => setNotification(null), 3000);
       }
     }
+  };
+
+  const handleToggleDeleteSelect = (bookId: string) => {
+    const book = books.find(b => b.id === bookId);
+    if (selectedBookIds.includes(bookId)) {
+      setSelectedBookIds(prev => prev.filter(id => id !== bookId));
+    } else {
+      // 不能选择同步的单词本
+      if (book?.isSync) {
+        return;
+      }
+      setSelectedBookIds(prev => [...prev, bookId]);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (deleteMode) {
+      if (selectedBookIds.length > 0) {
+        setShowConfirmModal(true);
+      }
+    } else {
+      setDeleteMode(true);
+      setSelectedBookIds([]);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteMode(false);
+    setSelectedBookIds([]);
+  };
+
+  const handleConfirmDelete = () => {
+    onDeleteBooks(selectedBookIds);
+    setShowConfirmModal(false);
+    setDeleteMode(false);
+    setSelectedBookIds([]);
   };
 
   // Switch component
@@ -1055,13 +1247,32 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
           <h2 className={`text-xl font-bold tracking-tight ${themeStyles.textPrimary}`}>Vocabulary Management</h2>
           <p className="text-xs text-neutral-400">Assemble word books, filter sets, and custom curriculum.</p>
         </div>
-        <button 
-          onClick={() => setShowCreate(!showCreate)} 
-          className={`${themeStyles.btnPrimary} flex items-center space-x-1.5 py-2 text-xs font-semibold`}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Wordbook</span>
-        </button>
+        <div className="flex gap-2">
+          {!deleteMode && (
+            <button 
+              onClick={() => setShowCreate(!showCreate)} 
+              className={`${themeStyles.btnPrimary} flex items-center space-x-1.5 py-2 text-xs font-semibold`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Wordbook</span>
+            </button>
+          )}
+          <button 
+            onClick={handleDeleteClick} 
+            className={`${deleteMode ? 'bg-red-600 hover:bg-red-700 text-white' : themeStyles.btnSecondary} flex items-center space-x-1.5 py-2 text-xs font-semibold px-4 rounded-xl`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{deleteMode ? 'Confirm Delete' : 'Delete Wordbook'}</span>
+          </button>
+          {deleteMode && (
+            <button 
+              onClick={handleCancelDelete} 
+              className={`${themeStyles.btnSecondary} py-2 text-xs font-semibold`}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
 
       {showCreate && (
@@ -1074,12 +1285,25 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., My Favorite Words, Business English"
-              className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
+              className={`w-full px-3 py-2 bg-black/5 dark:bg-white/5 border rounded-xl text-xs ${
+                isNameExists 
+                  ? 'border-red-500 focus:ring-red-500' 
+                  : 'border-neutral-300 dark:border-white/10'
+              }`}
               required
             />
+            {isNameExists && (
+              <p className="text-xs text-red-500 mt-1">单词本已存在</p>
+            )}
           </div>
           <div className="flex gap-2">
-            <button type="submit" className={`${themeStyles.btnPrimary} py-2 text-xs font-bold flex-1`}>
+            <button 
+              type="submit" 
+              className={`${themeStyles.btnPrimary} py-2 text-xs font-bold flex-1 ${
+                isNameExists ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              disabled={isNameExists}
+            >
               Create Wordbook
             </button>
             <button type="button" onClick={() => setShowCreate(false)} className={`${themeStyles.btnSecondary} py-2 text-xs flex-1`}>
@@ -1091,43 +1315,102 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
 
       {/* Wordbooks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {books.map(b => (
-          <div key={b.id} className="space-y-2">
-            <div 
-              className={`${themeStyles.card} hover:scale-[1.01] transition-transform cursor-pointer`}
-              onClick={() => onNavigate(`vocabulary-${b.id}`)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                    <BookOpen className="w-4 h-4" />
-                  </span>
-                  <div className="ml-3">
-                    <h3 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{b.name}</h3>
-                    <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{b.wordCount} words</p>
+        {books.map(b => {
+          const isSelected = selectedBookIds.includes(b.id);
+          const isSyncBook = b.isSync;
+          const isDisabled = isSyncBook;
+          return (
+            <div key={b.id} className="space-y-2">
+              <div 
+                className={`${themeStyles.card} hover:scale-[1.01] transition-transform ${deleteMode ? 'cursor-default' : 'cursor-pointer'} relative`}
+                onClick={() => {
+                  if (deleteMode) {
+                    if (!isDisabled) {
+                      handleToggleDeleteSelect(b.id);
+                    }
+                  } else {
+                    onNavigate(`vocabulary-${b.id}`);
+                  }
+                }}
+              >
+                {deleteMode && (
+                  <div className="absolute top-2 left-2 z-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        if (!isDisabled) {
+                          handleToggleDeleteSelect(b.id);
+                        }
+                      }}
+                      disabled={isDisabled}
+                      className="w-4 h-4 text-red-600 rounded"
+                    />
                   </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                      <BookOpen className="w-4 h-4" />
+                    </span>
+                    <div className="ml-3">
+                      <h3 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{b.name}</h3>
+                      <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{b.wordCount} words</p>
+                    </div>
+                  </div>
+                  {!deleteMode && (
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <Switch 
+                        checked={b.isSync} 
+                        onChange={() => handleToggleSync(b.id, b.isSync)}
+                      />
+                    </div>
+                  )}
                 </div>
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                >
-                  <Switch 
-                    checked={b.isSync} 
-                    onChange={() => handleToggleSync(b.id, b.isSync)}
-                  />
-                </div>
+                {b.isSync && (
+                  <div className="mt-2 flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>同步单词本</span>
+                  </div>
+                )}
               </div>
-              {b.isSync && (
-                <div className="mt-2 flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>同步单词本</span>
-                </div>
-              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Confirm Delete Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`${themeStyles.card} p-6 max-w-sm w-full mx-4`}>
+            <h3 className="text-base font-bold mb-4">确认删除？</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-6">
+              确定要删除选中的 {selectedBookIds.length} 个单词本吗？这将同时删除所有相关单词。
+            </p>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className={`flex-1 ${themeStyles.btnSecondary} py-2 text-sm font-semibold`}
+              >
+                取消
+              </button>
+              <button 
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700"
+              >
+                确认
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
