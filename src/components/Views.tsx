@@ -976,26 +976,80 @@ interface MyListsProps {
   themeStyles: ThemeClasses;
   onNavigate: (view: string) => void;
   books: VocabularyBook[];
-  onCreateBook: (book: { name: string; description?: string; icon?: string }) => void;
+  onCreateBook: (book: { name: string; description?: string; icon?: string; isSync: boolean }) => void;
+  onSetSyncBook: (bookId: string) => void;
 }
 
-export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, books, onCreateBook }) => {
+export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, books, onCreateBook, onSetSyncBook }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
+  const [notification, setNotification] = useState<string | null>(null);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     onCreateBook({
       name,
       description: '',
-      icon: 'BookOpen'
+      icon: 'BookOpen',
+      isSync: false
     });
     setName('');
     setShowCreate(false);
   };
 
+  const handleToggleSync = (bookId: string, currentIsSync: boolean) => {
+    if (currentIsSync) {
+      // 尝试关闭当前同步单词本
+      if (books.length === 1) {
+        // 只有一个单词本，不能关闭
+        setNotification('必须有一个同步单词本');
+        setTimeout(() => setNotification(null), 3000);
+      } else {
+        // 有多个单词本，不能直接关闭，什么也不做
+        setNotification('请先选择另一个单词本作为同步单词本');
+        setTimeout(() => setNotification(null), 3000);
+      }
+    } else {
+      // 开启这个单词本的同步
+      onSetSyncBook(bookId);
+      const book = books.find(b => b.id === bookId);
+      if (book) {
+        setNotification(`${book.name}已设为同步单词本`);
+        setTimeout(() => setNotification(null), 3000);
+      }
+    }
+  };
+
+  // Switch component
+  const Switch = ({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) => (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+        checked ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+          checked ? 'translate-x-5' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  );
+
   return (
     <div className="space-y-6">
+      {/* Notification */}
+      {notification && (
+        <div className={`${themeStyles.card} bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800`}>
+          <div className="flex items-center space-x-2 text-emerald-700 dark:text-emerald-300">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-sm font-medium">{notification}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h2 className={`text-xl font-bold tracking-tight ${themeStyles.textPrimary}`}>Vocabulary Management</h2>
@@ -1035,22 +1089,41 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
         </form>
       )}
 
-      {/* Wordbooks Grid - simplified */}
+      {/* Wordbooks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {books.map(b => (
-          <div 
-            key={b.id} 
-            className={`${themeStyles.card} hover:scale-[1.01] transition-transform cursor-pointer`}
-            onClick={() => onNavigate(`vocabulary-${b.id}`)}
-          >
-            <div className="flex items-center">
-              <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                <BookOpen className="w-4 h-4" />
-              </span>
-              <div className="ml-3">
-                <h3 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{b.name}</h3>
-                <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{b.wordCount} words</p>
+          <div key={b.id} className="space-y-2">
+            <div 
+              className={`${themeStyles.card} hover:scale-[1.01] transition-transform cursor-pointer`}
+              onClick={() => onNavigate(`vocabulary-${b.id}`)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                    <BookOpen className="w-4 h-4" />
+                  </span>
+                  <div className="ml-3">
+                    <h3 className={`font-bold text-sm ${themeStyles.textPrimary}`}>{b.name}</h3>
+                    <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{b.wordCount} words</p>
+                  </div>
+                </div>
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <Switch 
+                    checked={b.isSync} 
+                    onChange={() => handleToggleSync(b.id, b.isSync)}
+                  />
+                </div>
               </div>
+              {b.isSync && (
+                <div className="mt-2 flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>同步单词本</span>
+                </div>
+              )}
             </div>
           </div>
         ))}
