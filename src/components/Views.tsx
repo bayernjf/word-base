@@ -4,7 +4,7 @@ import {
   Trash2, BookOpen, Clock, Award, Star, Mic, Send, RefreshCw, Upload, CheckCircle2, Lock, Eye, 
   ChevronDown, Settings, Database, Code, Sliders, Smartphone, Activity, BarChart3, HelpCircle, FileText
 } from 'lucide-react';
-import { Word, VocabularyBook, Story, ChatMessage, PracticeQuiz, AIModel, ThemeType } from '../types';
+import { MoveWordsResult, Word, VocabularyBook, Story, ChatMessage, PracticeQuiz, AIModel, ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
 
 // 辅助函数：获取单词的frequency值
@@ -513,7 +513,12 @@ interface VocabularyProps {
   initialSelectedBookId?: string;
   onBookChange?: (bookId: string) => void;
   onDeleteWords?: (wordIds: string[]) => void;
-  onMoveWords?: (wordIds: string[], targetBookId: string) => void;
+  onMoveWords?: (wordIds: string[], targetBookId: string) => Promise<MoveWordsResult>;
+}
+
+interface VocabularyNotification {
+  message: string;
+  highlight?: string;
 }
 
 export const VocabularyListView: React.FC<VocabularyProps> = ({ 
@@ -529,6 +534,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showMoveConfirmModal, setShowMoveConfirmModal] = useState(false);
   const [targetBookId, setTargetBookId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<VocabularyNotification | null>(null);
 
   // Update local state if initial prop changes
   useEffect(() => {
@@ -599,6 +605,18 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const endIndex = startIndex + itemsPerPage;
   const paginatedWords = filteredWords.slice(startIndex, endIndex);
 
+  useEffect(() => {
+    const nextTotalPages = Math.max(1, Math.ceil(filteredWords.length / itemsPerPage));
+    if (currentPage > nextTotalPages) {
+      setCurrentPage(nextTotalPages);
+    }
+  }, [filteredWords.length, itemsPerPage, currentPage]);
+
+  useEffect(() => {
+    const availableWordIds = new Set(filteredWords.map((word) => word.id));
+    setSelectedWordIds((prev) => prev.filter((id) => availableWordIds.has(id)));
+  }, [filteredWords]);
+
   // 全选/取消全选
   const toggleSelectAll = () => {
     if (selectedWordIds.length === paginatedWords.length) {
@@ -630,13 +648,39 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   };
 
   // 移动操作
-  const handleMove = () => {
-    if (targetBookId) {
-      onMoveWords?.(selectedWordIds, targetBookId);
-      setShowMoveModal(false);
-      setShowMoveConfirmModal(false);
-      setTargetBookId(null);
-      clearSelection();
+  const handleMove = async () => {
+    if (targetBookId && onMoveWords) {
+      const targetBookName = books.find((book) => book.id === targetBookId)?.name || '目标单词本';
+      const result = await onMoveWords(selectedWordIds, targetBookId);
+
+      if (result.success) {
+        if (result.movedCount > 0 && result.duplicateCount > 0) {
+          setNotification({
+            message: `已移动 ${result.movedCount} 个单词到`,
+            highlight: `${targetBookName}，${result.duplicateCount} 个单词已存在`,
+          });
+        } else if (result.duplicateCount > 0) {
+          setNotification({
+            message: result.duplicateCount === 1 ? '单词已存在于' : `${result.duplicateCount} 个单词已存在于`,
+            highlight: targetBookName,
+          });
+        } else {
+          setNotification({
+            message: result.movedCount === 1 ? '单词已成功移动到' : `已成功移动 ${result.movedCount} 个单词到`,
+            highlight: targetBookName,
+          });
+        }
+
+        setShowMoveModal(false);
+        setShowMoveConfirmModal(false);
+        setTargetBookId(null);
+        clearSelection();
+      } else {
+        setShowMoveConfirmModal(false);
+        setNotification({ message: '单词移动失败，请重试' });
+      }
+
+      setTimeout(() => setNotification(null), 3000);
     }
   };
 
@@ -714,6 +758,17 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
               取消选择
             </button>
           </div>
+        </div>
+      )}
+
+      {notification && (
+        <div className="px-4 py-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 text-sm text-indigo-700 dark:text-indigo-300">
+          <span>{notification.message}</span>
+          {notification.highlight && (
+            <span className="ml-1 inline-flex items-center rounded-md bg-indigo-600/10 px-2 py-0.5 font-semibold text-indigo-700 dark:text-indigo-200 ring-1 ring-indigo-500/20">
+              {notification.highlight}
+            </span>
+          )}
         </div>
       )}
 

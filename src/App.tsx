@@ -717,6 +717,12 @@ export default function App() {
       }
       return w;
     }));
+
+    return Promise.resolve({
+      success: true,
+      movedCount: wordIds.length,
+      duplicateCount: 0,
+    });
   };
 
   // Find currently active word card

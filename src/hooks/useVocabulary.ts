@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useSupabase } from '../context/SupabaseContext';
-import type { Word, WordContext, VocabularyBook } from '../types';
+import type { MoveWordsResult, Word, WordContext, VocabularyBook } from '../types';
 
 type SupabaseBookRow = {
   id: string;
@@ -150,6 +150,21 @@ function toWordPayload(word: Omit<Word, 'id'>) {
     book_id: word.bookId,
     meta: word.meta || {},
   };
+}
+
+function mergeContexts(existingContexts: WordContext[], nextContexts: WordContext[]) {
+  const mergedContexts: WordContext[] = [...existingContexts];
+
+  nextContexts.forEach((context) => {
+    const duplicated = mergedContexts.some(
+      (item) => item.context === context.context && item.sourceLink === context.sourceLink
+    );
+    if (!duplicated) {
+      mergedContexts.push(context);
+    }
+  });
+
+  return mergedContexts;
 }
 
 export function useVocabularyBooks() {
@@ -458,16 +473,7 @@ export function useWords(bookId?: string) {
           const existingWord = mapWordRow(existing as SupabaseWordRow);
           const existingContexts: WordContext[] = existingWord.contexts || [];
           const nextContexts: WordContext[] = payload.contexts || [];
-          const mergedContexts: WordContext[] = [...existingContexts];
-
-          nextContexts.forEach((context) => {
-            const duplicated = mergedContexts.some(
-              (item) => item.context === context.context && item.sourceLink === context.sourceLink
-            );
-            if (!duplicated) {
-              mergedContexts.push(context);
-            }
-          });
+          const mergedContexts = mergeContexts(existingContexts, nextContexts);
 
           const { data: updated, error: updateError } = await supabase
             .from('words')
@@ -569,28 +575,118 @@ export function useWords(bookId?: string) {
 
   const moveWords = useCallback(
     async (wordIds: string[], targetBookId: string) => {
-      if (!user || wordIds.length === 0) return false;
+      if (!user || wordIds.length === 0) {
+        return {
+          success: false,
+          movedCount: 0,
+          duplicateCount: 0,
+        } satisfies MoveWordsResult;
+      }
 
       try {
-        const { error } = await supabase
+        const { data: sourceRows, error: sourceError } = await supabase
           .from('words')
-          .update({
-            book_id: targetBookId,
-            updated_at: new Date().toISOString(),
-            time_updated: new Date().toISOString(),
-          })
+          .select(
+            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+          )
           .eq('user_id', user.id)
+          .eq('is_deleted', false)
           .in('id', wordIds);
 
-        if (error) throw error;
+        if (sourceError) throw sourceError;
 
-        setWords((prev) =>
-          prev.map((word) => (wordIds.includes(word.id) ? { ...word, bookId: targetBookId } : word))
+        const movingRows = (sourceRows || []) as SupabaseWordRow[];
+        if (movingRows.length === 0) {
+          return {
+            success: false,
+            movedCount: 0,
+            duplicateCount: 0,
+          } satisfies MoveWordsResult;
+        }
+
+        const movingWords = movingRows.map(mapWordRow);
+        const candidateWords = Array.from(new Set(movingRows.map((row) => row.word)));
+
+        const { data: targetRows, error: targetError } = await supabase
+          .from('words')
+          .select(
+            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+          )
+          .eq('user_id', user.id)
+          .eq('book_id', targetBookId)
+          .eq('is_deleted', false)
+          .in('word', candidateWords);
+
+        if (targetError) throw targetError;
+
+        const targetWordMap = new Map(
+          ((targetRows || []) as SupabaseWordRow[]).map((row) => [row.word, row] as const)
         );
-        return true;
+
+        const now = new Date().toISOString();
+        let movedCount = 0;
+        let duplicateCount = 0;
+        const processedSourceIds: string[] = [];
+
+        for (const sourceWord of movingWords) {
+          const existingTargetRow = targetWordMap.get(sourceWord.word);
+
+          if (!existingTargetRow) {
+            const { error: moveError } = await supabase
+              .from('words')
+              .update({
+                book_id: targetBookId,
+                updated_at: now,
+                time_updated: now,
+              })
+              .eq('id', sourceWord.id)
+              .eq('user_id', user.id)
+              .eq('is_deleted', false);
+
+            if (moveError) throw moveError;
+
+            movedCount += 1;
+            processedSourceIds.push(sourceWord.id);
+            continue;
+          }
+
+          duplicateCount += 1;
+
+          const existingTargetWord = mapWordRow(existingTargetRow);
+          const payload = toWordPayload({ ...sourceWord, bookId: targetBookId });
+          const existingContexts = existingTargetWord.contexts || [];
+          const nextContexts = payload.contexts || [];
+          const mergedContexts = mergeContexts(existingContexts, nextContexts);
+
+          const { error: updateExistingError } = await supabase
+            .from('words')
+            .update({
+              ...payload,
+              contexts: mergedContexts,
+              frequency: Math.max(mergedContexts.length, payload.frequency || 1),
+              time_updated: now,
+              updated_at: now,
+            })
+            .eq('id', existingTargetRow.id)
+            .eq('user_id', user.id)
+            .eq('is_deleted', false);
+
+          if (updateExistingError) throw updateExistingError;
+        }
+
+        setWords((prev) => prev.filter((word) => !processedSourceIds.includes(word.id)));
+        return {
+          success: true,
+          movedCount,
+          duplicateCount,
+        } satisfies MoveWordsResult;
       } catch (error) {
         console.error('Error moving words:', error);
-        return false;
+        return {
+          success: false,
+          movedCount: 0,
+          duplicateCount: 0,
+        } satisfies MoveWordsResult;
       }
     },
     [user]

@@ -347,10 +347,11 @@ export default function AppSupabase() {
   };
 
   const handleMoveWords = async (wordIds: string[], targetBookId: string) => {
-    const moved = await moveWords(wordIds, targetBookId);
-    if (moved) {
+    const result = await moveWords(wordIds, targetBookId);
+    if (result.success) {
       await loadBooks();
     }
+    return result;
   };
 
   const handleCreateBook = async (bookData: Parameters<typeof createBook>[0]) => {

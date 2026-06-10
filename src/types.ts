@@ -58,6 +58,12 @@ export interface VocabularyBook {
   isSync: boolean;
 }
 
+export interface MoveWordsResult {
+  success: boolean;
+  movedCount: number;
+  duplicateCount: number;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'ai' | 'user';
