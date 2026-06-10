@@ -1349,7 +1349,7 @@ interface MyListsProps {
   onNavigate: (view: string) => void;
   books: VocabularyBook[];
   onCreateBook: (book: { name: string; description?: string; icon?: string; isSync: boolean }) => void;
-  onSetSyncBook: (bookId: string) => void;
+  onSetSyncBook: (bookId: string) => Promise<boolean>;
   onDeleteBooks: (bookIds: string[]) => void;
   onUpdateBook: (bookId: string, updates: { name?: string; description?: string; icon?: string }) => Promise<boolean>;
 }
@@ -1391,7 +1391,7 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
     setShowCreate(false);
   };
 
-  const handleToggleSync = (bookId: string, currentIsSync: boolean) => {
+  const handleToggleSync = async (bookId: string, currentIsSync: boolean) => {
     if (currentIsSync) {
       // 尝试关闭当前同步单词本
       if (books.length === 1) {
@@ -1405,10 +1405,14 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, onNavigate, b
       }
     } else {
       // 开启这个单词本的同步
-      onSetSyncBook(bookId);
+      const ok = await onSetSyncBook(bookId);
       const book = books.find(b => b.id === bookId);
-      if (book) {
+      if (ok && book) {
         setNotification(`${book.name}已设为同步单词本`);
+      } else if (!ok) {
+        setNotification('切换同步单词本失败，请重试');
+      }
+      if (ok || !ok) {
         setTimeout(() => setNotification(null), 3000);
       }
     }

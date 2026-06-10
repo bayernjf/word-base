@@ -57,11 +57,26 @@ BEGIN
     RAISE EXCEPTION 'book_not_found_or_forbidden';
   END IF;
 
+  PERFORM 1
+  FROM vocabulary_books
+  WHERE vocabulary_books.user_id = v_user_id
+    AND vocabulary_books.is_deleted = FALSE
+  FOR UPDATE;
+
   UPDATE vocabulary_books
   SET
-    is_sync = (id = p_book_id),
+    is_sync = FALSE,
     updated_at = NOW()
   WHERE vocabulary_books.user_id = v_user_id
+    AND vocabulary_books.is_sync = TRUE
+    AND vocabulary_books.is_deleted = FALSE;
+
+  UPDATE vocabulary_books
+  SET
+    is_sync = TRUE,
+    updated_at = NOW()
+  WHERE vocabulary_books.id = p_book_id
+    AND vocabulary_books.user_id = v_user_id
     AND vocabulary_books.is_deleted = FALSE;
 
   RETURN QUERY

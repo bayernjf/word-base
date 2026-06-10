@@ -62,6 +62,18 @@ function selectPreferredSyncBook(books: Array<{ id: string; name: string; isSync
     })[0] || null;
 }
 
+function persistSelectedBookId(bookId: string) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('wordbase-selected-book', bookId);
+  }
+}
+
+function clearPersistedSelectedBookId() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('wordbase-selected-book');
+  }
+}
+
 export default function AppSupabase() {
   const { user, isLoading: authLoading, signIn, signOut, resetPassword } = useSupabase();
   const { books, isLoading: booksLoading, loadBooks, createBook, updateBook, deleteBook, setSyncBook } =
@@ -135,25 +147,25 @@ export default function AppSupabase() {
   }, [user, books, booksLoading, createBook]);
 
   useEffect(() => {
-    if (books.length > 0) {
-      const savedBookId = typeof window !== 'undefined' ? localStorage.getItem('wordbase-selected-book') : null;
-      const rememberedBook = savedBookId ? books.find((book) => book.id === savedBookId) : null;
-      const syncBook = selectPreferredSyncBook(books);
-
-      if (rememberedBook) {
-        setSelectedBookId(rememberedBook.id);
-        return;
-      }
-
-      if (syncBook) {
-        setSelectedBookId(syncBook.id);
-      } else {
-        setSelectedBookId(books[0].id);
-      }
-    } else {
+    if (books.length === 0) {
       setSelectedBookId('');
+      clearPersistedSelectedBookId();
+      return;
     }
-  }, [books]);
+
+    if (selectedBookId && books.some((book) => book.id === selectedBookId)) {
+      return;
+    }
+
+    const savedBookId = typeof window !== 'undefined' ? localStorage.getItem('wordbase-selected-book') : null;
+    const rememberedBook = savedBookId ? books.find((book) => book.id === savedBookId) : null;
+    const syncBook = selectPreferredSyncBook(books);
+    const nextBookId = rememberedBook?.id || syncBook?.id || books[0].id;
+
+    if (nextBookId && nextBookId !== selectedBookId) {
+      setSelectedBookId(nextBookId);
+    }
+  }, [books, selectedBookId]);
 
   useEffect(() => {
     if (words.length > 0 && !selectedWordId) {
@@ -380,13 +392,22 @@ export default function AppSupabase() {
   };
 
   const handleSetSyncBook = async (bookId: string) => {
+    const previousBookId = selectedBookId;
+    setSelectedBookId(bookId);
+    persistSelectedBookId(bookId);
+
     const ok = await setSyncBook(bookId);
-    if (ok) {
-      setSelectedBookId(bookId);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('wordbase-selected-book', bookId);
+    if (!ok) {
+      if (previousBookId) {
+        setSelectedBookId(previousBookId);
+        persistSelectedBookId(previousBookId);
+      } else {
+        setSelectedBookId('');
+        clearPersistedSelectedBookId();
       }
     }
+
+    return ok;
   };
 
   const activeWordCard = words.find((wordItem) => wordItem.id === selectedWordId) || words[0];
@@ -411,9 +432,7 @@ export default function AppSupabase() {
 
     if (navigateToBook && bookIdFromNavigation && bookIdFromNavigation !== selectedBookId) {
       setSelectedBookId(bookIdFromNavigation);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('wordbase-selected-book', bookIdFromNavigation);
-      }
+      persistSelectedBookId(bookIdFromNavigation);
     }
 
     if (activeView === 'vocabulary' || navigateToBook) {
@@ -428,9 +447,7 @@ export default function AppSupabase() {
           initialSelectedBookId={finalSelectedBookId}
           onBookChange={(id) => {
             setSelectedBookId(id);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('wordbase-selected-book', id);
-            }
+            persistSelectedBookId(id);
             setActiveView(`vocabulary-${id}`);
           }}
           onDeleteWords={handleDeleteWords}

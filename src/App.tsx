@@ -601,6 +601,7 @@ export default function App() {
         const data = await response.json();
         if (data.ok && data.books) {
           setBooks(data.books);
+          return true;
         }
       }
     } catch (e) {
@@ -617,7 +618,10 @@ export default function App() {
         }
         return newBooks;
       });
+      return true;
     }
+
+    return false;
   };
 
   const handleDeleteBooks = async (bookIds: string[]) => {
