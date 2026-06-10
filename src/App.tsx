@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   initialVocabularyBooks, initialWords, initialStories, listeningQuizzes, mockDefaultModels 
 } from './mockData';
-import { ThemeType, Word, VocabularyBook, AIModel } from './types';
+import { AppLanguage, ThemeType, Word, VocabularyBook, AIModel } from './types';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -35,6 +35,14 @@ interface AuthState {
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeType>('glass');
+  const [language, setLanguage] = useState<AppLanguage>(() => {
+    try {
+      const savedLanguage = localStorage.getItem('wordbase_language');
+      return savedLanguage === 'en' ? 'en' : 'zh';
+    } catch {
+      return 'zh';
+    }
+  });
   const [activeView, setActiveView] = useState<string>(() => {
     try {
       const auth = localStorage.getItem('wordbase_auth');
@@ -79,6 +87,14 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('wordbase_language', language);
+    } catch {
+      // ignore
+    }
+  }, [language]);
 
   useEffect(() => {
     if (isLoggedIn && auth.accessToken) {
@@ -753,6 +769,7 @@ export default function App() {
       return (
         <WelcomeLoginView 
           themeStyles={themeStyles} 
+          language={language}
           onLogin={handleLogin}
           onRegister={handleRegister}
           onRequestPasswordReset={handleRequestPasswordReset}
@@ -778,6 +795,7 @@ export default function App() {
       return (
         <VocabularyListView 
           themeStyles={themeStyles} 
+          language={language}
           onNavigate={setActiveView} 
           words={words}
           books={books}
@@ -801,6 +819,7 @@ export default function App() {
         return (
           <DashboardView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={setActiveView} 
             books={books}
             words={words}
@@ -810,6 +829,7 @@ export default function App() {
         return (
           <WordDetailView
             themeStyles={themeStyles}
+            language={language}
             onNavigate={setActiveView}
             word={activeWordCard}
             onUpdateFamiliarity={handleUpdateFamiliarity}
@@ -819,6 +839,7 @@ export default function App() {
         return (
           <MyListsView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={(view) => {
               if (view.startsWith('vocabulary-')) {
                 setActiveView(view);
@@ -845,6 +866,7 @@ export default function App() {
         return (
           <PracticeMainView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={setActiveView} 
           />
         );
@@ -852,6 +874,7 @@ export default function App() {
         return (
           <ListeningPracticeView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={setActiveView} 
             quizzes={listeningQuizzes}
           />
@@ -860,6 +883,7 @@ export default function App() {
         return (
           <SpeakingPracticeView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={setActiveView} 
           />
         );
@@ -867,6 +891,7 @@ export default function App() {
         return (
           <ReadingPracticeView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={setActiveView} 
           />
         );
@@ -874,6 +899,7 @@ export default function App() {
         return (
           <WritingPracticeView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={setActiveView} 
           />
         );
@@ -942,12 +968,14 @@ export default function App() {
         return (
           <SettingsLayout 
             themeStyles={themeStyles} 
+            language={language}
             activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
             onNavigateSettings={setActiveView}
           >
             {activeView === 'settings-account' && (
               <AccountSettingsView 
                 themeStyles={themeStyles} 
+                language={language}
                 user={auth.user}
                 onUpdateProfile={handleUpdateProfile}
                 onChangePassword={handleChangePassword}
@@ -957,6 +985,7 @@ export default function App() {
             {activeView === 'settings-appearance' && (
               <AppearanceSettingsView 
                 themeStyles={themeStyles} 
+                language={language}
                 activeTheme={theme} 
                 onThemeChange={setTheme} 
                 isCompactMode={isCompactMode}
@@ -968,6 +997,7 @@ export default function App() {
             {activeView === 'settings-aimodels' && (
               <AIModelsView 
                 themeStyles={themeStyles} 
+                language={language}
                 onNavigate={setActiveView} 
                 models={models}
                 onToggleModel={handleToggleModel}
@@ -976,11 +1006,12 @@ export default function App() {
             {activeView === 'settings-addmodel' && (
               <AddNewModelView 
                 themeStyles={themeStyles} 
+                language={language}
                 onNavigate={setActiveView} 
                 onSaveModel={handleAddCustomModel}
               />
             )}
-            {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} />}
+            {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
           </SettingsLayout>
         );
 
@@ -988,6 +1019,7 @@ export default function App() {
         return (
           <DashboardView 
             themeStyles={themeStyles} 
+            language={language}
             onNavigate={setActiveView} 
             books={books}
             words={words}
@@ -1010,6 +1042,8 @@ export default function App() {
       {/* Global Navbar */}
       <Navbar 
         theme={theme} 
+        language={language}
+        onLanguageChange={setLanguage}
         onThemeChange={setTheme} 
         themeStyles={themeStyles} 
         isLoggedIn={isLoggedIn}
@@ -1050,6 +1084,7 @@ export default function App() {
                 activeView={activeView} 
                 onNavigate={setActiveView} 
                 themeStyles={themeStyles} 
+                language={language}
                 user={auth.user}
               />
             </div>

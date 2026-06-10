@@ -1,4 +1,5 @@
 export type ThemeType = 'glass' | 'natural';
+export type AppLanguage = 'zh' | 'en';
 
 export interface WordContext {
   context: string;

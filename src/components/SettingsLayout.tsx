@@ -1,22 +1,33 @@
 import React from 'react';
 import { User, Sliders, Sparkles, Database, ArrowLeft, Shield } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
+import { AppLanguage } from '../types';
 
 interface SettingsLayoutProps {
   themeStyles: ThemeClasses;
+  language: AppLanguage;
   activeSettingsTab: string;
   onNavigateSettings: (tab: string) => void;
   children: React.ReactNode;
 }
 
 export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ 
-  themeStyles, activeSettingsTab, onNavigateSettings, children 
+  themeStyles, language, activeSettingsTab, onNavigateSettings, children 
 }) => {
+  const copy = {
+    account: language === 'zh' ? '账户设置' : 'Account Profile',
+    appearance: language === 'zh' ? '外观设置' : 'Appearance Theme',
+    aiModels: language === 'zh' ? 'AI 模型' : 'AI Engine Models',
+    sync: language === 'zh' ? '同步与存储' : 'Sync & Storage',
+    title: language === 'zh' ? '设置中心' : 'Settings Configuration',
+    subtitle: language === 'zh' ? '查看凭据、调整界面，并检查同步与存储配置。' : 'Review credentials, select screen elements, and check synced storage models.',
+    preferences: language === 'zh' ? '偏好设置' : 'Preferences',
+  };
   const settingsMenus = [
-    { id: 'settings-account', label: 'Account Profile (账户设置)', icon: User },
-    { id: 'settings-appearance', label: 'Appearance Theme (外观设置)', icon: Sliders },
-    { id: 'settings-aimodels', label: 'AI Engine Models (AI模型)', icon: Sparkles },
-    { id: 'settings-sync', label: 'Sync & Storage (数据同步)', icon: Database }
+    { id: 'settings-account', label: copy.account, icon: User },
+    { id: 'settings-appearance', label: copy.appearance, icon: Sliders },
+    { id: 'settings-aimodels', label: copy.aiModels, icon: Sparkles },
+    { id: 'settings-sync', label: copy.sync, icon: Database }
   ];
 
   const isGlass = themeStyles.borderClass === 'border-white/10';
@@ -24,8 +35,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className={`text-xl font-bold tracking-tight ${themeStyles.textPrimary}`}>Settings Configuration</h2>
-        <p className={`text-xs ${themeStyles.textSecondary}`}>Review credentials, select screen elements, and check synced storage models.</p>
+        <h2 className={`text-xl font-bold tracking-tight ${themeStyles.textPrimary}`}>{copy.title}</h2>
+        <p className={`text-xs ${themeStyles.textSecondary}`}>{copy.subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -36,7 +47,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
             : 'bg-slate-100/50 dark:bg-white/5 border-neutral-200 dark:border-white/5'
         }`}>
           <span className={`block text-[10px] font-mono uppercase tracking-widest mb-2 px-2.5 font-bold ${isGlass ? 'text-white/40' : 'text-neutral-400'}`}>
-            Preferences
+            {copy.preferences}
           </span>
           <ul className="space-y-1">
             {settingsMenus.map(m => {

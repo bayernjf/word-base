@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ThemeType, AIModel } from './types';
+import { AppLanguage, ThemeType, AIModel } from './types';
 import { initialStories, listeningQuizzes, mockDefaultModels } from './mockData';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
@@ -82,6 +82,18 @@ export default function AppSupabase() {
   const { words, addWord, deleteWords, moveWords, updateWord } = useWords(selectedBookId);
 
   const [theme, setTheme] = useState<ThemeType>('glass');
+  const [language, setLanguage] = useState<AppLanguage>(() => {
+    if (typeof window === 'undefined') {
+      return 'zh';
+    }
+
+    try {
+      const savedLanguage = localStorage.getItem('wordbase_language');
+      return savedLanguage === 'en' ? 'en' : 'zh';
+    } catch {
+      return 'zh';
+    }
+  });
   const [activeView, setActiveView] = useState<string>('welcome');
   const [isCompactMode, setIsCompactMode] = useState<boolean>(false);
   const [isSmallTypography, setIsSmallTypography] = useState<boolean>(false);
@@ -94,6 +106,18 @@ export default function AppSupabase() {
     (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001');
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      localStorage.setItem('wordbase_language', language);
+    } catch {
+      // ignore
+    }
+  }, [language]);
 
   useEffect(() => {
     let cancelled = false;
@@ -418,6 +442,7 @@ export default function AppSupabase() {
       return (
         <WelcomeLoginView
           themeStyles={themeStyles}
+          language={language}
           onLogin={handleSignIn}
           onRegister={handleSignUp}
           onRequestPasswordReset={handleRequestPasswordReset}
@@ -440,6 +465,7 @@ export default function AppSupabase() {
       return (
         <VocabularyListView
           themeStyles={themeStyles}
+          language={language}
           onNavigate={setActiveView}
           words={words}
           books={books}
@@ -459,11 +485,12 @@ export default function AppSupabase() {
 
     switch (activeView) {
       case 'dashboard':
-        return <DashboardView themeStyles={themeStyles} onNavigate={setActiveView} books={books} words={words} />;
+        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} />;
       case 'worddetail':
         return (
           <WordDetailView
             themeStyles={themeStyles}
+            language={language}
             onNavigate={setActiveView}
             word={activeWordCard}
             onUpdateFamiliarity={(id, level) => {
@@ -475,6 +502,7 @@ export default function AppSupabase() {
         return (
           <MyListsView
             themeStyles={themeStyles}
+            language={language}
             onNavigate={setActiveView}
             books={books}
             onCreateBook={handleCreateBook}
@@ -486,19 +514,20 @@ export default function AppSupabase() {
       case 'stories':
         return <StudyScenarioView themeStyles={themeStyles} stories={initialStories} words={words} />;
       case 'practice':
-        return <PracticeMainView themeStyles={themeStyles} onNavigate={setActiveView} />;
+        return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
       case 'practice-listening':
-        return <ListeningPracticeView themeStyles={themeStyles} onNavigate={setActiveView} quizzes={listeningQuizzes} />;
+        return <ListeningPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} quizzes={listeningQuizzes} />;
       case 'practice-speaking':
-        return <SpeakingPracticeView themeStyles={themeStyles} onNavigate={setActiveView} />;
+        return <SpeakingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
       case 'practice-reading':
-        return <ReadingPracticeView themeStyles={themeStyles} onNavigate={setActiveView} />;
+        return <ReadingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
       case 'practice-writing':
-        return <WritingPracticeView themeStyles={themeStyles} onNavigate={setActiveView} />;
+        return <WritingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
       case 'profile':
         return (
           <AccountSettingsView
             themeStyles={themeStyles}
+            language={language}
             user={currentUser}
             onUpdateProfile={handleUpdateProfile}
             onChangePassword={handleChangePassword}
@@ -513,12 +542,14 @@ export default function AppSupabase() {
         return (
           <SettingsLayout
             themeStyles={themeStyles}
+            language={language}
             activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
             onNavigateSettings={setActiveView}
           >
             {activeView === 'settings-account' && (
               <AccountSettingsView
                 themeStyles={themeStyles}
+                language={language}
                 user={currentUser}
                 onUpdateProfile={handleUpdateProfile}
                 onChangePassword={handleChangePassword}
@@ -528,6 +559,7 @@ export default function AppSupabase() {
             {activeView === 'settings-appearance' && (
               <AppearanceSettingsView
                 themeStyles={themeStyles}
+                language={language}
                 activeTheme={theme}
                 onThemeChange={setTheme}
                 isCompactMode={isCompactMode}
@@ -539,6 +571,7 @@ export default function AppSupabase() {
             {activeView === 'settings-aimodels' && (
               <AIModelsView
                 themeStyles={themeStyles}
+                language={language}
                 onNavigate={setActiveView}
                 models={models}
                 onToggleModel={handleToggleModel}
@@ -547,15 +580,16 @@ export default function AppSupabase() {
             {activeView === 'settings-addmodel' && (
               <AddNewModelView
                 themeStyles={themeStyles}
+                language={language}
                 onNavigate={setActiveView}
                 onSaveModel={handleAddCustomModel}
               />
             )}
-            {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} />}
+            {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
           </SettingsLayout>
         );
       default:
-        return <DashboardView themeStyles={themeStyles} onNavigate={setActiveView} books={books} words={words} />;
+        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} />;
     }
   };
 
@@ -587,6 +621,8 @@ export default function AppSupabase() {
 
       <Navbar
         theme={theme}
+        language={language}
+        onLanguageChange={setLanguage}
         onThemeChange={setTheme}
         themeStyles={themeStyles}
         isLoggedIn={!!user}
@@ -619,7 +655,13 @@ export default function AppSupabase() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1">
-              <Sidebar activeView={activeView} onNavigate={setActiveView} themeStyles={themeStyles} user={currentUser} />
+              <Sidebar
+                activeView={activeView}
+                onNavigate={setActiveView}
+                themeStyles={themeStyles}
+                language={language}
+                user={currentUser}
+              />
             </div>
             <div className="lg:col-span-3">
               <AnimatePresence mode="wait">

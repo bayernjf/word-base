@@ -4,29 +4,36 @@ import {
 } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
 import { AVATARS } from '../avatars';
+import { AppLanguage } from '../types';
 
 interface SidebarProps {
   activeView: string;
   onNavigate: (view: string) => void;
   themeStyles: ThemeClasses;
+  language: AppLanguage;
   user?: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles, language, user }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard Home (仪表盘)', icon: Home },
-    { id: 'vocabulary', label: 'My Words (单词表)', icon: BookOpen },
-    { id: 'mylists', label: 'My Spacing Lists (词书库)', icon: Layers },
-    { id: 'stories', label: 'AI Stories (智能句景)', icon: Sparkles },
-    { id: 'practice', label: 'Practice Skills (实践练习)', icon: Activity },
-    { id: 'settings-account', label: 'Settings Preferences (配置)', icon: Settings }
+    { id: 'dashboard', label: language === 'zh' ? '仪表盘' : 'Dashboard Home', icon: Home },
+    { id: 'vocabulary', label: language === 'zh' ? '单词表' : 'My Words', icon: BookOpen },
+    { id: 'mylists', label: language === 'zh' ? '词书库' : 'My Spacing Lists', icon: Layers },
+    { id: 'stories', label: language === 'zh' ? '智能句景' : 'AI Stories', icon: Sparkles },
+    { id: 'practice', label: language === 'zh' ? '实践练习' : 'Practice Skills', icon: Activity },
+    { id: 'settings-account', label: language === 'zh' ? '设置配置' : 'Settings Preferences', icon: Settings }
   ];
 
   const parentView = activeView.split('-')[0];
   const isGlass = themeStyles.borderClass === 'border-white/10';
   const avatarIndex = user?.avatar ?? 0;
   const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
-  const displayName = user?.nickname || user?.email?.split('@')[0] || 'User';
+  const displayName = user?.nickname || user?.email?.split('@')[0] || (language === 'zh' ? '用户' : 'User');
+  const dailyCopy = {
+    title: language === 'zh' ? '今日复习已就绪' : 'Daily Spacing Study is Ready',
+    description: language === 'zh' ? "复习单词 'negotiate' 与拼写匹配。" : "Revisiting word 'negotiate' and spelling matches.",
+    cta: language === 'zh' ? '开始今日学习' : 'Start Daily Lesson',
+  };
 
   return (
     <div className={`space-y-6 ${themeStyles.sidebar}`}>
@@ -79,9 +86,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
           : 'bg-linear-to-tr from-indigo-500 to-purple-600 text-white border-white/10'
       }`}>
         <div>
-          <span className="font-bold block text-sm">Daily Spacing Study is Ready</span>
+          <span className="font-bold block text-sm">{dailyCopy.title}</span>
           <p className={`text-[10px] leading-normal mt-1 ${isGlass ? 'text-white/60' : 'text-white/80'}`}>
-            Revisiting word 'negotiate' and spelling matches.
+            {dailyCopy.description}
           </p>
         </div>
         <button 
@@ -92,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
               : 'bg-white text-indigo-700 hover:bg-slate-100 active:scale-95'
           }`}
         >
-          Start Daily Lesson
+          {dailyCopy.cta}
         </button>
       </div>
     </div>

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Sparkles, LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown } from 'lucide-react';
-import { ThemeType } from '../types';
+import { Sparkles, LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown, Languages } from 'lucide-react';
+import { AppLanguage, ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
 import { AVATARS } from '../avatars';
 
 interface NavbarProps {
   theme: ThemeType;
+  language: AppLanguage;
   onThemeChange: (theme: ThemeType) => void;
+  onLanguageChange: (language: AppLanguage) => void;
   themeStyles: ThemeClasses;
   isLoggedIn: boolean;
   onLogout: () => void;
@@ -16,12 +18,32 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
-  theme, onThemeChange, themeStyles, isLoggedIn, onLogout, onNavigate, activeView, user 
+  theme, language, onThemeChange, onLanguageChange, themeStyles, isLoggedIn, onLogout, onNavigate, activeView, user 
 }) => {
   const isGlass = theme === 'glass';
   const [showDropdown, setShowDropdown] = useState(false);
   const avatarIndex = user?.avatar ?? 0;
   const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
+  const copy = {
+    subtitle: language === 'zh' ? '翻译与间隔学习' : 'Translation & Spaced Study',
+    theme: language === 'zh' ? '主题:' : 'Theme:',
+    languageToggle: language === 'zh' ? '中 / EN' : 'EN / 中',
+    profile: language === 'zh' ? '个人中心' : 'Personal Center',
+    account: language === 'zh' ? '账户设置' : 'Account Settings',
+    signOut: language === 'zh' ? '退出登录' : 'Sign Out',
+    logIn: language === 'zh' ? '登录' : 'Log In',
+    userFallback: language === 'zh' ? '用户' : 'User',
+  };
+  const themeOptions = [
+    {
+      id: 'glass',
+      label: language === 'zh' ? '玻璃' : 'iOS26/Glass',
+    },
+    {
+      id: 'natural',
+      label: language === 'zh' ? '清新' : 'Sage',
+    },
+  ] as const;
 
   return (
     <nav className={`${themeStyles.navClass} sticky top-0 z-40 backdrop-blur-md bg-opacity-95`}>
@@ -50,14 +72,28 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
             <span className={`text-[9px] font-mono tracking-widest block uppercase -mt-0.5 ${isGlass ? 'text-white/45' : theme === 'natural' ? 'text-emerald-900/60' : 'text-neutral-400'}`}>
-              Translation & Spaced Study
+              {copy.subtitle}
             </span>
           </div>
         </div>
 
         {/* Dynamic Global Theme Switcher & Login actions */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Theme Quick Selector pill box */}
+          <button
+            type="button"
+            onClick={() => onLanguageChange(language === 'zh' ? 'en' : 'zh')}
+            className={`flex items-center space-x-2 py-2 px-3 rounded-full text-[10px] font-mono border transition-all ${
+              isGlass
+                ? 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+                : theme === 'natural'
+                  ? 'bg-[#dfdbcf] border-[#c4c0b1] text-emerald-950 hover:bg-[#ece9df]'
+                  : 'bg-slate-150/80 dark:bg-white/5 border-neutral-300 dark:border-white/10 text-slate-800 dark:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10'
+            }`}
+          >
+            <Languages className="w-3.5 h-3.5" />
+            <span className="font-sans font-semibold">{copy.languageToggle}</span>
+          </button>
+
           <div className={`flex items-center space-x-1 p-1.5 rounded-full text-[10px] font-mono border ${
             isGlass 
               ? 'bg-white/5 border-white/10 text-white' 
@@ -65,11 +101,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ? 'bg-[#dfdbcf] border-[#c4c0b1] text-emerald-950'
                 : 'bg-slate-150/80 dark:bg-white/5 border-neutral-300 dark:border-white/10'
           }`}>
-            <span className={`mr-1.5 px-2 font-sans font-semibold ${isGlass ? 'text-white/40' : theme === 'natural' ? 'text-emerald-900/70' : 'text-neutral-450'}`}>Theme:</span>
-            {[
-              { id: 'glass', label: 'iOS26/Glass' },
-              { id: 'natural', label: '清新/Sage' }
-            ].map(thm => {
+            <span className={`mr-1.5 px-2 font-sans font-semibold ${isGlass ? 'text-white/40' : theme === 'natural' ? 'text-emerald-900/70' : 'text-neutral-450'}`}>{copy.theme}</span>
+            {themeOptions.map(thm => {
               const isSelected = theme === thm.id;
               let btnClass = '';
               
@@ -117,7 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <div className="w-6 h-6" dangerouslySetInnerHTML={{ __html: avatarSvg }} />
-                <span>{user?.nickname || user?.email?.split('@')[0] || 'User'}</span>
+                <span>{user?.nickname || user?.email?.split('@')[0] || copy.userFallback}</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
 
@@ -141,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <div className="flex items-center space-x-2">
                           <User className="w-3.5 h-3.5" />
-                          <span>Personal Center</span>
+                          <span>{copy.profile}</span>
                         </div>
                       </button>
                       <button
@@ -150,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <div className="flex items-center space-x-2">
                           <SettingsIcon className="w-3.5 h-3.5" />
-                          <span>Account Settings</span>
+                          <span>{copy.account}</span>
                         </div>
                       </button>
                       <div className="border-t border-neutral-200 dark:border-white/10 my-1" />
@@ -160,7 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <div className="flex items-center space-x-2">
                           <LogOut className="w-3.5 h-3.5" />
-                          <span>Sign Out</span>
+                          <span>{copy.signOut}</span>
                         </div>
                       </button>
                     </div>
@@ -178,7 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <LogIn className="w-3.5 h-3.5" />
-              <span>Log In</span>
+              <span>{copy.logIn}</span>
             </button>
           )}
         </div>
