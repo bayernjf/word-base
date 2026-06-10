@@ -48,6 +48,20 @@ function parseAvatarIndex(avatarValue?: string | null): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function selectPreferredSyncBook(books: Array<{ id: string; name: string; isSync: boolean; updatedAt: number; createdAt: number }>) {
+  return [...books]
+    .filter((book) => book.isSync)
+    .sort((left, right) => {
+      const leftIsDefault = left.name === '默认';
+      const rightIsDefault = right.name === '默认';
+      if (leftIsDefault !== rightIsDefault) {
+        return leftIsDefault ? 1 : -1;
+      }
+
+      return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0);
+    })[0] || null;
+}
+
 export default function AppSupabase() {
   const { user, isLoading: authLoading, signIn, signOut, resetPassword } = useSupabase();
   const { books, isLoading: booksLoading, loadBooks, createBook, updateBook, deleteBook, setSyncBook } =
@@ -63,6 +77,9 @@ export default function AppSupabase() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [models, setModels] = useState<AIModel[]>(mockDefaultModels);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const syncServerBaseUrl =
+    import.meta.env.VITE_SYNC_SERVER_URL ||
+    (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001');
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
 
@@ -94,6 +111,18 @@ export default function AppSupabase() {
     };
   }, [user]);
 
+  // 登录/登出时的状态切换（仅依赖 user）
+  useEffect(() => {
+    if (user) {
+      setActiveView('dashboard');
+    } else {
+      setSelectedBookId('');
+      setSelectedWordId('');
+      setActiveView('welcome');
+    }
+  }, [user]);
+
+  // 首次登录时自动创建默认单词本
   useEffect(() => {
     if (user && !booksLoading && books.length === 0) {
       void createBook({
@@ -103,21 +132,13 @@ export default function AppSupabase() {
         isSync: true,
       });
     }
-
-    if (user) {
-      setActiveView('dashboard');
-    } else {
-      setSelectedBookId('');
-      setSelectedWordId('');
-      setActiveView('welcome');
-    }
   }, [user, books, booksLoading, createBook]);
 
   useEffect(() => {
     if (books.length > 0) {
       const savedBookId = typeof window !== 'undefined' ? localStorage.getItem('wordbase-selected-book') : null;
       const rememberedBook = savedBookId ? books.find((book) => book.id === savedBookId) : null;
-      const syncBook = books.find((book) => book.isSync);
+      const syncBook = selectPreferredSyncBook(books);
 
       if (rememberedBook) {
         setSelectedBookId(rememberedBook.id);
@@ -165,18 +186,16 @@ export default function AppSupabase() {
     return true;
   };
 
-  const handleSendCode = async (email: string, type: 'register' | 'reset') => {
+  const handleRequestPasswordReset = async (email: string) => {
     setAuthError(null);
-    if (type === 'reset') {
-      const { error } = await resetPassword(email);
-      if (error) {
-        return { ok: false, error: error.message };
-      }
+    const { error } = await resetPassword(email);
+    if (error) {
+      return { ok: false, error: error.message };
     }
     return { ok: true };
   };
 
-  const handleSignUp = async (email: string, password: string, _code: string, nickname?: string) => {
+  const handleSignUp = async (email: string, password: string, nickname?: string) => {
     setAuthError(null);
 
     const { error } = await supabase.auth.signUp({
@@ -194,18 +213,6 @@ export default function AppSupabase() {
       return false;
     }
     return true;
-  };
-
-  const handleResetPasswordVerify = async () => {
-    return {
-      ok: false,
-      error: '已发送重置邮件，请点击邮件中的恢复链接完成密码重置。',
-    };
-  };
-
-  const handleResetPassword = async () => {
-    setAuthError('请通过邮箱中的恢复链接重置密码。');
-    return false;
   };
 
   const handleSignOut = async () => {
@@ -262,19 +269,41 @@ export default function AppSupabase() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!user) return;
+    if (!user) {
+      return { ok: false, error: '未登录' };
+    }
 
-    const now = new Date().toISOString();
-    await Promise.allSettled([
-      supabase.from('words').update({ is_deleted: true, updated_at: now }).eq('user_id', user.id),
-      supabase
-        .from('vocabulary_books')
-        .update({ is_deleted: true, is_sync: false, updated_at: now })
-        .eq('user_id', user.id),
-      supabase.from('profiles').update({ display_name: '[deleted]', avatar_url: 'avatar:0' }).eq('id', user.id),
-    ]);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      return { ok: false, error: '登录状态已失效，请重新登录后再试' };
+    }
 
-    await signOut();
+    try {
+      const response = await fetch(`${syncServerBaseUrl}/api/v1/auth/delete-account`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errorMap: Record<string, string> = {
+          service_role_key_required: '后端未配置 Supabase service role key，暂时无法注销账号。',
+          Unauthorized: '登录状态已失效，请重新登录后再试',
+        };
+        return {
+          ok: false,
+          error: errorMap[payload?.error] || payload?.error || '注销失败，请稍后重试',
+        };
+      }
+
+      await signOut();
+      return { ok: true };
+    } catch {
+      return { ok: false, error: '无法连接 3001 服务，请先启动后端服务后再试' };
+    }
   };
 
   const handleToggleModel = (modelId: string) => {
@@ -323,7 +352,17 @@ export default function AppSupabase() {
   };
 
   const handleDeleteBooks = async (bookIds: string[]) => {
+    // 检查是否正在删除同步单词本
+    const deletingSyncBook = books.find((b) => bookIds.includes(b.id) && b.isSync);
+    const remaining = books.filter((b) => !bookIds.includes(b.id));
+
     await Promise.all(bookIds.map((bookId) => deleteBook(bookId)));
+
+    // 如果删除了同步单词本且还有剩余单词本，将第一个设为同步
+    if (deletingSyncBook && remaining.length > 0) {
+      await setSyncBook(remaining[0].id);
+    }
+
     await loadBooks();
     if (bookIds.includes(selectedBookId)) {
       setSelectedBookId('');
@@ -359,9 +398,7 @@ export default function AppSupabase() {
           themeStyles={themeStyles}
           onLogin={handleSignIn}
           onRegister={handleSignUp}
-          onSendCode={handleSendCode}
-          onResetPasswordVerify={handleResetPasswordVerify}
-          onResetPassword={handleResetPassword}
+          onRequestPasswordReset={handleRequestPasswordReset}
           authError={authError}
           setAuthError={setAuthError}
         />
@@ -555,9 +592,7 @@ export default function AppSupabase() {
                 themeStyles={themeStyles}
                 onLogin={handleSignIn}
                 onRegister={handleSignUp}
-                onSendCode={handleSendCode}
-                onResetPasswordVerify={handleResetPasswordVerify}
-                onResetPassword={handleResetPassword}
+                onRequestPasswordReset={handleRequestPasswordReset}
                 authError={authError}
                 setAuthError={setAuthError}
               />

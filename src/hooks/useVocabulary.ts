@@ -109,6 +109,12 @@ function toBookInsert(book: {
   };
 }
 
+function isMissingSetSyncBookRpc(error: unknown): boolean {
+  const message = String((error as { message?: string })?.message || error || '');
+  const code = String((error as { code?: string })?.code || '');
+  return code === 'PGRST202' || message.includes('set_sync_book') || message.includes('Could not find the function public.set_sync_book');
+}
+
 function toWordPayload(word: Omit<Word, 'id'>) {
   const timeAdded = word.timeAdded ?? word.dateAdded ?? Date.now();
   const timeUpdated = word.timeUpdated ?? word.dateUpdated ?? timeAdded;
@@ -192,23 +198,63 @@ export function useVocabularyBooks() {
     }
   }, [user]);
 
+  const applySetSyncBook = useCallback(
+    async (bookId: string) => {
+      if (!user) return false;
+
+      try {
+        const { error } = await supabase.rpc('set_sync_book', {
+          p_book_id: bookId,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        return true;
+      } catch (error) {
+        if (!isMissingSetSyncBookRpc(error)) {
+          throw error;
+        }
+
+        // 兼容未执行 migration 的环境，先保证功能可用。
+        const now = new Date().toISOString();
+        const clearRes = await supabase
+          .from('vocabulary_books')
+          .update({ is_sync: false, updated_at: now })
+          .eq('user_id', user.id)
+          .eq('is_deleted', false);
+
+        if (clearRes.error) {
+          throw clearRes.error;
+        }
+
+        const setRes = await supabase
+          .from('vocabulary_books')
+          .update({ is_sync: true, updated_at: now })
+          .eq('id', bookId)
+          .eq('user_id', user.id)
+          .eq('is_deleted', false);
+
+        if (setRes.error) {
+          throw setRes.error;
+        }
+
+        return true;
+      }
+    },
+    [user]
+  );
+
   const createBook = useCallback(
     async (book: Omit<VocabularyBook, 'id' | 'userId' | 'wordCount' | 'createdAt' | 'updatedAt'>) => {
       if (!user) return null;
 
       try {
-        if (book.isSync) {
-          await supabase
-            .from('vocabulary_books')
-            .update({ is_sync: false, updated_at: new Date().toISOString() })
-            .eq('user_id', user.id)
-            .eq('is_deleted', false);
-        }
-
         const { data, error } = await supabase
           .from('vocabulary_books')
           .insert({
-            ...toBookInsert(book),
+            ...toBookInsert({ ...book, isSync: false }),
             user_id: user.id,
             sync_version: 1,
             is_deleted: false,
@@ -219,6 +265,15 @@ export function useVocabularyBooks() {
         if (error) throw error;
 
         const mapped = mapBookRow(data as SupabaseBookRow, {});
+        if (book.isSync) {
+          const syncOk = await applySetSyncBook(mapped.id);
+          if (!syncOk) {
+            throw new Error('set_sync_book_failed');
+          }
+          await loadBooks();
+          return mapped;
+        }
+
         await loadBooks();
         return mapped;
       } catch (error) {
@@ -226,7 +281,7 @@ export function useVocabularyBooks() {
         return null;
       }
     },
-    [user, loadBooks]
+    [user, loadBooks, applySetSyncBook]
   );
 
   const updateBook = useCallback(
@@ -283,7 +338,10 @@ export function useVocabularyBooks() {
             .eq('user_id', user.id),
         ]);
 
-        setBooks((prev) => prev.filter((book) => book.id !== bookId));
+        setBooks((prev) => {
+          const remaining = prev.filter((book) => book.id !== bookId);
+          return remaining;
+        });
         return true;
       } catch (error) {
         console.error('Error deleting book:', error);
@@ -298,21 +356,7 @@ export function useVocabularyBooks() {
       if (!user) return false;
 
       try {
-        const now = new Date().toISOString();
-        await supabase
-          .from('vocabulary_books')
-          .update({ is_sync: false, updated_at: now })
-          .eq('user_id', user.id)
-          .eq('is_deleted', false);
-
-        const { error } = await supabase
-          .from('vocabulary_books')
-          .update({ is_sync: true, updated_at: now })
-          .eq('id', bookId)
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-
+        await applySetSyncBook(bookId);
         await loadBooks();
         return true;
       } catch (error) {
@@ -320,7 +364,7 @@ export function useVocabularyBooks() {
         return false;
       }
     },
-    [user, loadBooks]
+    [user, loadBooks, applySetSyncBook]
   );
 
   useEffect(() => {

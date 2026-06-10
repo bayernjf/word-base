@@ -199,13 +199,17 @@ export default function App() {
     }
   };
 
-  const handleRegister = async (email: string, password: string, code: string, nickname?: string): Promise<boolean> => {
+  const handleRequestPasswordReset = async (email: string): Promise<{ ok: boolean; error?: string }> => {
+    return sendVerificationCode(email, 'reset');
+  };
+
+  const handleRegister = async (email: string, password: string, nickname?: string): Promise<boolean> => {
     setAuthError(null);
     try {
       const res = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, code, nickname })
+        body: JSON.stringify({ email, password, nickname })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -424,13 +428,17 @@ export default function App() {
   const handleDeleteAccount = async () => {
     try {
       if (auth.accessToken) {
-        await fetch('/api/v1/auth/delete-account', {
+        const response = await fetch('/api/v1/auth/delete-account', {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${auth.accessToken}` }
-        }).catch(() => {});
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          return { ok: false, error: data?.error || 'delete_account_failed' };
+        }
       }
     } catch {
-      // ignore
+      return { ok: false, error: 'network_error' };
     }
     // Clear localStorage
     localStorage.removeItem('wordbase_auth');
@@ -444,6 +452,7 @@ export default function App() {
     setModels(mockDefaultModels);
     setSelectedWordId('w1');
     setSelectedBookId('default');
+    return { ok: true };
   };
 
   useEffect(() => {
@@ -612,9 +621,14 @@ export default function App() {
   };
 
   const handleDeleteBooks = async (bookIds: string[]) => {
+    // 检查是否正在删除同步单词本 (理论上 UI 已阻止，此处仅兜底)
+    const syncBook = books.find(b => b.isSync);
+    const isDeletingSync = syncBook && bookIds.includes(syncBook.id);
+    const remaining = books.filter(b => !bookIds.includes(b.id));
+
     try {
       if (auth.accessToken) {
-        await fetch('/api/v1/books/batch-delete', {
+        const res = await fetch('/api/v1/books/batch-delete', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -622,13 +636,31 @@ export default function App() {
           },
           body: JSON.stringify({ bookIds })
         });
-        // 更新本地状态
-        setBooks(prev => prev.filter(b => !bookIds.includes(b.id)));
-        setWords(prev => prev.filter(w => !bookIds.includes(w.bookId)));
+        if (res.ok) {
+          // 更新本地状态
+          setBooks(prev => prev.filter(b => !bookIds.includes(b.id)));
+          setWords(prev => prev.filter(w => !bookIds.includes(w.bookId)));
+
+          // 如果删除了同步单词本，将剩余第一个设为同步
+          if (isDeletingSync && remaining.length > 0) {
+            handleSetSyncBook(remaining[0].id);
+          }
+          return;
+        }
       }
+      // 更新本地状态
+      setBooks(prev => prev.filter(b => !bookIds.includes(b.id)));
+      setWords(prev => prev.filter(w => !bookIds.includes(w.bookId)));
     } catch (e) {
       // 网络错误时，回退到本地更新
-      setBooks(prev => prev.filter(b => !bookIds.includes(b.id)));
+      setBooks(prev => {
+        const newRemaining = prev.filter(b => !bookIds.includes(b.id));
+        // 如果删除了同步单词本，将剩余第一个设为同步
+        if (isDeletingSync && newRemaining.length > 0) {
+          return newRemaining.map((b, i) => (i === 0 ? { ...b, isSync: true } : b));
+        }
+        return newRemaining;
+      });
       setWords(prev => prev.filter(w => !bookIds.includes(w.bookId)));
     }
   };
@@ -698,8 +730,10 @@ export default function App() {
         setSelectedBookId(syncBook.id);
         return;
       }
-      // 否则选中第一个
-      setSelectedBookId(books[0].id);
+      // 没有同步单词本：将第一个设为同步并选中
+      const firstBook = books[0];
+      setSelectedBookId(firstBook.id);
+      handleSetSyncBook(firstBook.id);
     }
   }, [books]);
 
@@ -711,9 +745,7 @@ export default function App() {
           themeStyles={themeStyles} 
           onLogin={handleLogin}
           onRegister={handleRegister}
-          onSendCode={sendVerificationCode}
-          onResetPasswordVerify={handleResetPasswordVerify}
-          onResetPassword={handleResetPassword}
+          onRequestPasswordReset={handleRequestPasswordReset}
           authError={authError}
           setAuthError={setAuthError}
         />
@@ -993,9 +1025,7 @@ export default function App() {
                 themeStyles={themeStyles} 
                 onLogin={handleLogin}
                 onRegister={handleRegister}
-                onSendCode={sendVerificationCode}
-                onResetPasswordVerify={handleResetPasswordVerify}
-                onResetPassword={handleResetPassword}
+                onRequestPasswordReset={handleRequestPasswordReset}
                 authError={authError}
                 setAuthError={setAuthError}
               />

@@ -51,23 +51,19 @@ function formatDate(timestamp: number): string {
 interface LoginProps {
   themeStyles: ThemeClasses;
   onLogin: (email: string, password: string, remember: boolean) => Promise<boolean>;
-  onRegister: (email: string, password: string, code: string, nickname?: string) => Promise<boolean>;
-  onSendCode: (email: string, type: 'register' | 'reset') => Promise<{ ok: boolean; error?: string }>;
-  onResetPasswordVerify: (email: string, code: string) => Promise<{ ok: boolean; resetToken?: string; error?: string }>;
-  onResetPassword: (resetToken: string, newPassword: string) => Promise<boolean>;
+  onRegister: (email: string, password: string, nickname?: string) => Promise<boolean>;
+  onRequestPasswordReset: (email: string) => Promise<{ ok: boolean; error?: string }>;
   authError?: string | null;
   setAuthError?: (error: string | null) => void;
 }
 
-type AuthStep = 'login' | 'register' | 'forgot-email' | 'forgot-code' | 'forgot-password';
+type AuthStep = 'login' | 'register' | 'forgot-email';
 
 export const WelcomeLoginView: React.FC<LoginProps> = ({ 
   themeStyles, 
   onLogin, 
   onRegister, 
-  onSendCode, 
-  onResetPasswordVerify, 
-  onResetPassword, 
+  onRequestPasswordReset, 
   authError, 
   setAuthError 
 }) => {
@@ -76,46 +72,13 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nickname, setNickname] = useState('');
-  const [code, setCode] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [resetToken, setResetToken] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(0);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   const clearMessages = () => {
     setAuthError?.(null);
     setMessage(null);
-  };
-
-  const handleSendCode = async (type: 'register' | 'reset') => {
-    clearMessages();
-    if (!email) {
-      setMessage({ text: '请输入邮箱地址', type: 'error' });
-      return;
-    }
-    if (countdown > 0) return;
-
-    setIsLoading(true);
-    try {
-      const result = await onSendCode(email, type);
-      if (result.ok) {
-        setMessage({ text: '验证码已发送，请查看控制台', type: 'success' });
-        setCountdown(60);
-      } else {
-        setMessage({ text: result.error || '发送失败', type: 'error' });
-      }
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -142,7 +105,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
     }
     setIsLoading(true);
     try {
-      await onRegister(email, password, code, nickname);
+      await onRegister(email, password, nickname);
     } finally {
       setIsLoading(false);
     }
@@ -151,44 +114,18 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
   const handleForgotEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMessages();
-    await handleSendCode('reset');
-    if (!message || message.type === 'success') {
-      setStep('forgot-code');
+    if (!email) {
+      setMessage({ text: '请输入邮箱地址', type: 'error' });
+      return;
     }
-  };
-
-  const handleForgotCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    clearMessages();
     setIsLoading(true);
     try {
-      const result = await onResetPasswordVerify(email, code);
-      if (result.ok && result.resetToken) {
-        setResetToken(result.resetToken);
-        setStep('forgot-password');
+      const result = await onRequestPasswordReset(email);
+      if (result.ok) {
+        setMessage({ text: '恢复邮件已发送，请检查邮箱并点击邮件中的恢复链接完成密码重置。', type: 'success' });
       } else {
-        setMessage({ text: result.error || '验证失败', type: 'error' });
+        setMessage({ text: result.error || '发送失败', type: 'error' });
       }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    clearMessages();
-    if (password !== confirmPassword) {
-      setMessage({ text: '两次输入的密码不一致', type: 'error' });
-      return;
-    }
-    if (password.length < 6) {
-      setMessage({ text: '密码至少需要6个字符', type: 'error' });
-      return;
-    }
-    if (!resetToken) return;
-    setIsLoading(true);
-    try {
-      await onResetPassword(resetToken, password);
     } finally {
       setIsLoading(false);
     }
@@ -200,8 +137,6 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
     setPassword('');
     setConfirmPassword('');
     setNickname('');
-    setCode('');
-    setResetToken(null);
     clearMessages();
   };
 
@@ -352,32 +287,6 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-xs font-medium uppercase tracking-wider">Verification Code</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
-                  required
-                  maxLength={6}
-                />
-                <button 
-                  type="button"
-                  onClick={() => handleSendCode('register')}
-                  disabled={isLoading || countdown > 0}
-                  className={`px-4 py-2 text-xs font-medium rounded-xl ${
-                    countdown > 0 
-                      ? 'bg-neutral-200 text-neutral-500 dark:bg-white/5 dark:text-neutral-400' 
-                      : `${themeStyles.btnSecondary}`
-                  }`}
-                >
-                  {countdown > 0 ? `${countdown}s` : 'Send Code'}
-                </button>
-              </div>
-            </div>
-
             <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5 flex items-center justify-center space-x-2`} disabled={isLoading}>
               {isLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -407,7 +316,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
             <div>
               <h3 className={`text-lg font-semibold mb-3 ${themeStyles.textPrimary}`}>Reset Password</h3>
               <p className={`text-xs mb-4 ${themeStyles.textSecondary}`}>
-                Enter your email to receive a verification code.
+                Enter your email and we'll send you a recovery link to reset your password.
               </p>
             </div>
             <div>
@@ -423,102 +332,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
             <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5`} disabled={isLoading}>
               {isLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : 'Send Verification Code'}
-            </button>
-            <button 
-              type="button" 
-              onClick={resetToLogin}
-              className="w-full text-center text-xs underline mt-2 block"
-            >
-              Back to Sign In
-            </button>
-          </form>
-        )}
-
-        {/* Forgot Password - Code Step */}
-        {step === 'forgot-code' && (
-          <form onSubmit={handleForgotCodeSubmit} className="space-y-4">
-            <div>
-              <h3 className={`text-lg font-semibold mb-3 ${themeStyles.textPrimary}`}>Enter Verification Code</h3>
-              <p className={`text-xs mb-4 ${themeStyles.textSecondary}`}>
-                We've sent a verification code to {email}. Check the server console.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-medium uppercase tracking-wider">Verification Code</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
-                  required
-                  maxLength={6}
-                />
-                <button 
-                  type="button"
-                  onClick={() => handleSendCode('reset')}
-                  disabled={isLoading || countdown > 0}
-                  className={`px-4 py-2 text-xs font-medium rounded-xl ${
-                    countdown > 0 
-                      ? 'bg-neutral-200 text-neutral-500 dark:bg-white/5 dark:text-neutral-400' 
-                      : `${themeStyles.btnSecondary}`
-                  }`}
-                >
-                  {countdown > 0 ? `${countdown}s` : 'Resend'}
-                </button>
-              </div>
-            </div>
-            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5`} disabled={isLoading}>
-              {isLoading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : 'Verify Code'}
-            </button>
-            <button 
-              type="button" 
-              onClick={() => { clearMessages(); setStep('forgot-email'); }}
-              className="w-full text-center text-xs underline mt-2 block"
-            >
-              Change Email
-            </button>
-          </form>
-        )}
-
-        {/* Forgot Password - New Password Step */}
-        {step === 'forgot-password' && (
-          <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
-            <div>
-              <h3 className={`text-lg font-semibold mb-3 ${themeStyles.textPrimary}`}>Set New Password</h3>
-              <p className={`text-xs mb-4 ${themeStyles.textSecondary}`}>
-                Enter your new password below.
-              </p>
-            </div>
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-wider">New Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
-                required
-                minLength={6}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-wider">Confirm New Password</label>
-              <input 
-                type="password" 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
-                required
-                minLength={6}
-              />
-            </div>
-            <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5`} disabled={isLoading}>
-              {isLoading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : 'Reset Password'}
+              ) : 'Send Recovery Email'}
             </button>
             <button 
               type="button" 
@@ -947,7 +761,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                     <td className="py-3.5 px-4">
                       <div 
                         className="flex items-center space-x-2 cursor-help" 
-                        title={`已添加${getFrequency(w)}次，单词本中最多${maxContextCount}次`}
+                        title={`已添加${getFrequency(w)}次`}
                       >
                         <div className="w-16 bg-slate-200 dark:bg-white/10 h-2 rounded-xs overflow-hidden">
                           <div 
@@ -2932,7 +2746,7 @@ interface AccountSettingsProps {
   user: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
   onUpdateProfile: (data: { nickname?: string; avatar?: number }) => Promise<boolean>;
   onChangePassword: (oldPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
-  onDeleteAccount: () => void;
+  onDeleteAccount: () => Promise<{ ok: boolean; error?: string }>;
 }
 
 // Avatar Select Component for Account Settings
@@ -3033,6 +2847,8 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
 
   const [showFirstModal, setShowFirstModal] = useState(false);
   const [showSecondModal, setShowSecondModal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountMessage, setDeleteAccountMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const handleUpdateNickname = async () => {
     if (!nickname.trim()) return;
@@ -3079,6 +2895,25 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
       setPasswordMessage({ text: '修改失败，请稍后重试', type: 'error' });
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  const handleDeleteAccountConfirm = async () => {
+    setDeleteAccountMessage(null);
+    setIsDeletingAccount(true);
+    try {
+      const result = await onDeleteAccount();
+      if (!result.ok) {
+        setDeleteAccountMessage({ text: result.error || '注销失败，请稍后重试', type: 'error' });
+        return;
+      }
+
+      setShowSecondModal(false);
+      setShowFirstModal(false);
+    } catch {
+      setDeleteAccountMessage({ text: '注销失败，请稍后重试', type: 'error' });
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -3217,9 +3052,17 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
 
         {/* Delete Account */}
         <div className="pt-4 border-t border-neutral-200 dark:border-white/10">
+          {deleteAccountMessage && (
+            <div className={`mb-3 p-3 rounded-lg text-xs ${deleteAccountMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+              {deleteAccountMessage.text}
+            </div>
+          )}
           <button 
             type="button"
-            onClick={() => setShowFirstModal(true)}
+            onClick={() => {
+              setDeleteAccountMessage(null);
+              setShowFirstModal(true);
+            }}
             className="text-xs text-red-600 dark:text-red-400 font-semibold hover:underline"
           >
             注销账号
@@ -3247,6 +3090,7 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
                 type="button"
                 onClick={() => {
                   setShowFirstModal(false);
+                  setDeleteAccountMessage(null);
                   setShowSecondModal(true);
                 }}
                 className={`px-4 py-2 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50`}
@@ -3263,10 +3107,16 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className={`${themeStyles.card} p-6 max-w-sm w-full mx-4`}>
             <h3 className="text-base font-bold mb-4">确认删除？</h3>
+            {deleteAccountMessage && (
+              <div className={`mb-4 p-3 rounded-lg text-xs ${deleteAccountMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                {deleteAccountMessage.text}
+              </div>
+            )}
             <div className="flex gap-2">
               <button 
                 type="button"
                 onClick={() => setShowSecondModal(false)}
+                disabled={isDeletingAccount}
                 className={`flex-1 ${themeStyles.btnSecondary} py-2 text-sm font-semibold`}
               >
                 取消
@@ -3274,12 +3124,12 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
               <button 
                 type="button"
                 onClick={() => {
-                  setShowSecondModal(false);
-                  onDeleteAccount();
+                  void handleDeleteAccountConfirm();
                 }}
+                disabled={isDeletingAccount}
                 className={`px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700`}
               >
-                确认
+                {isDeletingAccount ? '注销中...' : '确认'}
               </button>
             </div>
           </div>
