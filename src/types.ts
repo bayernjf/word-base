@@ -6,23 +6,19 @@ export interface WordContext {
   timeAdded: number;
   sourceLink?: string;
   translation: string;
-  // 向后兼容
   addedDate?: number;
 }
 
 export interface Word {
   id: string;
   word: string;
-  // 新字段，向后兼容设为可选
   frequency?: number;
   translation?: string;
   timeAdded?: number;
   timeUpdated?: number;
   contexts?: WordContext[];
-  // 向后兼容旧字段
   dateAdded?: number;
   dateUpdated?: number;
-  // 保留原有字段以兼容旧代码
   phonetic?: string;
   partOfSpeech?: string;
   definition?: string;
