@@ -37,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const themeOptions = [
     {
       id: 'glass',
-      label: language === 'zh' ? '玻璃' : 'iOS26/Glass',
+      label: language === 'zh' ? '液态玻璃' : 'Liquid Glass',
     },
     {
       id: 'natural',

@@ -30,9 +30,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
   const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
   const displayName = user?.nickname || user?.email?.split('@')[0] || (language === 'zh' ? '用户' : 'User');
   const dailyCopy = {
-    title: language === 'zh' ? '今日复习已就绪' : 'Daily Spacing Study is Ready',
-    description: language === 'zh' ? "复习单词 'negotiate' 与拼写匹配。" : "Revisiting word 'negotiate' and spelling matches.",
-    cta: language === 'zh' ? '开始今日学习' : 'Start Daily Lesson',
+    title: language === 'zh' ? '开始复习' : 'Start to review',
+    description: language === 'zh' ? "浏览你的单词" : "Revisiting your words",
+    cta: language === 'zh' ? '开始' : 'Start',
   };
 
   return (

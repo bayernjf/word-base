@@ -485,7 +485,7 @@ export default function AppSupabase() {
 
     switch (activeView) {
       case 'dashboard':
-        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} />;
+        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} user={currentUser} />;
       case 'worddetail':
         return (
           <WordDetailView
@@ -589,7 +589,7 @@ export default function AppSupabase() {
           </SettingsLayout>
         );
       default:
-        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} />;
+        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} user={currentUser} />;
     }
   };
 

@@ -386,14 +386,15 @@ interface DashboardProps {
   words: Word[];
 }
 
-export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language, onNavigate, books, words }) => {
+export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language, onNavigate, books, words, user }) => {
   const knownPercent = 65; // Simulated goal metric
+  const displayName = user?.nickname || user?.email?.split('@')[0] || (language === 'zh' ? '学习者' : 'Learner');
   const copy = {
-    welcome: language === 'zh' ? '欢迎回来，学习者！✨' : 'Welcome back, Learner! ✨',
+    welcome: language === 'zh' ? '欢迎回来' : 'Welcome back',
     streakPrefix: language === 'zh' ? '你已连续学习' : 'You are on a',
     streak: language === 'zh' ? '5 天打卡' : '5-day streak',
     streakSuffix: language === 'zh' ? '，中级词汇练习状态活跃。' : 'Your intermediate vocabulary usage is active.',
-    quickStart: language === 'zh' ? '快速开始学习' : 'Quick Start Study',
+    quickStart: language === 'zh' ? '快速开始' : 'Quick Start',
     dailyGoal: language === 'zh' ? '每日目标进度' : 'Daily Goal Progress',
     goalStats: language === 'zh' ? '13 / 20 个单词' : '13 / 20 Words',
     goalHint: language === 'zh' ? '再掌握 7 个单词即可完成今天的商务拓展目标。' : "7 more words to complete today's Business expansion goal.",
@@ -408,14 +409,17 @@ export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language,
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-linear-to-r from-indigo-500/10 to-purple-500/5 p-6 rounded-2xl border border-indigo-500/20">
         <div>
           <h2 className={`text-2xl font-bold tracking-tight ${themeStyles.textPrimary}`}>
-            {copy.welcome}
+            {copy.welcome}，{displayName}！✨
           </h2>
+          {/* Streak info - Hidden */}
+          {false && (
           <p className={`text-sm mt-1 ${themeStyles.textSecondary}`}>
             {copy.streakPrefix} <span className="font-semibold text-emerald-600 dark:text-emerald-400">{copy.streak}</span>{language === 'zh' ? copy.streakSuffix : `. ${copy.streakSuffix}`}
           </p>
+          )}
         </div>
         <button 
-          onClick={() => onNavigate('practice')}
+          onClick={() => onNavigate('vocabulary')}
           className={`${themeStyles.btnPrimary} flex items-center justify-center space-x-2 py-3 px-5`}
         >
           <Sparkles className="w-4 h-4 fill-white/20" />
@@ -3381,7 +3385,7 @@ export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({
     title: language === 'zh' ? '外观设置' : 'Appearance settings',
     subtitle: language === 'zh' ? '配置视觉主题、紧凑布局和字体缩放。' : 'Configure visual themes, layout compact controls and font scales.',
     palette: language === 'zh' ? '界面主题配色' : 'UI Theme Palette Selection',
-    glassLabel: language === 'zh' ? 'iOS26 玻璃风格' : 'iOS26 Glass Style',
+    glassLabel: language === 'zh' ? '液态玻璃风格' : 'Liquid Glass Style',
     glassDesc: language === 'zh' ? '半透明磨砂、彩色辉光与深色背景。' : 'Frosted translucency, colorful glows, dark backdrops',
     naturalLabel: language === 'zh' ? '清新自然风格' : 'Natural Style',
     naturalDesc: language === 'zh' ? '燕麦与鼠尾草色调，温和自然。' : 'Earthy oatmeal and warm moss sage accents',
