@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Sliders, Sparkles, Database, ArrowLeft, Shield } from 'lucide-react';
+import { User, Sliders, Sparkles, Database } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
 import { AppLanguage } from '../types';
 
@@ -20,14 +20,14 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     aiModels: language === 'zh' ? 'AI 模型' : 'AI Engine Models',
     sync: language === 'zh' ? '同步与存储' : 'Sync & Storage',
     title: language === 'zh' ? '设置中心' : 'Settings Configuration',
-    subtitle: language === 'zh' ? '查看凭据、调整界面，并检查同步与存储配置。' : 'Review credentials, select screen elements, and check synced storage models.',
+    subtitle: language === 'zh' ? '查看凭据、调整界面。' : 'Review credentials and select screen elements.',
     preferences: language === 'zh' ? '偏好设置' : 'Preferences',
   };
   const settingsMenus = [
     { id: 'settings-account', label: copy.account, icon: User },
     { id: 'settings-appearance', label: copy.appearance, icon: Sliders },
-    { id: 'settings-aimodels', label: copy.aiModels, icon: Sparkles },
-    { id: 'settings-sync', label: copy.sync, icon: Database }
+    { id: 'settings-aimodels', label: copy.aiModels, icon: Sparkles, hidden: true },
+    { id: 'settings-sync', label: copy.sync, icon: Database, hidden: true }
   ];
 
   const isGlass = themeStyles.borderClass === 'border-white/10';
@@ -50,7 +50,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
             {copy.preferences}
           </span>
           <ul className="space-y-1">
-            {settingsMenus.map(m => {
+            {settingsMenus.filter(m => !m.hidden).map(m => {
               const isSelected = activeSettingsTab === m.id;
               const Icon = m.icon;
               

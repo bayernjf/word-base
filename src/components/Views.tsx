@@ -3257,7 +3257,8 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
           </form>
         </div>
 
-        {/* Subscriptions badge */}
+        {/* Subscriptions badge - Hidden */}
+        {false && (
         <div className="p-4 bg-linear-to-r from-yellow-500/10 to-amber-500/10 rounded-2xl border border-amber-500/30">
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs font-extrabold text-amber-800">Premium Pro Subscription Active</span>
@@ -3267,6 +3268,7 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
             Your custom spaced learning books, cloud storage backups and real AI pronunciations are active until Jan 2027.
           </p>
         </div>
+        )}
 
         {/* Delete Account */}
         <div className="pt-4 border-t border-neutral-200 dark:border-white/10">
@@ -3432,7 +3434,8 @@ export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({
           </div>
         </div>
 
-        {/* Toggles */}
+        {/* Toggles - Hidden */}
+        {false && (
         <div className="space-y-4 pt-4 border-t border-neutral-200 dark:border-white/10">
           <span className="block text-xs font-extrabold uppercase tracking-widest text-neutral-400">
             {copy.typography}
@@ -3465,6 +3468,7 @@ export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({
             />
           </div>
         </div>
+        )}
       </div>
     </div>
   );

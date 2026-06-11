@@ -19,8 +19,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
     { id: 'dashboard', label: language === 'zh' ? '仪表盘' : 'Dashboard Home', icon: Home },
     { id: 'vocabulary', label: language === 'zh' ? '单词表' : 'My Words', icon: BookOpen },
     { id: 'mylists', label: language === 'zh' ? '词书库' : 'My Spacing Lists', icon: Layers },
-    { id: 'stories', label: language === 'zh' ? '智能句景' : 'AI Stories', icon: Sparkles },
-    { id: 'practice', label: language === 'zh' ? '实践练习' : 'Practice Skills', icon: Activity },
+    { id: 'stories', label: language === 'zh' ? '智能句景' : 'AI Stories', icon: Sparkles, hidden: true },
+    { id: 'practice', label: language === 'zh' ? '实践练习' : 'Practice Skills', icon: Activity, hidden: true },
     { id: 'settings-account', label: language === 'zh' ? '设置配置' : 'Settings Preferences', icon: Settings }
   ];
 
@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
 
       {/* Navigation list */}
       <ul className="space-y-1.5">
-        {menuItems.map((item) => {
+        {menuItems.filter(item => !item.hidden).map((item) => {
           const isSelected = parentView === item.id.split('-')[0];
           const Icon = item.icon;
           
@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
           </p>
         </div>
         <button 
-          onClick={() => onNavigate('stories')}
+          onClick={() => onNavigate('vocabulary')}
           className={`w-full py-2 font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all text-center cursor-pointer shadow-xs ${
             isGlass 
               ? 'bg-white text-slate-950 hover:bg-white/90 active:scale-95' 
