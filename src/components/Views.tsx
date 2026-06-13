@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Square, Volume2, ArrowLeft, Plus, Search, ChevronRight, Check, AlertCircle, Sparkles, 
   Trash2, BookOpen, Clock, Award, Star, Mic, Send, RefreshCw, Upload, CheckCircle2, Lock, Eye, 
-  ChevronDown, Settings, Database, Code, Sliders, Smartphone, Activity, BarChart3, HelpCircle, FileText
+  ChevronDown, Settings, Database, Code, Sliders, Smartphone, Activity, BarChart3, HelpCircle, FileText,
+  Globe, Languages, Save
 } from 'lucide-react';
 import { AppLanguage, MoveWordsResult, Word, VocabularyBook, Story, ChatMessage, PracticeQuiz, AIModel, ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
@@ -1158,6 +1159,8 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [showChineseExample, setShowChineseExample] = useState<Record<number, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
   const [topHeight, setTopHeight] = useState(50); // 百分比
+  const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false);
+  const [selectedTranslateLang, setSelectedTranslateLang] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const copy = {
     noWord: language === 'zh' ? '当前没有激活的单词卡片。' : 'No word card active.',
@@ -1358,9 +1361,75 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
           style={{ height: `${100 - topHeight}%` }}
         >
           <div className="p-6">
-            <h3 className={`text-lg font-semibold uppercase tracking-wider mb-4 ${themeStyles.textPrimary}`}>
-              {copy.contexts}
-            </h3>
+            {/* Usage History 风格标题 */}
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex flex-col">
+                <h3 className={`text-lg font-semibold uppercase tracking-wider ${themeStyles.textPrimary}`}>
+                  {copy.contexts}
+                </h3>
+                <p className={`text-xs mt-0.5 ${themeStyles.textSecondary}`}>
+                  {language === 'zh' ? '详细记录你遇到该单词的上下文。' : 'Detailed contexts where you encountered this word.'}
+                </p>
+              </div>
+              {/* Translate to... 下拉栏 */}
+              <div className="relative">
+                <button
+                  onClick={() => setTranslateDropdownOpen(!translateDropdownOpen)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all active:scale-95 ${
+                    themeStyles.card
+                  } ${themeStyles.textPrimary} hover:bg-indigo-500/10`}
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="text-xs font-medium">
+                    {selectedTranslateLang
+                      ? (language === 'zh'
+                          ? `翻译到${selectedTranslateLang}`
+                          : `Translate to ${selectedTranslateLang}`)
+                      : (language === 'zh' ? '翻译到...' : 'Translate to...')}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${translateDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {translateDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 overflow-hidden border border-neutral-200 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl">
+                    <div className="p-2 flex flex-col gap-1">
+                      {(() => {
+                        const allLangs = [
+                          { key: 'Chinese', label: language === 'zh' ? '中文' : 'Chinese' },
+                          { key: 'Japanese', label: language === 'zh' ? '日语' : 'Japanese' },
+                          { key: 'German', label: language === 'zh' ? '德语' : 'German' },
+                        ];
+                        // 把选中的语言排到最前面
+                        const sorted = selectedTranslateLang
+                          ? [
+                              ...allLangs.filter((l) => l.key === selectedTranslateLang),
+                              ...allLangs.filter((l) => l.key !== selectedTranslateLang),
+                            ]
+                          : allLangs;
+                        return sorted.map((lang) => {
+                          const isSelected = lang.key === selectedTranslateLang;
+                          return (
+                            <button
+                              key={lang.key}
+                              onClick={() => {
+                                setSelectedTranslateLang(lang.key);
+                                setTranslateDropdownOpen(false);
+                              }}
+                              className={`w-full px-3 py-2 rounded-lg text-xs text-left transition-colors active:scale-95 ${
+                                isSelected
+                                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold'
+                                  : `${themeStyles.textPrimary} hover:bg-indigo-500/10`
+                              }`}
+                            >
+                              {lang.label}
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             {word.contexts && word.contexts.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -1371,6 +1440,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                       <th className="py-3 px-4">{copy.timeAdded}</th>
                       <th className="py-3 px-4">{copy.sourceLink}</th>
                       <th className="py-3 px-4">{copy.translation}</th>
+                      <th className="py-3 px-4 text-center">{language === 'zh' ? '翻译操作' : 'Translation Actions'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1406,6 +1476,28 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                         </td>
                         <td className="py-4 px-4">
                           <p className="text-sm text-indigo-650 dark:text-indigo-400">{ctx.translation}</p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="p-1.5 text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all duration-200 active:scale-90"
+                              title={language === 'zh' ? '翻译到其他语言' : 'Translate to'}
+                            >
+                              <Languages className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-1.5 text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 active:scale-90"
+                              title={language === 'zh' ? '保存翻译' : 'Save'}
+                            >
+                              <Save className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-200 active:scale-90"
+                              title={language === 'zh' ? '删除' : 'Delete'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
