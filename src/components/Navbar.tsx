@@ -25,7 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const avatarIndex = user?.avatar ?? 0;
   const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
   const copy = {
-    subtitle: language === 'zh' ? '翻译与间隔学习' : 'Translation & Spaced Study',
+    subtitle: language === 'zh' ? '添忆：添加记忆' : 'Plus One',
     theme: language === 'zh' ? '主题:' : 'Theme:',
     languageToggle: language === 'zh' ? '中 / EN' : 'EN / 中',
     profile: language === 'zh' ? '个人中心' : 'Personal Center',
@@ -64,10 +64,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
           <div className="flex flex-col">
             <div className="flex items-center">
-              <h1 className={`text-lg font-bold tracking-tight ${theme === 'natural' ? 'text-[#1c2e24]' : 'text-slate-900 dark:text-white'}`}>WordScene AI</h1>
+              <h1 className={`text-lg font-bold tracking-tight ${theme === 'natural' ? 'text-[#1c2e24]' : 'text-slate-900 dark:text-white'}`}>WordBase</h1>
               {isGlass && (
                 <div className="ml-3 px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] text-white/60 font-mono">
-                  v4.2.0
+                  collect and learn
                 </div>
               )}
             </div>

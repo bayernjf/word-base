@@ -174,7 +174,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
             <Sparkles className="w-8 h-8" />
           </div>
           <h2 className={`text-2xl font-bold ${themeStyles.textPrimary}`}>
-            WordScene AI
+            WordBase
           </h2>
           <p className={`text-sm mt-1 ${themeStyles.textSecondary}`}>
             {step === 'register' ? copy.registerSubtitle : 
@@ -1859,7 +1859,7 @@ interface StudyScenarioProps {
 export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, stories, words }) => {
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const [chats, setChats] = useState<ChatMessage[]>([
-    { id: '1', sender: 'ai', text: 'Hello! I am your WordScene English Tutor. Click on any highlighted word in the story to view translations, synonyms, or grammar structure. Or feel free to query me about idioms in this passage!', timestamp: '09:05 AM' }
+    { id: '1', sender: 'ai', text: 'Hello! I am your WordBase English Tutor. Click on any highlighted word in the story to view translations, synonyms, or grammar structure. Or feel free to query me about idioms in this passage!', timestamp: '09:05 AM' }
   ]);
   const [message, setMessage] = useState('');
   const [showChinese, setShowChinese] = useState(false);

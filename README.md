@@ -1,4 +1,4 @@
-# WordScene AI
+# WordBase
 
 语境化语言学习工作台 — 基于 React + Supabase 的全栈词汇学习应用。
 
