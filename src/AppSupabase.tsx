@@ -94,7 +94,20 @@ export default function AppSupabase() {
       return 'zh';
     }
   });
-  const [activeView, setActiveView] = useState<string>('welcome');
+  const [activeView, setActiveView] = useState<string>(() => {
+    if (typeof window === 'undefined') {
+      return 'welcome';
+    }
+    try {
+      const saved = localStorage.getItem('wordbase_activeView');
+      if (saved) {
+        return saved;
+      }
+    } catch {
+      // ignore
+    }
+    return 'welcome';
+  });
   const [isCompactMode, setIsCompactMode] = useState<boolean>(false);
   const [isSmallTypography, setIsSmallTypography] = useState<boolean>(false);
   const [selectedWordId, setSelectedWordId] = useState<string>('');
@@ -118,6 +131,18 @@ export default function AppSupabase() {
       // ignore
     }
   }, [language]);
+
+  // 持久化当前页面，刷新/切换标签后保持离开时的状态
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      localStorage.setItem('wordbase_activeView', activeView);
+    } catch {
+      // ignore
+    }
+  }, [activeView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,10 +173,26 @@ export default function AppSupabase() {
   }, [user]);
 
   // 登录/登出时的状态切换（仅依赖 user）
+  // 只在 user 从 null→有值（登录）或有值→null（登出）时才切换，刷新/重挂载时保持当前页面
+  const prevUserRef = React.useRef<typeof user>(user);
   useEffect(() => {
-    if (user) {
-      setActiveView('dashboard');
-    } else {
+    const prevUser = prevUserRef.current;
+    prevUserRef.current = user;
+
+    // 真正登录：之前没有 user，现在有了
+    if (!prevUser && user) {
+      const saved = (() => {
+        try { return localStorage.getItem('wordbase_activeView'); } catch { return null; }
+      })();
+      if (saved && saved !== 'welcome') {
+        setActiveView(saved);
+      } else {
+        setActiveView('dashboard');
+      }
+      return;
+    }
+    // 真正登出：之前有 user，现在没了
+    if (prevUser && !user) {
       setSelectedBookId('');
       setSelectedWordId('');
       setActiveView('welcome');

@@ -1382,9 +1382,13 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   <Globe className="w-4 h-4" />
                   <span className="text-xs font-medium">
                     {selectedTranslateLang
-                      ? (language === 'zh'
-                          ? `翻译到${selectedTranslateLang}`
-                          : `Translate to ${selectedTranslateLang}`)
+                      ? (() => {
+                          const labelMap: Record<string, string> = language === 'zh'
+                            ? { Chinese: '中文', Japanese: '日语', German: '德语' }
+                            : { Chinese: 'Chinese', Japanese: 'Japanese', German: 'German' };
+                          const label = labelMap[selectedTranslateLang] || selectedTranslateLang;
+                          return language === 'zh' ? `翻译到${label}` : `Translate to ${label}`;
+                        })()
                       : (language === 'zh' ? '翻译到...' : 'Translate to...')}
                   </span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${translateDropdownOpen ? 'rotate-180' : ''}`} />
