@@ -37,14 +37,6 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeType>('glass');
   const [activeView, setActiveView] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem('wordbase_activeView');
-      if (saved) {
-        return saved;
-      }
-    } catch {
-      // ignore
-    }
-    try {
       const auth = localStorage.getItem('wordbase_auth');
       if (auth) {
         const parsed = JSON.parse(auth);
@@ -94,15 +86,6 @@ export default function App() {
       loadBooks(auth.accessToken);
     }
   }, [isLoggedIn, auth.accessToken]);
-
-  // 持久化当前页面，刷新/切换标签后保持离开时的状态
-  useEffect(() => {
-    try {
-      localStorage.setItem('wordbase_activeView', activeView);
-    } catch {
-      // ignore
-    }
-  }, [activeView]);
 
   const saveAuth = (newAuth: AuthState) => {
     setAuth(newAuth);
