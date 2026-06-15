@@ -1179,30 +1179,6 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     noContexts: language === 'zh' ? '当前单词暂无语境示例。' : 'No contexts available for this word.',
   };
 
-  if (!word) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
-        <p className="text-sm">{copy.noWord}</p>
-        <button onClick={() => onNavigate('vocabulary')} className="mt-4 text-xs hover:underline text-indigo-650">
-          {copy.returnToVocab}
-        </button>
-      </div>
-    );
-  }
-
-  const handleSpeech = () => {
-    setIsPlaying(true);
-    const utterance = new SpeechSynthesisUtterance(word.word);
-    utterance.lang = 'en-US';
-    utterance.onend = () => setIsPlaying(false);
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const handleMouseDown = () => {
-    setIsDragging(true);
-  };
-
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging || !containerRef.current) return;
@@ -1228,6 +1204,30 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging]);
+
+  if (!word) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
+        <p className="text-sm">{copy.noWord}</p>
+        <button onClick={() => onNavigate('vocabulary')} className="mt-4 text-xs hover:underline text-indigo-650">
+          {copy.returnToVocab}
+        </button>
+      </div>
+    );
+  }
+
+  const handleSpeech = () => {
+    setIsPlaying(true);
+    const utterance = new SpeechSynthesisUtterance(word.word);
+    utterance.lang = 'en-US';
+    utterance.onend = () => setIsPlaying(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleMouseDown = () => {
+    setIsDragging(true);
+  };
 
   return (
     <div className="space-y-4">

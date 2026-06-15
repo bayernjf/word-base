@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppLanguage, ThemeType, AIModel } from './types';
 import { initialStories, listeningQuizzes, mockDefaultModels } from './mockData';
@@ -94,7 +94,15 @@ export default function AppSupabase() {
       return 'zh';
     }
   });
-  const [activeView, setActiveView] = useState<string>('welcome');
+  const [activeView, setActiveView] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'welcome';
+    try {
+      const saved = localStorage.getItem('wordbase_activeView');
+      return saved || 'welcome';
+    } catch {
+      return 'welcome';
+    }
+  });
   const [isCompactMode, setIsCompactMode] = useState<boolean>(false);
   const [isSmallTypography, setIsSmallTypography] = useState<boolean>(false);
   const [selectedWordId, setSelectedWordId] = useState<string>('');
@@ -118,6 +126,15 @@ export default function AppSupabase() {
       // ignore
     }
   }, [language]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('wordbase_activeView', activeView);
+    } catch {
+      // ignore
+    }
+  }, [activeView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,11 +164,27 @@ export default function AppSupabase() {
     };
   }, [user]);
 
-  // 登录/登出时的状态切换（仅依赖 user）
+  // 仅在真正的登录/登出状态转换时切换视图，token 刷新不触发
+  const prevUserIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (user) {
-      setActiveView('dashboard');
-    } else {
+    const prevId = prevUserIdRef.current;
+    const currId = user?.id;
+    prevUserIdRef.current = currId;
+
+    // 真正登录：之前没有 user，现在有了
+    if (!prevId && currId) {
+      const saved = (() => {
+        try { return localStorage.getItem('wordbase_activeView'); } catch { return null; }
+      })();
+      if (saved && saved !== 'welcome') {
+        setActiveView(saved);
+      } else {
+        setActiveView('dashboard');
+      }
+      return;
+    }
+    // 真正登出：之前有 user，现在没了
+    if (prevId && !currId) {
       setSelectedBookId('');
       setSelectedWordId('');
       setActiveView('welcome');
@@ -644,6 +677,7 @@ export default function AppSupabase() {
             >
               <WelcomeLoginView
                 themeStyles={themeStyles}
+                language={language}
                 onLogin={handleSignIn}
                 onRegister={handleSignUp}
                 onRequestPasswordReset={handleRequestPasswordReset}

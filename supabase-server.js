@@ -787,7 +787,11 @@ app.post('/api/v1/words/batch', async (req, res) => {
       })
       
       for (const [bookId, count] of Object.entries(newWordCountByBook)) {
-        await db.rpc('increment_book_word_count', { p_book_id: bookId, p_count: count }).catch(() => {})
+        try {
+          await db.rpc('increment_book_word_count', { p_book_id: bookId, p_count: count })
+        } catch {
+          // ignore word_count refresh failure
+        }
       }
     }
     
