@@ -87,6 +87,11 @@ export default function App() {
     }
   }, [isLoggedIn, auth.accessToken]);
 
+  useEffect(() => {
+    document.body.classList.remove('theme-glass', 'theme-natural');
+    document.body.classList.add(`theme-${theme}`);
+  }, [theme]);
+
   const saveAuth = (newAuth: AuthState) => {
     setAuth(newAuth);
     try {

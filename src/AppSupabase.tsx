@@ -137,6 +137,12 @@ export default function AppSupabase() {
   }, [activeView]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.body.classList.remove('theme-glass', 'theme-natural');
+    document.body.classList.add(`theme-${theme}`);
+  }, [theme]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadProfile() {
