@@ -5,7 +5,7 @@ import {
   ChevronDown, Settings, Database, Code, Sliders, Smartphone, Activity, BarChart3, HelpCircle, FileText,
   Globe, Languages, Save
 } from 'lucide-react';
-import { AppLanguage, MoveWordsResult, Word, VocabularyBook, Story, ChatMessage, PracticeQuiz, AIModel, ThemeType } from '../types';
+import { AppLanguage, MoveWordsResult, Word, WordContext, VocabularyBook, Story, ChatMessage, PracticeQuiz, AIModel, ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
 
 // 辅助函数：获取单词的frequency值
@@ -1150,17 +1150,20 @@ interface WordDetailProps {
   onNavigate: (view: string) => void;
   word: Word | undefined;
   onUpdateFamiliarity: (wordId: string, level: number) => void;
+  onUpdateContexts: (wordId: string, contexts: WordContext[]) => Promise<Word | null>;
 }
 
 export const WordDetailView: React.FC<WordDetailProps> = ({ 
-  themeStyles, language, onNavigate, word, onUpdateFamiliarity 
+  themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts 
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showChineseExample, setShowChineseExample] = useState<Record<number, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
   const [topHeight, setTopHeight] = useState(50); // 百分比
   const [translateDropdownOpen, setTranslateDropdownOpen] = useState(false);
-  const [selectedTranslateLang, setSelectedTranslateLang] = useState<string | null>(null);
+  const [selectedTranslateLang, setSelectedTranslateLang] = useState<string>('Chinese');
+  const [contextTranslations, setContextTranslations] = useState<Record<number, string>>({});
+  const [contextActionLoading, setContextActionLoading] = useState<Record<number, 'translate' | 'save' | 'delete'>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const copy = {
     noWord: language === 'zh' ? '当前没有激活的单词卡片。' : 'No word card active.',
@@ -1205,6 +1208,15 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     };
   }, [isDragging]);
 
+  useEffect(() => {
+    const nextTranslations: Record<number, string> = {};
+    (word?.contexts || []).forEach((ctx, index) => {
+      nextTranslations[index] = ctx.translation || '';
+    });
+    setContextTranslations(nextTranslations);
+    setContextActionLoading({});
+  }, [word?.id]);
+
   if (!word) {
     return (
       <div className="text-center py-12">
@@ -1227,6 +1239,72 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
   const handleMouseDown = () => {
     setIsDragging(true);
+  };
+
+  const updateContextTranslation = async (contextIndex: number, translation: string) => {
+    const contexts = word.contexts || [];
+    const nextContexts = contexts.map((ctx, index) => (
+      index === contextIndex ? { ...ctx, translation } : ctx
+    ));
+    return onUpdateContexts(word.id, nextContexts);
+  };
+
+  const setContextLoading = (contextIndex: number, action?: 'translate' | 'save' | 'delete') => {
+    setContextActionLoading((prev) => {
+      const next = { ...prev };
+      if (action) {
+        next[contextIndex] = action;
+      } else {
+        delete next[contextIndex];
+      }
+      return next;
+    });
+  };
+
+  const handleTranslateContext = async (contextIndex: number, text: string) => {
+    const targetLangMap: Record<string, string> = {
+      Chinese: 'zh-CN',
+      Japanese: 'ja',
+      German: 'de',
+    };
+    const targetLang = targetLangMap[selectedTranslateLang] || 'zh-CN';
+    setContextLoading(contextIndex, 'translate');
+    try {
+      const url = new URL('https://api.mymemory.translated.net/get');
+      url.search = new URLSearchParams({
+        q: text,
+        langpair: `en|${targetLang}`,
+      }).toString();
+      const response = await fetch(url.toString());
+      if (!response.ok) throw new Error('translate_failed');
+      const data = await response.json();
+      const translatedText = String(data?.responseData?.translatedText || '').trim();
+      if (!translatedText) throw new Error('empty_translation');
+      setContextTranslations((prev) => ({ ...prev, [contextIndex]: translatedText }));
+    } catch (error) {
+      console.error('Error translating context:', error);
+    } finally {
+      setContextLoading(contextIndex);
+    }
+  };
+
+  const handleSaveContextTranslation = async (contextIndex: number) => {
+    setContextLoading(contextIndex, 'save');
+    try {
+      await updateContextTranslation(contextIndex, contextTranslations[contextIndex] || '');
+    } finally {
+      setContextLoading(contextIndex);
+    }
+  };
+
+  const handleDeleteContextTranslation = async (contextIndex: number) => {
+    setContextLoading(contextIndex, 'delete');
+    try {
+      setContextTranslations((prev) => ({ ...prev, [contextIndex]: '' }));
+      await updateContextTranslation(contextIndex, '');
+    } finally {
+      setContextLoading(contextIndex);
+    }
   };
 
   return (
@@ -1479,25 +1557,31 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                           )}
                         </td>
                         <td className="py-4 px-4">
-                          <p className="text-sm text-indigo-650 dark:text-indigo-400">{ctx.translation}</p>
+                          <p className={`text-sm ${themeStyles.textPrimary}`}>{contextTranslations[i] || ''}</p>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
                             <button
-                              className="p-1.5 text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all duration-200 active:scale-90"
-                              title={language === 'zh' ? '翻译到其他语言' : 'Translate to'}
+                              onClick={() => handleTranslateContext(i, ctx.context)}
+                              disabled={!!contextActionLoading[i]}
+                              className="p-1.5 text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={language === 'zh' ? '翻译到选定语言' : 'Translate to selected language'}
                             >
                               <Languages className="w-4 h-4" />
                             </button>
                             <button
-                              className="p-1.5 text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 active:scale-90"
+                              onClick={() => handleSaveContextTranslation(i)}
+                              disabled={!!contextActionLoading[i]}
+                              className="p-1.5 text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
                               title={language === 'zh' ? '保存翻译' : 'Save'}
                             >
                               <Save className="w-4 h-4" />
                             </button>
                             <button
-                              className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-200 active:scale-90"
-                              title={language === 'zh' ? '删除' : 'Delete'}
+                              onClick={() => handleDeleteContextTranslation(i)}
+                              disabled={!!contextActionLoading[i]}
+                              className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={language === 'zh' ? '删除翻译' : 'Delete translation'}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>

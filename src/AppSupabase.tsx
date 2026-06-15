@@ -535,6 +535,7 @@ export default function AppSupabase() {
             onUpdateFamiliarity={(id, level) => {
               void updateWord(id, { familiarity: level, timeUpdated: Date.now(), dateUpdated: Date.now() });
             }}
+            onUpdateContexts={(id, contexts) => updateWord(id, { contexts, timeUpdated: Date.now(), dateUpdated: Date.now() })}
           />
         );
       case 'mylists':

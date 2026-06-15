@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   initialVocabularyBooks, initialWords, initialStories, listeningQuizzes, mockDefaultModels 
 } from './mockData';
-import { ThemeType, Word, VocabularyBook, AIModel } from './types';
+import { ThemeType, Word, WordContext, VocabularyBook, AIModel } from './types';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -707,6 +707,17 @@ export default function App() {
     }));
   };
 
+  const handleUpdateContexts = async (wordId: string, contexts: WordContext[]) => {
+    const now = Date.now();
+    let updatedWord: Word | null = null;
+    setWords(prev => prev.map(w => {
+      if (w.id !== wordId) return w;
+      updatedWord = { ...w, contexts, timeUpdated: now, dateUpdated: now };
+      return updatedWord;
+    }));
+    return updatedWord;
+  };
+
   const handleDeleteWords = (wordIds: string[]) => {
     setWords(prev => prev.filter(w => !wordIds.includes(w.id)));
   };
@@ -805,9 +816,11 @@ export default function App() {
         return (
           <WordDetailView
             themeStyles={themeStyles}
+            language="zh"
             onNavigate={setActiveView}
             word={activeWordCard}
             onUpdateFamiliarity={handleUpdateFamiliarity}
+            onUpdateContexts={handleUpdateContexts}
           />
         );
       case 'mylists':
