@@ -255,8 +255,7 @@ const mergeContexts = (left, right) => {
   for (const item of list) {
     const key = JSON.stringify({
       context: item?.context || '',
-      sourceLink: item?.sourceLink || '',
-      translation: item?.translation || ''
+      sourceLink: item?.sourceLink || ''
     })
     if (seen.has(key)) continue
     seen.add(key)
@@ -729,30 +728,42 @@ app.post('/api/v1/words/batch', async (req, res) => {
       return res.json([])
     }
 
-    // 在 upsert 前先查询已存在的单词，以便区分插入和更新
-    const wordBookPairs = dedupedWords
-      .filter(w => w.word && w.book_id)
-      .map(w => ({ word: w.word.toLowerCase(), book_id: w.book_id }))
-    
-    let existingWords = new Set()
-    if (wordBookPairs.length > 0) {
-      const { data: existingData } = await db
-        .from('words')
-        .select('word, book_id')
-        .eq('user_id', user.id)
-        .eq('is_deleted', false)
-      
-      if (existingData) {
-        existingWords = new Set(
-          existingData.map(w => `${w.word.toLowerCase()}:${w.book_id}`)
-        )
-      }
+    // 在 upsert 前先查询已存在的单词，以便区分插入和更新，并合并已有 contexts
+    const { data: existingData, error: existingWordsError } = await db
+      .from('words')
+      .select('word, book_id, contexts')
+      .eq('user_id', user.id)
+      .eq('is_deleted', false)
+
+    if (existingWordsError) throw existingWordsError
+
+    const existingWords = new Set()
+    const existingWordMap = new Map()
+    if (existingData) {
+      existingData.forEach(w => {
+        const key = `${w.word.toLowerCase()}:${w.book_id}`
+        existingWords.add(key)
+        existingWordMap.set(key, w)
+      })
     }
+
+    const wordsForUpsert = dedupedWords.map(word => {
+      const key = `${word.word.toLowerCase()}:${word.book_id}`
+      const existing = existingWordMap.get(key)
+      if (!existing) return word
+
+      const contexts = mergeContexts(existing.contexts, word.contexts)
+      return {
+        ...word,
+        contexts,
+        frequency: Math.max(Number(word.frequency) || 0, contexts.length, 1)
+      }
+    })
 
     // 使用 upsert 替代 insert，当遇到唯一约束冲突时进行更新
     const { data, error } = await db
       .from('words')
-      .upsert(dedupedWords, {
+      .upsert(wordsForUpsert, {
         onConflict: ['user_id', 'word', 'book_id'],
         update: [
           'translation', 
