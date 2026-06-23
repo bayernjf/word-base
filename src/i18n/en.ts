@@ -14,7 +14,7 @@ export const en = {
   sidebar: {
     dashboard: 'Dashboard Home',
     vocabulary: 'My Words',
-    mylists: 'My Spacing Lists',
+    mylists: 'Wordbook',
     stories: 'AI Stories',
     practice: 'Practice Skills',
     settings: 'Settings Preferences',
