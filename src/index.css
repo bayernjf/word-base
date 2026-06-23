@@ -51,7 +51,7 @@ body.theme-glass *::-webkit-scrollbar-corner {
 body.theme-natural,
 body.theme-natural * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(74, 103, 83, 0.58) transparent;
+  scrollbar-color: rgba(141, 214, 162, 0.72) transparent;
 }
 
 body.theme-natural::-webkit-scrollbar,
@@ -70,14 +70,14 @@ body.theme-natural *::-webkit-scrollbar-track {
 
 body.theme-natural::-webkit-scrollbar-thumb,
 body.theme-natural *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(72, 103, 84, 0.74), rgba(119, 142, 104, 0.58));
-  border: 2px solid rgba(250, 249, 244, 0.9);
+  background: linear-gradient(180deg, rgba(141, 214, 162, 0.88), rgba(255, 219, 184, 0.72));
+  border: 2px solid rgba(255, 254, 250, 0.92);
   border-radius: 999px;
 }
 
 body.theme-natural::-webkit-scrollbar-thumb:hover,
 body.theme-natural *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(49, 84, 63, 0.82), rgba(92, 122, 85, 0.68));
+  background: linear-gradient(180deg, rgba(109, 194, 137, 0.95), rgba(255, 205, 166, 0.82));
 }
 
 body.theme-natural::-webkit-scrollbar-corner,
@@ -135,7 +135,7 @@ body.theme-natural input[type="range"] {
 }
 
 body.theme-natural input[type="range"]::-webkit-slider-runnable-track {
-  background: rgba(214, 210, 196, 0.95);
+  background: rgba(220, 235, 216, 0.95);
   height: 4px;
   border-radius: 999px;
 }
@@ -147,13 +147,13 @@ body.theme-natural input[type="range"]::-webkit-slider-thumb {
   height: 14px;
   margin-top: -5px;
   border-radius: 999px;
-  background: #3f6f52;
-  border: 2px solid #faf9f4;
-  box-shadow: 0 1px 4px rgba(28, 46, 36, 0.22);
+  background: #8dd6a2;
+  border: 2px solid #fffefa;
+  box-shadow: 0 1px 6px rgba(98, 173, 130, 0.28);
 }
 
 body.theme-natural input[type="range"]::-moz-range-track {
-  background: rgba(214, 210, 196, 0.95);
+  background: rgba(220, 235, 216, 0.95);
   height: 4px;
   border-radius: 999px;
 }
@@ -162,7 +162,7 @@ body.theme-natural input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  background: #3f6f52;
-  border: 2px solid #faf9f4;
-  box-shadow: 0 1px 4px rgba(28, 46, 36, 0.22);
+  background: #8dd6a2;
+  border: 2px solid #fffefa;
+  box-shadow: 0 1px 6px rgba(98, 173, 130, 0.28);
 }

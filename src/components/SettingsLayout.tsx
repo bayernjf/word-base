@@ -32,7 +32,11 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     { id: 'settings-sync', label: copy.sync, icon: Database, hidden: true }
   ];
 
-  const isGlass = themeStyles.borderClass === 'border-white/10';
+  const isGlass = themeStyles.name === 'glass';
+  const settingsNavPanelClass = isGlass
+    ? 'bg-white/5 border-white/10 backdrop-blur-xl'
+    : 'bg-[#e3f0dd] border-[#bad8b7] shadow-sm shadow-[#8fb998]/20';
+  const settingsNavLabelClass = isGlass ? 'text-white/40' : 'text-[#556a5b]';
 
   return (
     <div className="space-y-6">
@@ -44,11 +48,9 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Settings Left sub-nav sidebar */}
         <div className={`md:col-span-1 space-y-1.5 p-3 rounded-2xl border ${
-          isGlass 
-            ? 'bg-white/5 border-white/10 backdrop-blur-xl' 
-            : 'bg-slate-100/50 dark:bg-white/5 border-neutral-200 dark:border-white/5'
+          settingsNavPanelClass
         }`}>
-          <span className={`block text-[10px] font-mono uppercase tracking-widest mb-2 px-2.5 font-bold ${isGlass ? 'text-white/40' : 'text-neutral-400'}`}>
+          <span className={`block text-[10px] font-mono uppercase tracking-widest mb-2 px-2.5 font-bold ${settingsNavLabelClass}`}>
             {copy.preferences}
           </span>
           <ul className="space-y-1">
@@ -60,11 +62,11 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
               if (isSelected) {
                 btnClass = isGlass 
                   ? 'bg-white/10 border border-white/10 text-white shadow-md' 
-                  : 'bg-indigo-600 text-white shadow-xs';
+                  : 'bg-[#cceac8] border border-[#84c796] text-[#173f2b] shadow-md shadow-[#88bd90]/25';
               } else {
                 btnClass = isGlass 
                   ? 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent' 
-                  : 'text-neutral-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5';
+                  : 'text-[#5d7564] hover:text-[#1f422f] hover:bg-[#f8fff2] border border-transparent hover:border-[#bad8b7]';
               }
 
               return (

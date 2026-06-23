@@ -27,7 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
   ];
 
   const parentView = activeView.split('-')[0];
-  const isGlass = themeStyles.borderClass === 'border-white/10';
+  const isGlass = themeStyles.name === 'glass';
   const avatarIndex = user?.avatar ?? 0;
   const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
   const displayName = user?.nickname || user?.email?.split('@')[0] || t('sidebar.userFallback');
@@ -40,10 +40,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
   return (
     <div className={`space-y-6 ${themeStyles.sidebar}`}>
       {/* User profile */}
-      <div className="space-y-3 pb-3 border-b border-neutral-200 dark:border-white/10 font-sans">
+      <div className={`space-y-3 pb-3 border-b font-sans ${isGlass ? 'border-white/10' : 'border-[#bad8b7]'}`}>
         <div className="flex flex-col items-center space-y-2">
           <div className="w-20 h-20" dangerouslySetInnerHTML={{ __html: avatarSvg }} />
-          <h3 className={`text-sm font-bold ${isGlass ? 'text-white' : 'text-slate-800 dark:text-neutral-205'}`}>{displayName}</h3>
+          <h3 className={`text-sm font-bold ${isGlass ? 'text-white' : 'text-[#244235]'}`}>{displayName}</h3>
         </div>
       </div>
 
@@ -57,11 +57,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
           if (isSelected) {
             navItemClasses = isGlass 
               ? 'bg-white/10 border border-white/10 text-white shadow-lg shadow-indigo-500/5' 
-              : 'bg-indigo-600 text-white shadow-xs';
+              : 'bg-[#cceac8] border border-[#84c796] text-[#173f2b] shadow-md shadow-[#88bd90]/25';
           } else {
             navItemClasses = isGlass 
               ? 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/5' 
-              : 'text-neutral-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5';
+              : 'text-[#5d7564] hover:text-[#1f422f] hover:bg-[#f8fff2] border border-transparent hover:border-[#bad8b7]';
           }
 
           return (
@@ -85,11 +85,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
       <div className={`p-5 rounded-2xl border text-xs text-center space-y-3 shadow-inner ${
         isGlass 
           ? 'bg-gradient-to-br from-indigo-500/20 to-fuchsia-500/20 border-white/10 text-white backdrop-blur-xl' 
-          : 'bg-linear-to-tr from-indigo-500 to-purple-600 text-white border-white/10'
+          : 'bg-linear-to-br from-[#cfedc9] via-[#fff1c7] to-[#ffdcd1] text-[#1f4a33] border-[#a9d4a4] shadow-md shadow-[#88bd90]/20'
       }`}>
         <div>
           <span className="font-bold block text-sm">{dailyCopy.title}</span>
-          <p className={`text-[10px] leading-normal mt-1 ${isGlass ? 'text-white/60' : 'text-white/80'}`}>
+          <p className={`text-[10px] leading-normal mt-1 ${isGlass ? 'text-white/60' : 'text-[#6b7f6e]'}`}>
             {dailyCopy.description}
           </p>
         </div>
@@ -98,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
           className={`w-full py-2 font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all text-center cursor-pointer shadow-xs ${
             isGlass 
               ? 'bg-white text-slate-950 hover:bg-white/90 active:scale-95' 
-              : 'bg-white text-indigo-700 hover:bg-slate-100 active:scale-95'
+              : 'bg-[#fffdf7] text-[#2f7051] border border-white/80 hover:bg-white active:scale-95 shadow-xs shadow-[#8fb998]/15'
           }`}
         >
           {dailyCopy.cta}
