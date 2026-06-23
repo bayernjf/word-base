@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronRight, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, CheckCircle2, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { AppLanguage, MoveWordsResult, Word, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
@@ -24,6 +24,9 @@ interface VocabularyNotification {
   highlight?: string;
 }
 
+type SortField = 'word' | 'frequency' | 'timeAdded';
+type SortDir = 'asc' | 'desc';
+
 export const VocabularyListView: React.FC<VocabularyProps> = ({ 
   themeStyles, language, onNavigate, words, books, onSelectWord, onAddWord,
   initialSelectedBookId = 'biz-eng', onBookChange, onDeleteWords, onMoveWords
@@ -38,6 +41,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [showMoveConfirmModal, setShowMoveConfirmModal] = useState(false);
   const [targetBookId, setTargetBookId] = useState<string | null>(null);
   const [notification, setNotification] = useState<VocabularyNotification | null>(null);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
   const searchPanelClass = isGlass
@@ -62,6 +67,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     setSelectedBookId(initialSelectedBookId);
     setCurrentPage(1); // 切换单词本时回到第一页
     setSelectedWordIds([]); // 切换单词本时清空选择
+    setSortField(null); // 切换单词本时重置排序
+    setSortDir('asc');
   }, [initialSelectedBookId]);
 
   // 当搜索或每页条数变化时回到第一页
@@ -120,11 +127,28 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     return `rgb(${r}, ${g}, ${b})`;
   };
 
+  // 排序（无序时保持原顺序）
+  const sortedWords = sortField === null
+    ? filteredWords
+    : [...filteredWords].sort((a, b) => {
+        let cmp = 0;
+        if (sortField === 'word') {
+          cmp = a.word.localeCompare(b.word);
+        } else if (sortField === 'frequency') {
+          cmp = getFrequency(a) - getFrequency(b);
+        } else {
+          const ta = Number(a.timeAdded ?? a.dateAdded ?? a.meta?.createdAt ?? 0);
+          const tb = Number(b.timeAdded ?? b.dateAdded ?? b.meta?.createdAt ?? 0);
+          cmp = ta - tb;
+        }
+        return sortDir === 'asc' ? cmp : -cmp;
+      });
+
   // 计算分页
-  const totalPages = Math.ceil(filteredWords.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedWords.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedWords = filteredWords.slice(startIndex, endIndex);
+  const paginatedWords = sortedWords.slice(startIndex, endIndex);
 
   useEffect(() => {
     const nextTotalPages = Math.max(1, Math.ceil(filteredWords.length / itemsPerPage));
@@ -208,6 +232,30 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const handleBookChange = (bookId: string) => {
     setSelectedBookId(bookId);
     onBookChange?.(bookId);
+  };
+
+  // 表头点击：无序 → 升序 → 降序 → 无序
+  const handleSort = (field: SortField) => {
+    setCurrentPage(1);
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDir('asc');
+    } else if (sortDir === 'asc') {
+      setSortDir('desc');
+    } else {
+      setSortField(null);
+      setSortDir('asc');
+    }
+  };
+
+  // 表头排序图标
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ChevronsUpDown className="w-3 h-3 opacity-40" />;
+    }
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3" />
+      : <ArrowDown className="w-3 h-3" />;
   };
 
   return (
@@ -308,10 +356,25 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                     className="w-3.5 h-3.5"
                   />
                 </th>
-                <th className="py-3 px-4">{t('vocab.word')}</th>
-                <th className="py-3 px-4">{t('vocab.frequency')}</th>
+                <th className="py-3 px-4">
+                  <button onClick={() => handleSort('word')} className="inline-flex items-center gap-1 uppercase tracking-widest font-mono cursor-pointer hover:opacity-80 select-none">
+                    {t('vocab.word')}
+                    {renderSortIcon('word')}
+                  </button>
+                </th>
+                <th className="py-3 px-4">
+                  <button onClick={() => handleSort('frequency')} className="inline-flex items-center gap-1 uppercase tracking-widest font-mono cursor-pointer hover:opacity-80 select-none">
+                    {t('vocab.frequency')}
+                    {renderSortIcon('frequency')}
+                  </button>
+                </th>
                 <th className="py-3 px-4">{t('vocab.translation')}</th>
-                <th className="py-3 px-4">{t('vocab.timeAdded')}</th>
+                <th className="py-3 px-4">
+                  <button onClick={() => handleSort('timeAdded')} className="inline-flex items-center gap-1 uppercase tracking-widest font-mono cursor-pointer hover:opacity-80 select-none">
+                    {t('vocab.timeAdded')}
+                    {renderSortIcon('timeAdded')}
+                  </button>
+                </th>
                 <th className="py-3 px-4 text-right">{t('vocab.action')}</th>
               </tr>
             </thead>
