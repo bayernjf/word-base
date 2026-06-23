@@ -114,6 +114,10 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteAccountMessage, setDeleteAccountMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const t = createTranslator(language);
+  const isGlass = themeStyles.name === 'glass';
+  const passwordInputClass = isGlass
+    ? 'bg-white/5 border-white/10 text-white placeholder:text-white/35 focus:border-white/30'
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] placeholder:text-[#8a9c89] focus:border-[#56a978] shadow-xs shadow-[#8fb998]/10';
 
   const handleUpdateNickname = async () => {
     if (!nickname.trim()) return;
@@ -268,7 +272,7 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
                 type="password"
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
+                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${passwordInputClass}`}
                 required
               />
             </div>
@@ -278,7 +282,7 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
+                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${passwordInputClass}`}
                 required
                 minLength={6}
               />
@@ -289,7 +293,7 @@ export const AccountSettingsView: React.FC<AccountSettingsProps> = ({
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-xs"
+                className={`w-full px-3 py-2 border rounded-xl text-xs outline-none transition-colors ${passwordInputClass}`}
                 required
                 minLength={6}
               />

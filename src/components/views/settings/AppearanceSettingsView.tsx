@@ -19,6 +19,14 @@ export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({
   themeStyles, language, activeTheme, onThemeChange, isCompactMode, onCompactToggle, isSmallTypography, onTypographyToggle 
 }) => {
   const t = createTranslator(language);
+  const isGlass = themeStyles.name === 'glass';
+  const cardSelectedClass = isGlass
+    ? 'border-indigo-600 bg-linear-to-tr from-indigo-500/5 to-indigo-500/10'
+    : 'border-[#56a978] bg-[#d9efd2] shadow-sm shadow-[#8fb998]/25';
+  const cardIdleClass = isGlass
+    ? 'hover:bg-slate-100 dark:hover:bg-white/5 border-neutral-200 dark:border-white/10'
+    : 'border-[#9fc89f] bg-[#fffdf7] hover:bg-[#f2faee] hover:border-[#84c796]';
+  const checkBadgeClass = isGlass ? 'bg-indigo-600 text-white' : 'bg-[#56a978] text-white';
   return (
     <div className="space-y-6 max-w-xl">
       <div className="border-b border-neutral-200 dark:border-white/10 pb-4">
@@ -42,7 +50,7 @@ export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({
                 key={thm.id}
                 type="button"
                 onClick={() => onThemeChange(thm.id as ThemeType)}
-                className={`p-3.5 border text-left rounded-2xl flex flex-col justify-between transition-all hover:scale-[1.01] ${activeTheme === thm.id ? 'border-indigo-600 bg-linear-to-tr from-indigo-500/5 to-indigo-500/10' : 'hover:bg-slate-100 dark:hover:bg-white/5 border-neutral-200 dark:border-white/10'} cursor-pointer`}
+                className={`p-3.5 border text-left rounded-2xl flex flex-col justify-between transition-all hover:scale-[1.01] ${activeTheme === thm.id ? cardSelectedClass : cardIdleClass} cursor-pointer`}
               >
                 <div className="flex items-center justify-between w-full mb-1">
                   <span className="font-bold flex items-center space-x-2">
@@ -51,7 +59,7 @@ export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({
                   </span>
                   
                   {activeTheme === thm.id && (
-                    <span className="p-0.5 bg-indigo-600 text-white rounded-full">
+                    <span className={`p-0.5 rounded-full ${checkBadgeClass}`}>
                       <Check className="w-2.5 h-2.5" />
                     </span>
                   )}
