@@ -1,8 +1,9 @@
 import React from 'react';
-import { Sparkles, ChevronRight, BookOpen } from 'lucide-react';
+import { Sparkles, ChevronRight, BookOpen, RotateCcw } from 'lucide-react';
 import { AppLanguage, Word, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+import { getDueWords } from '../../../lib/srs';
 
 interface DashboardProps {
   themeStyles: ThemeClasses;
@@ -14,8 +15,11 @@ interface DashboardProps {
 
 export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language, onNavigate, books, words, user }) => {
   const t = createTranslator(language);
-  const knownPercent = 65; // Simulated goal metric
   const displayName = user?.nickname || user?.email?.split('@')[0] || t('dashboard.learner');
+  const dueCount = getDueWords(words).length;
+  const reviewTitle = language === 'en' ? 'Due today' : '今日待复习';
+  const reviewDesc = language === 'en' ? `${dueCount} words ready` : `${dueCount} 个词待复习`;
+  const quickStartView = dueCount > 0 ? 'practice-review' : 'vocabulary';
   
   return (
     <div className="space-y-6">
@@ -33,13 +37,29 @@ export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language,
           )}
         </div>
         <button 
-          onClick={() => onNavigate('vocabulary')}
+          onClick={() => onNavigate(quickStartView)}
           className={`${themeStyles.btnPrimary} flex items-center justify-center space-x-2 py-3 px-5`}
         >
           <Sparkles className="w-4 h-4 fill-white/20" />
           <span>{t('dashboard.quickStart')}</span>
         </button>
       </div>
+
+      <button
+        onClick={() => onNavigate('practice-review')}
+        className={`${themeStyles.card} w-full flex items-center justify-between gap-4 text-left cursor-pointer`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
+            <RotateCcw className="w-5 h-5" />
+          </span>
+          <div>
+            <h3 className={`text-base font-bold ${themeStyles.textPrimary}`}>{reviewTitle}</h3>
+            <p className={`text-xs mt-1 ${themeStyles.textSecondary}`}>{reviewDesc}</p>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-neutral-400" />
+      </button>
 
 
       {/* Grid: My Word lists */}

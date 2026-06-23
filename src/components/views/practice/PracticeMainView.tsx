@@ -1,18 +1,29 @@
 import React from 'react';
-import { Volume2, Mic, BookOpen, FileText } from 'lucide-react';
-import { AppLanguage } from '../../../types';
+import { Volume2, Mic, BookOpen, FileText, RotateCcw } from 'lucide-react';
+import { AppLanguage, Word } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+import { getDueWords } from '../../../lib/srs';
 
 interface PracticeMainProps {
   themeStyles: ThemeClasses;
   language: AppLanguage;
   onNavigate: (view: string) => void;
+  words?: Word[];
 }
 
-export const PracticeMainView: React.FC<PracticeMainProps> = ({ themeStyles, language, onNavigate }) => {
+export const PracticeMainView: React.FC<PracticeMainProps> = ({ themeStyles, language, onNavigate, words = [] }) => {
   const t = createTranslator(language);
+  const dueCount = getDueWords(words).length;
   const cards = [
+    {
+      id: 'review',
+      title: language === 'en' ? 'Spaced Review' : '间隔复习',
+      icon: 'RotateCcw',
+      count: language === 'en' ? `${dueCount} due` : `${dueCount} 个待复习`,
+      progress: words.length ? Math.round(((words.length - dueCount) / words.length) * 100) : 100,
+      desc: language === 'en' ? 'Flip cards and rate recall to schedule the next review.' : '翻卡评分，自动安排下一次复习时间。',
+    },
     { id: 'listening', title: t('practiceMain.listeningTitle'), icon: 'Volume2', count: t('practiceMain.listeningCount'), progress: 40, desc: t('practiceMain.listeningDesc') },
     { id: 'speaking', title: t('practiceMain.speakingTitle'), icon: 'Mic', count: t('practiceMain.speakingCount'), progress: 15, desc: t('practiceMain.speakingDesc') },
     { id: 'reading', title: t('practiceMain.readingTitle'), icon: 'BookOpen', count: t('practiceMain.readingCount'), progress: 80, desc: t('practiceMain.readingDesc') },
@@ -37,6 +48,7 @@ export const PracticeMainView: React.FC<PracticeMainProps> = ({ themeStyles, lan
                   {card.id === 'listening' ? <Volume2 className="w-6 h-6" /> :
                    card.id === 'speaking' ? <Mic className="w-6 h-6" /> :
                    card.id === 'reading' ? <BookOpen className="w-6 h-6" /> :
+                   card.id === 'review' ? <RotateCcw className="w-6 h-6" /> :
                    <FileText className="w-6 h-6" />}
                 </span>
                 <span className="font-mono text-xs text-neutral-400 uppercase">{card.count}</span>

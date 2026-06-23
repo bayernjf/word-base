@@ -33,6 +33,10 @@ type SupabaseWordRow = {
   usage_history: Array<{ context: string; translation: string; source: string }> | null;
   level: Word['level'] | null;
   familiarity: number | null;
+  next_review_at: string | null;
+  review_count: number | null;
+  ease_factor: number | null;
+  interval_days: number | null;
   book_id: string;
   meta: Word['meta'] | null;
   created_at: string | null;
@@ -86,6 +90,10 @@ function mapWordRow(row: SupabaseWordRow): Word {
     usageHistory: Array.isArray(row.usage_history) ? row.usage_history : [],
     level: row.level || 'B2',
     familiarity: row.familiarity ?? 0,
+    nextReviewAt: toTimestamp(row.next_review_at || row.created_at),
+    reviewCount: row.review_count ?? 0,
+    easeFactor: row.ease_factor ?? 2.5,
+    intervalDays: row.interval_days ?? 0,
     bookId: row.book_id,
     meta: {
       ...(row.meta || {}),
@@ -147,6 +155,10 @@ function toWordPayload(word: Omit<Word, 'id'>) {
     usage_history: word.usageHistory || [],
     level: word.level || 'B2',
     familiarity: word.familiarity ?? 0,
+    next_review_at: new Date(word.nextReviewAt ?? timeAdded).toISOString(),
+    review_count: word.reviewCount ?? 0,
+    ease_factor: word.easeFactor ?? 2.5,
+    interval_days: word.intervalDays ?? 0,
     book_id: word.bookId,
     meta: word.meta || {},
   };
@@ -429,7 +441,7 @@ export function useWords(bookId?: string) {
       let query = supabase
         .from('words')
         .select(
-          'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+          'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
         )
         .eq('user_id', user.id)
         .eq('is_deleted', false);
@@ -459,7 +471,7 @@ export function useWords(bookId?: string) {
         const { data: existing, error: existingError } = await supabase
           .from('words')
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
           )
           .eq('user_id', user.id)
           .eq('book_id', payload.book_id)
@@ -487,7 +499,7 @@ export function useWords(bookId?: string) {
             .eq('id', existing.id)
             .eq('user_id', user.id)
             .select(
-              'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+              'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
             )
             .single();
 
@@ -510,7 +522,7 @@ export function useWords(bookId?: string) {
             is_deleted: false,
           })
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
           )
           .single();
 
@@ -587,7 +599,7 @@ export function useWords(bookId?: string) {
         const { data: sourceRows, error: sourceError } = await supabase
           .from('words')
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
           )
           .eq('user_id', user.id)
           .eq('is_deleted', false)
@@ -610,7 +622,7 @@ export function useWords(bookId?: string) {
         const { data: targetRows, error: targetError } = await supabase
           .from('words')
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
           )
           .eq('user_id', user.id)
           .eq('book_id', targetBookId)
@@ -717,6 +729,10 @@ export function useWords(bookId?: string) {
         if (updates.usageHistory !== undefined) payload.usage_history = updates.usageHistory;
         if (updates.level !== undefined) payload.level = updates.level;
         if (updates.familiarity !== undefined) payload.familiarity = updates.familiarity;
+        if (updates.nextReviewAt !== undefined) payload.next_review_at = new Date(updates.nextReviewAt).toISOString();
+        if (updates.reviewCount !== undefined) payload.review_count = updates.reviewCount;
+        if (updates.easeFactor !== undefined) payload.ease_factor = updates.easeFactor;
+        if (updates.intervalDays !== undefined) payload.interval_days = updates.intervalDays;
         if (updates.bookId !== undefined) payload.book_id = updates.bookId;
         if (updates.meta !== undefined) payload.meta = updates.meta;
 
@@ -726,7 +742,7 @@ export function useWords(bookId?: string) {
           .eq('id', wordId)
           .eq('user_id', user.id)
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, book_id, meta, created_at, updated_at'
+            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
           )
           .single();
 

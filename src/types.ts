@@ -35,6 +35,10 @@ export interface Word {
   }>;
   level?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   familiarity?: number; // 0 to 100
+  nextReviewAt?: number;
+  reviewCount?: number;
+  easeFactor?: number;
+  intervalDays?: number;
   bookId: string;
   meta?: {
     sourceUrl?: string;

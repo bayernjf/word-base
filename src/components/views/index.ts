@@ -5,6 +5,7 @@ export { WordDetailView } from './vocabulary/WordDetailView';
 export { MyListsView } from './vocabulary/MyListsView';
 export { StudyScenarioView } from './study/StudyScenarioView';
 export { PracticeMainView } from './practice/PracticeMainView';
+export { ReviewView } from './practice/ReviewView';
 export { ListeningPracticeView } from './practice/ListeningPracticeView';
 export { SpeakingPracticeView } from './practice/SpeakingPracticeView';
 export { ReadingPracticeView } from './practice/ReadingPracticeView';
