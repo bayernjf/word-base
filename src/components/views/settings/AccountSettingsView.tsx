@@ -22,6 +22,13 @@ function AccountAvatarSelect({
   currentAvatar: number;
   onUpdate: (data: { nickname?: string; avatar?: number }) => Promise<boolean>;
 }) {
+  const isGlass = themeStyles.name === 'glass';
+  const avatarSelectedClass = isGlass
+    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+    : 'border-[#56a978] bg-[#d9efd2]';
+  const avatarIdleClass = isGlass
+    ? 'border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-600'
+    : 'border-[#9fc89f] hover:border-[#56a978] bg-[#fffdf7]';
   const [avatars, setAvatars] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -75,8 +82,8 @@ function AccountAvatarSelect({
             disabled={isLoading}
             className={`p-1 rounded-lg border-2 transition-all ${
               currentAvatar === index
-                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
-                : 'border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-600'
+                ? avatarSelectedClass
+                : avatarIdleClass
             }`}
           >
             <div

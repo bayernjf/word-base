@@ -82,13 +82,16 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
   const isGlass = themeStyles.borderClass === 'border-white/10';
   const fieldClass = isGlass
     ? 'bg-white/10 border-white/10 text-white placeholder:text-white/35 focus:border-white/30 focus:bg-white/[0.14]'
-    : 'bg-[#faf9f4] border-[#d6d2c4] text-[#1c2e24] placeholder:text-[#788174] focus:border-emerald-700/50';
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] placeholder:text-[#8a9c89] focus:border-[#56a978]';
   const providerButtonClass = isGlass
     ? 'bg-white/10 border-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl hover:bg-white/[0.14] focus:border-white/30 focus:bg-white/[0.16] focus:ring-2 focus:ring-white/15 [color-scheme:dark]'
-    : 'bg-[#faf9f4] border-[#d6d2c4] text-[#1c2e24] shadow-sm hover:bg-white focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-800/10 [color-scheme:light]';
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] shadow-xs shadow-[#8fb998]/10 hover:bg-[#f2faee] focus:border-[#56a978] focus:ring-2 focus:ring-[#56a978]/15 [color-scheme:light]';
   const providerMenuClass = isGlass
     ? 'bg-slate-950/80 border-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_28px_72px_rgba(2,6,23,0.62)] backdrop-blur-3xl'
-    : 'bg-[#faf9f4] border-[#d6d2c4] text-[#1c2e24] shadow-xl';
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] shadow-xl shadow-[#8fb998]/20';
+  const cancelBtnClass = isGlass
+    ? 'bg-white/5 hover:bg-white/10 border border-white/10 text-white/60'
+    : 'bg-[#fffdf7] hover:bg-[#f2faee] border border-[#9fc89f] text-[#5d7564]';
 
   useEffect(() => {
     setName(initialModel?.name || '');
@@ -230,7 +233,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
                     const isSelected = option.value === provider;
                     const optionClass = isGlass
                       ? `${isSelected ? 'bg-white/24 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]' : 'text-white/82 hover:bg-white/16 hover:text-white'}`
-                      : `${isSelected ? 'bg-emerald-700 text-[#f4f2eb]' : 'text-[#1c2e24] hover:bg-[#ece9df]'}`;
+                      : `${isSelected ? 'bg-[#56a978] text-white' : 'text-[#1d3a2b] hover:bg-[#e1f0db]'}`;
 
                     return (
                       <button
@@ -298,7 +301,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
                   const isSelected = option.value === CUSTOM_MODEL_VALUE ? isCustomModel : option.value === model && !isCustomModel;
                   const optionClass = isGlass
                     ? `${isSelected ? 'bg-white/24 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]' : 'text-white/82 hover:bg-white/16 hover:text-white'}`
-                    : `${isSelected ? 'bg-emerald-700 text-[#f4f2eb]' : 'text-[#1c2e24] hover:bg-[#ece9df]'}`;
+                    : `${isSelected ? 'bg-[#56a978] text-white' : 'text-[#1d3a2b] hover:bg-[#e1f0db]'}`;
 
                   return (
                     <button
@@ -361,7 +364,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
           <button
             type="button"
             onClick={() => onNavigate('settings-aimodels')}
-            className="bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-neutral-400 py-2 border border-neutral-200 dark:border-white/10 rounded-xl font-bold flex-1 cursor-pointer"
+            className={`py-2 rounded-xl font-bold flex-1 cursor-pointer transition-colors ${cancelBtnClass}`}
           >
             {t('addModel.cancel')}
           </button>
