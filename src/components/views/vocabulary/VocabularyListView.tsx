@@ -39,7 +39,23 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [targetBookId, setTargetBookId] = useState<string | null>(null);
   const [notification, setNotification] = useState<VocabularyNotification | null>(null);
   const t = createTranslator(language);
-
+  const isGlass = themeStyles.name === 'glass';
+  const searchPanelClass = isGlass
+    ? 'bg-white/5 border-white/10'
+    : 'bg-[#fffdf7] border-[#9fc89f] shadow-xs shadow-[#8fb998]/10';
+  const searchInputClass = isGlass
+    ? 'text-neutral-100 placeholder:text-white/40'
+    : 'text-[#1d3a2b] placeholder:text-[#8a9c89]';
+  const searchIconClass = isGlass ? 'text-neutral-400' : 'text-[#6f8b72]';
+  const tableHeadBorder = isGlass ? 'border-white/10' : 'border-[#9fc89f]';
+  const tableHeadText = isGlass ? 'text-neutral-400' : 'text-[#4f765d]';
+  const tableRowBorder = isGlass ? 'border-white/5' : 'border-[#c7dfbd]';
+  const tableRowHover = isGlass ? 'hover:bg-white/5' : 'hover:bg-[#f2faee]';
+  const dropdownSelectClass = isGlass
+    ? 'bg-white/5 border-white/15 text-neutral-100'
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] shadow-xs shadow-[#8fb998]/10';
+  const dropdownChevronClass = isGlass ? 'text-neutral-400' : 'text-[#6f8b72]';
+  const wordLinkClass = isGlass ? 'text-indigo-400' : 'text-[#2f805d]';
   // Update local state if initial prop changes
   useEffect(() => {
     setSelectedBookId(initialSelectedBookId);
@@ -207,32 +223,32 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           {/* Book switcher dropdown */}
           <div className="relative">
-            <select 
+            <select
               value={selectedBookId}
               onChange={(e) => handleBookChange(e.target.value)}
-              className="px-3 py-2 bg-slate-100 dark:bg-white/10 border border-neutral-300 dark:border-white/15 rounded-xl text-xs pr-8 font-medium focus:outline-hidden text-neutral-800 dark:text-neutral-100 cursor-pointer appearance-none"
+              className={`px-3 py-2 border rounded-xl text-xs pr-8 font-medium focus:outline-hidden cursor-pointer appearance-none ${dropdownSelectClass}`}
             >
               {books.map(b => (
                 <option key={b.id} value={b.id} className="text-black bg-stone-100">{b.name}</option>
               ))}
             </select>
-            <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-3 text-neutral-400 pointer-events-none" />
+            <ChevronDown className={`w-3.5 h-3.5 absolute right-2.5 top-3 pointer-events-none ${dropdownChevronClass}`} />
           </div>
         </div>
       </div>
 
       {/* Filter and Search */}
-      <div className="flex items-center space-x-2 bg-slate-100 dark:bg-white/5 border border-neutral-200 dark:border-white/5 px-3 py-2 rounded-xl">
-        <Search className="w-4 h-4 text-neutral-400" />
+      <div className={`flex items-center space-x-2 border px-3 py-2 rounded-xl ${searchPanelClass}`}>
+        <Search className={`w-4 h-4 ${searchIconClass}`} />
         <input 
           type="text" 
           placeholder={t('vocab.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-transparent border-0 text-xs focus:ring-0 focus:outline-hidden"
+          className={`w-full bg-transparent border-0 text-xs focus:ring-0 focus:outline-hidden ${searchInputClass}`}
         />
         {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className="text-xs text-neutral-400 hover:text-indigo-650">{t('vocab.clear')}</button>
+          <button onClick={() => setSearchQuery('')} className={`text-xs ${isGlass ? 'text-neutral-400 hover:text-indigo-400' : 'text-[#6f8b72] hover:text-[#2f805d]'}`}>{t('vocab.clear')}</button>
         )}
       </div>
 
@@ -282,7 +298,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="sticky top-0 bg-inherit">
-              <tr className="border-b border-neutral-200 dark:border-white/10 text-neutral-400 font-mono uppercase tracking-widest text-[10px]">
+              <tr className={`border-b ${tableHeadBorder} ${tableHeadText} font-mono uppercase tracking-widest text-[10px]`}>
                 <th className="py-3 px-4 w-10">
                   <input
                     type="checkbox"
@@ -301,7 +317,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
             <tbody>
               {paginatedWords.length > 0 ? (
                 paginatedWords.map(w => (
-                  <tr key={w.id} className="border-b border-neutral-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                  <tr key={w.id} className={`border-b ${tableRowBorder} ${tableRowHover} transition-colors`}>
                     <td className="py-3.5 px-4">
                       <input
                         type="checkbox"
@@ -311,8 +327,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                       />
                     </td>
                     <td className="py-3.5 px-4 cursor-pointer" onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}>
-                      <button 
-                        className={`font-semibold text-sm text-left hover:underline block ${themeStyles.accentText}`}
+                      <button
+                        className={`font-semibold text-sm text-left hover:underline block ${wordLinkClass}`}
                       >
                         {w.word}
                       </button>
