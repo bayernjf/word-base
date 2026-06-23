@@ -43,6 +43,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [notification, setNotification] = useState<VocabularyNotification | null>(null);
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [bookDropdownOpen, setBookDropdownOpen] = useState(false);
+  const [perPageDropdownOpen, setPerPageDropdownOpen] = useState(false);
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
   const searchPanelClass = isGlass
@@ -60,6 +62,15 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     ? 'bg-white/5 border-white/15 text-neutral-100'
     : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] shadow-xs shadow-[#8fb998]/10';
   const dropdownChevronClass = isGlass ? 'text-neutral-400' : 'text-[#6f8b72]';
+  const dropdownPanelClass = isGlass
+    ? 'bg-slate-900/95 border-white/10'
+    : 'bg-[#fffdf7] border-[#9fc89f] shadow-[#8fb998]/20';
+  const dropdownOptionSelected = isGlass
+    ? 'bg-white/10 text-white font-semibold'
+    : 'bg-[#d9efd2] text-[#2f805d] font-semibold';
+  const dropdownOptionIdle = isGlass
+    ? 'text-neutral-200 hover:bg-white/5'
+    : 'text-[#1d3a2b] hover:bg-[#e1f0db]';
   const wordLinkClass = isGlass ? 'text-indigo-400' : 'text-[#2f805d]';
   const progressTrackClass = isGlass ? 'bg-white/10' : 'bg-[#cfe3c6] border border-[#a9d4a4]';
   // Update local state if initial prop changes
@@ -272,16 +283,31 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           {/* Book switcher dropdown */}
           <div className="relative">
-            <select
-              value={selectedBookId}
-              onChange={(e) => handleBookChange(e.target.value)}
-              className={`px-3 py-2 border rounded-xl text-xs pr-8 font-medium focus:outline-hidden cursor-pointer appearance-none ${dropdownSelectClass}`}
+            <button
+              type="button"
+              onClick={() => setBookDropdownOpen((prev) => !prev)}
+              className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs pr-8 font-medium focus:outline-hidden cursor-pointer ${dropdownSelectClass}`}
             >
-              {books.map(b => (
-                <option key={b.id} value={b.id} className="text-black bg-stone-100">{b.name}</option>
-              ))}
-            </select>
-            <ChevronDown className={`w-3.5 h-3.5 absolute right-2.5 top-3 pointer-events-none ${dropdownChevronClass}`} />
+              <span>{books.find((b) => b.id === selectedBookId)?.name || ''}</span>
+            </button>
+            <ChevronDown className={`w-3.5 h-3.5 absolute right-2.5 top-3 pointer-events-none transition-transform ${bookDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
+            {bookDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setBookDropdownOpen(false)} />
+                <div className={`absolute right-0 mt-2 w-44 max-h-64 overflow-y-auto rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
+                  {books.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => { handleBookChange(b.id); setBookDropdownOpen(false); }}
+                      className={`w-full px-3 py-2 rounded-lg text-xs text-left transition-colors ${b.id === selectedBookId ? dropdownOptionSelected : dropdownOptionIdle}`}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -459,16 +485,33 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
               {/* 每页显示条数选择 */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-neutral-500">{t('vocab.show')}</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  className="px-2 py-1 bg-slate-100 dark:bg-white/10 border border-neutral-300 dark:border-white/15 rounded-lg text-xs cursor-pointer"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setPerPageDropdownOpen((prev) => !prev)}
+                    className={`flex items-center gap-1.5 px-2 py-1 border rounded-lg text-xs cursor-pointer ${dropdownSelectClass}`}
+                  >
+                    <span>{itemsPerPage}</span>
+                    <ChevronDown className={`w-3 h-3 transition-transform ${perPageDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
+                  </button>
+                  {perPageDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setPerPageDropdownOpen(false)} />
+                      <div className={`absolute right-0 bottom-full mb-2 w-20 rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
+                        {[10, 20, 50, 100].map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => { setItemsPerPage(size); setPerPageDropdownOpen(false); }}
+                            className={`w-full px-3 py-1.5 rounded-lg text-xs text-left transition-colors ${size === itemsPerPage ? dropdownOptionSelected : dropdownOptionIdle}`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <span className="text-xs text-neutral-500">{t('vocab.items')}</span>
               </div>
 

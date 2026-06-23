@@ -33,6 +33,15 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const t = createTranslator(language);
+  const isGlass = themeStyles.name === 'glass';
+  const dropdownBtnHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
+  const dropdownPanelClass = isGlass
+    ? 'border-white/10 bg-slate-900/90'
+    : 'border-[#9fc89f] bg-[#fffdf7]';
+  const dropdownItemSelected = isGlass
+    ? 'bg-indigo-500/10 text-indigo-400 font-semibold'
+    : 'bg-[#d9efd2] text-[#2f805d] font-semibold';
+  const dropdownItemHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -351,7 +360,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   onClick={() => setTranslateDropdownOpen(!translateDropdownOpen)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all active:scale-95 ${
                     themeStyles.card
-                  } ${themeStyles.textPrimary} hover:bg-indigo-500/10`}
+                  } ${themeStyles.textPrimary} ${dropdownBtnHover}`}
                 >
                   <Globe className="w-4 h-4" />
                   <span className="text-xs font-medium">
@@ -370,7 +379,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${translateDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {translateDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 overflow-hidden border border-neutral-200 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl">
+                  <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 overflow-hidden border backdrop-blur-xl ${dropdownPanelClass}`}>
                     <div className="p-2 flex flex-col gap-1">
                       {(() => {
                         const allLangs = [
@@ -396,8 +405,8 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                               }}
                               className={`w-full px-3 py-2 rounded-lg text-xs text-left transition-colors active:scale-95 ${
                                 isSelected
-                                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold'
-                                  : `${themeStyles.textPrimary} hover:bg-indigo-500/10`
+                                  ? dropdownItemSelected
+                                  : `${themeStyles.textPrimary} ${dropdownItemHover}`
                               }`}
                             >
                               {lang.label}
