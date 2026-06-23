@@ -56,6 +56,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] shadow-xs shadow-[#8fb998]/10';
   const dropdownChevronClass = isGlass ? 'text-neutral-400' : 'text-[#6f8b72]';
   const wordLinkClass = isGlass ? 'text-indigo-400' : 'text-[#2f805d]';
+  const progressTrackClass = isGlass ? 'bg-white/10' : 'bg-[#cfe3c6] border border-[#a9d4a4]';
   // Update local state if initial prop changes
   useEffect(() => {
     setSelectedBookId(initialSelectedBookId);
@@ -90,13 +91,13 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     return Math.min(Math.max(percent, 1), 100); // 限制在1-100之间
   };
 
-  // 计算进度条颜色（从浅绿→橙黄→酒红）
+  // 计算进度条颜色（从绿→橙黄→酒红）
   const getProgressColor = (percent: number) => {
-    // 1%: 浅绿色 (light green) - #90EE90
+    // 1%: 绿色 (green) - #56a978
     // 50%: 橙黄色 (orange-yellow) - #FFB600
     // 100%: 酒红色 (wine red) - #722F37
     
-    const r1 = 144, g1 = 238, b1 = 144; // 浅绿
+    const r1 = 86, g1 = 169, b1 = 120;   // 绿色
     const r2 = 255, g2 = 182, b2 = 0;    // 橙黄
     const r3 = 114, g3 = 47, b3 = 55;    // 酒红
     
@@ -338,11 +339,12 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                         className="flex items-center space-x-2 cursor-help" 
                         title={t('vocab.addedTimes', { count: getFrequency(w) })}
                       >
-                        <div className="w-16 bg-slate-200 dark:bg-white/10 h-2 rounded-xs overflow-hidden">
+                        <div className={`w-16 h-2 rounded-xs overflow-hidden ${progressTrackClass}`}>
                           <div 
-                            className="h-full"
+                            className="h-full rounded-xs"
                             style={{ 
                               width: `${getProgressPercent(w)}%`,
+                              minWidth: '6px',
                               backgroundColor: getProgressColor(getProgressPercent(w))
                             }}
                           />
