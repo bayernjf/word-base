@@ -1,8 +1,10 @@
 import express from 'express'
 import { createClient } from '@supabase/supabase-js'
+import { GoogleGenAI } from '@google/genai'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -16,6 +18,10 @@ const PORT = process.env.PORT || 3001
 const supabaseUrl = process.env.VITE_SUPABASE_URL
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const genAiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || ''
+const genAiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+const genAiClient = genAiApiKey ? new GoogleGenAI({ apiKey: genAiApiKey }) : null
+const aiConfigEncryptionSecret = process.env.AI_CONFIG_ENCRYPTION_KEY || ''
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,
@@ -294,6 +300,265 @@ const dedupeIncomingWords = (words) => {
   return [...merged.values()]
 }
 
+const buildAiEnrichmentPrompt = ({ word, translation, contexts }) => {
+  const contextLines = (Array.isArray(contexts) ? contexts : [])
+    .map((item) => String(item?.context || '').trim())
+    .filter(Boolean)
+    .slice(0, 5)
+
+  return [
+    'Generate vocabulary enrichment as strict JSON only.',
+    'Schema: {"definition":"...","translation":"...","synonyms":["..."],"examples":[{"en":"...","zh":"..."}],"usageHistory":[{"context":"...","translation":"...","source":"AI"}],"memoryTip":"..."}',
+    `Word: ${String(word || '').trim()}`,
+    `Current translation: ${String(translation || '').trim()}`,
+    `Contexts: ${JSON.stringify(contextLines)}`,
+    'Rules: examples must be natural English with Chinese translations; synonyms must be English; do not include markdown.'
+  ].join('\n')
+}
+
+const parseAiEnrichmentPayload = (raw) => {
+  const text = String(raw || '').trim()
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  const jsonText = fenced?.[1]
+    ? fenced[1].trim()
+    : start >= 0 && end > start
+      ? text.slice(start, end + 1)
+      : text
+
+  let parsed
+  try {
+    parsed = JSON.parse(jsonText)
+  } catch {
+    throw new Error('invalid_ai_enrichment_json')
+  }
+
+  const readString = (value) => (typeof value === 'string' ? value.trim() : '')
+  const readStringArray = (value) => (Array.isArray(value) ? value.map(readString).filter(Boolean) : [])
+  const readExamples = (value) => (Array.isArray(value) ? value : [])
+    .map((item) => {
+      const en = readString(item?.en)
+      const zh = readString(item?.zh)
+      return en && zh ? { en, zh } : null
+    })
+    .filter(Boolean)
+  const readUsageHistory = (value) => (Array.isArray(value) ? value : [])
+    .map((item) => {
+      const context = readString(item?.context)
+      const translation = readString(item?.translation)
+      const source = readString(item?.source) || 'AI'
+      return context && translation ? { context, translation, source } : null
+    })
+    .filter(Boolean)
+
+  return {
+    definition: readString(parsed?.definition),
+    translation: readString(parsed?.translation),
+    synonyms: readStringArray(parsed?.synonyms).slice(0, 8),
+    examples: readExamples(parsed?.examples).slice(0, 5),
+    usageHistory: readUsageHistory(parsed?.usageHistory).slice(0, 5),
+    memoryTip: readString(parsed?.memoryTip)
+  }
+}
+
+const getAiConfigEncryptionKey = () => {
+  if (!aiConfigEncryptionSecret) {
+    throw new Error('ai_config_encryption_key_required')
+  }
+  return createHash('sha256').update(aiConfigEncryptionSecret).digest()
+}
+
+const encryptApiKey = (apiKey) => {
+  const key = getAiConfigEncryptionKey()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(String(apiKey), 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return [
+    iv.toString('base64url'),
+    tag.toString('base64url'),
+    encrypted.toString('base64url')
+  ].join('.')
+}
+
+const decryptApiKey = (payload) => {
+  const key = getAiConfigEncryptionKey()
+  const [ivText, tagText, encryptedText] = String(payload || '').split('.')
+  if (!ivText || !tagText || !encryptedText) {
+    throw new Error('invalid_encrypted_api_key')
+  }
+
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivText, 'base64url'))
+  decipher.setAuthTag(Buffer.from(tagText, 'base64url'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedText, 'base64url')),
+    decipher.final()
+  ]).toString('utf8')
+}
+
+const buildApiKeyHint = (apiKey) => {
+  const trimmed = String(apiKey || '').trim()
+  return trimmed ? `••••${trimmed.slice(-4)}` : ''
+}
+
+const serializeAiProviderConfig = (row) => ({
+  id: row.id,
+  name: row.name,
+  provider: row.provider,
+  model: row.model,
+  endpoint: row.endpoint || '',
+  apiKeyHint: row.api_key_hint || '',
+  isActive: Boolean(row.is_active),
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+})
+
+const normalizeAiProvider = (provider) =>
+  provider === 'anthropic'
+    ? 'anthropic'
+    : provider === 'gemini'
+      ? 'gemini'
+      : provider === 'openai-compatible'
+        ? 'openai-compatible'
+        : 'openai'
+
+const defaultModelForProvider = (provider) => {
+  if (provider === 'anthropic') return 'claude-fable-5'
+  if (provider === 'gemini') return 'gemini-2.5-flash'
+  if (provider === 'openai-compatible') return 'gpt-4o-mini'
+  return 'gpt-5.5'
+}
+
+const resolveOpenAiChatUrl = (endpoint) => {
+  const base = String(endpoint || 'https://api.openai.com/v1').replace(/\/+$/, '')
+  return base.endsWith('/chat/completions') ? base : `${base}/chat/completions`
+}
+
+const resolveAnthropicMessagesUrl = (endpoint) => {
+  const base = String(endpoint || 'https://api.anthropic.com/v1').replace(/\/+$/, '')
+  return base.endsWith('/messages') ? base : `${base}/messages`
+}
+
+const resolveGeminiGenerateContentUrl = ({ endpoint, model, apiKey }) => {
+  const base = String(endpoint || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '')
+  return `${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
+}
+
+const fetchAiProvider = async (url, options) => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('ai_provider_request_timeout')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+const generateAiEnrichmentWithConfig = async ({ config, prompt }) => {
+  const apiKey = decryptApiKey(config.encrypted_api_key)
+  const provider = normalizeAiProvider(config.provider)
+  const model = config.model || defaultModelForProvider(provider)
+
+  if (provider === 'gemini') {
+    if (config.endpoint) {
+      const response = await fetchAiProvider(resolveGeminiGenerateContentUrl({ endpoint: config.endpoint, model, apiKey }), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json'
+          }
+        })
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data?.error?.message || data?.error || 'gemini_request_failed')
+      }
+
+      const text = data?.candidates?.[0]?.content?.parts
+        ?.map((part) => part?.text || '')
+        .join('\n') || ''
+      return parseAiEnrichmentPayload(text)
+    }
+
+    const client = new GoogleGenAI({ apiKey })
+    const response = await client.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json'
+      }
+    })
+    return parseAiEnrichmentPayload(response.text || '')
+  }
+
+  if (provider === 'anthropic') {
+    const response = await fetchAiProvider(resolveAnthropicMessagesUrl(config.endpoint), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2
+      })
+    })
+
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data?.error?.message || data?.error || 'anthropic_request_failed')
+    }
+
+    const text = Array.isArray(data?.content)
+      ? data.content.map((item) => item?.text || '').join('\n')
+      : ''
+    return parseAiEnrichmentPayload(text)
+  }
+
+  const response = await fetchAiProvider(resolveOpenAiChatUrl(config.endpoint), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+      temperature: 0.2
+    })
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data?.error?.message || data?.error || 'openai_compatible_request_failed')
+  }
+
+  return parseAiEnrichmentPayload(data?.choices?.[0]?.message?.content || '')
+}
+
 // =============================================
 // 兼容性 API 端点
 // =============================================
@@ -418,6 +683,175 @@ app.delete('/api/v1/auth/delete-account', async (req, res) => {
 })
 
 // 1. 单词本相关
+app.get('/api/v1/ai/providers', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const { data, error } = await db
+      .from('ai_provider_configs')
+      .select('id, name, provider, model, endpoint, api_key_hint, is_active, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('is_active', { ascending: false })
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    res.json({ configs: (data || []).map(serializeAiProviderConfig) })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/v1/ai/providers', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const provider = normalizeAiProvider(req.body?.provider)
+    const apiKey = String(req.body?.apiKey || '').trim()
+    if (!apiKey) return res.status(400).json({ error: 'api_key_required' })
+
+    const isActive = Boolean(req.body?.isActive)
+    if (isActive) {
+      const { error: clearError } = await db
+        .from('ai_provider_configs')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+      if (clearError) throw clearError
+    }
+
+    const { data, error } = await db
+      .from('ai_provider_configs')
+      .insert({
+        user_id: user.id,
+        name: String(req.body?.name || '').trim() || 'AI Provider',
+        provider,
+        model: String(req.body?.model || '').trim() || defaultModelForProvider(provider),
+        endpoint: String(req.body?.endpoint || '').trim() || null,
+        encrypted_api_key: encryptApiKey(apiKey),
+        api_key_hint: buildApiKeyHint(apiKey),
+        is_active: isActive
+      })
+      .select('id, name, provider, model, endpoint, api_key_hint, is_active, created_at, updated_at')
+      .single()
+
+    if (error) throw error
+    res.json({ config: serializeAiProviderConfig(data) })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.patch('/api/v1/ai/providers/:id', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const payload = {
+      updated_at: new Date().toISOString()
+    }
+
+    if (req.body?.name !== undefined) payload.name = String(req.body.name || '').trim() || 'AI Provider'
+    if (req.body?.provider !== undefined) payload.provider = normalizeAiProvider(req.body.provider)
+    if (req.body?.model !== undefined) payload.model = String(req.body.model || '').trim()
+    if (req.body?.endpoint !== undefined) payload.endpoint = String(req.body.endpoint || '').trim() || null
+    if (req.body?.apiKey !== undefined && String(req.body.apiKey || '').trim()) {
+      const apiKey = String(req.body.apiKey).trim()
+      payload.encrypted_api_key = encryptApiKey(apiKey)
+      payload.api_key_hint = buildApiKeyHint(apiKey)
+    }
+    if (req.body?.isActive !== undefined) payload.is_active = Boolean(req.body.isActive)
+
+    if (payload.is_active) {
+      const { error: clearError } = await db
+        .from('ai_provider_configs')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .neq('id', req.params.id)
+      if (clearError) throw clearError
+    }
+
+    const { data, error } = await db
+      .from('ai_provider_configs')
+      .update(payload)
+      .eq('id', req.params.id)
+      .eq('user_id', user.id)
+      .select('id, name, provider, model, endpoint, api_key_hint, is_active, created_at, updated_at')
+      .single()
+
+    if (error) throw error
+    res.json({ config: serializeAiProviderConfig(data) })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/api/v1/ai/providers/:id', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const { error } = await db
+      .from('ai_provider_configs')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/v1/ai/enrich', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const word = String(req.body?.word || '').trim()
+    if (!word) return res.status(400).json({ error: 'word_required' })
+
+    const prompt = buildAiEnrichmentPrompt({
+      word,
+      translation: req.body?.translation,
+      contexts: req.body?.contexts
+    })
+
+    const { data: activeConfig, error: configError } = await db
+      .from('ai_provider_configs')
+      .select('provider, model, endpoint, encrypted_api_key')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (configError) throw configError
+
+    let enrichment
+    if (activeConfig) {
+      enrichment = await generateAiEnrichmentWithConfig({ config: activeConfig, prompt })
+    } else {
+      if (!genAiClient) return res.status(500).json({ error: 'ai_key_not_configured' })
+      const response = await genAiClient.models.generateContent({
+        model: genAiModel,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json'
+        }
+      })
+      enrichment = parseAiEnrichmentPayload(response.text || '')
+    }
+
+    res.json({ enrichment })
+  } catch (err) {
+    console.error('[ai/enrich] error:', err.message)
+    const status = err.message === 'invalid_ai_enrichment_json' ? 502 : 500
+    res.status(status).json({ error: err.message })
+  }
+})
+
 app.get('/api/v1/books', async (req, res) => {
   try {
     const { user, db } = await getRequestContext(req)

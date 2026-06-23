@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, ArrowLeft, Volume2, Globe, ChevronDown, Languages, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Volume2, Globe, ChevronDown, Languages, Save, Trash2, Sparkles } from 'lucide-react';
 import { AppLanguage, Word, WordContext } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
+import { enrichmentToWordUpdates, requestAiEnrichment } from '../../../lib/aiEnrich';
+import { useSupabase } from '../../../context/SupabaseContext';
 
 interface WordDetailProps {
   themeStyles: ThemeClasses;
@@ -12,11 +14,13 @@ interface WordDetailProps {
   word: Word | undefined;
   onUpdateFamiliarity: (wordId: string, level: number) => void;
   onUpdateContexts: (wordId: string, contexts: WordContext[]) => Promise<Word | null>;
+  onUpdateWord: (wordId: string, updates: Partial<Word>) => Promise<Word | null>;
 }
 
 export const WordDetailView: React.FC<WordDetailProps> = ({ 
-  themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts 
+  themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts, onUpdateWord
 }) => {
+  const { session } = useSupabase();
   const [isPlaying, setIsPlaying] = useState(false);
   const [showChineseExample, setShowChineseExample] = useState<Record<number, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
@@ -25,6 +29,8 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [selectedTranslateLang, setSelectedTranslateLang] = useState<string>('Chinese');
   const [contextTranslations, setContextTranslations] = useState<Record<number, string>>({});
   const [contextActionLoading, setContextActionLoading] = useState<Record<number, 'translate' | 'save' | 'delete'>>({});
+  const [aiEnrichLoading, setAiEnrichLoading] = useState(false);
+  const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const t = createTranslator(language);
 
@@ -153,6 +159,37 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     }
   };
 
+  const handleAiEnrich = async () => {
+    if (!word) return;
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setAiEnrichError(language === 'en' ? 'Please sign in again before using AI enrich.' : '请重新登录后再使用 AI 丰富。');
+      return;
+    }
+
+    setAiEnrichLoading(true);
+    setAiEnrichError(null);
+    try {
+      const enrichment = await requestAiEnrichment(
+        {
+          word: word.word,
+          translation: word.translation || word.chineseTranslation || word.definition || '',
+          contexts: word.contexts || [],
+        },
+        accessToken
+      );
+      await onUpdateWord(word.id, enrichmentToWordUpdates(enrichment));
+    } catch (error) {
+      console.error('Error enriching word:', error);
+      const message = error instanceof Error ? error.message : 'ai_enrich_failed';
+      setAiEnrichError(message === 'ai_key_not_configured'
+        ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
+        : (language === 'en' ? 'AI enrich failed. Please try again later.' : 'AI 丰富失败，请稍后重试。'));
+    } finally {
+      setAiEnrichLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <button 
@@ -208,6 +245,14 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
               </div>
 
               <div className="flex flex-col items-end space-y-3">
+                <button
+                  onClick={handleAiEnrich}
+                  disabled={aiEnrichLoading}
+                  className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
+                >
+                  <Sparkles className={`w-4 h-4 ${aiEnrichLoading ? 'animate-pulse' : ''}`} />
+                  <span>{aiEnrichLoading ? (language === 'en' ? 'Enriching...' : 'AI 丰富中...') : (language === 'en' ? 'AI Enrich' : 'AI 丰富')}</span>
+                </button>
                 {word.familiarity !== undefined && (
                   <>
                     <span className="text-[10px] text-neutral-400 font-mono uppercase tracking-wider">{t('wordDetail.confidence')}</span>
@@ -232,6 +277,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
             </div>
 
             <div className="space-y-4">
+              {aiEnrichError && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+                  {aiEnrichError}
+                </div>
+              )}
               {word.definition && (
                 <div>
                   <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider">{t('wordDetail.definition')}</span>

@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AppLanguage, ThemeType, AIModel } from './types';
-import { initialStories, listeningQuizzes, mockDefaultModels } from './mockData';
+import { AppLanguage, ThemeType } from './types';
+import { initialStories, listeningQuizzes } from './mockData';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -14,6 +14,7 @@ import {
   MyListsView,
   StudyScenarioView,
   PracticeMainView,
+  ReviewView,
   ListeningPracticeView,
   SpeakingPracticeView,
   ReadingPracticeView,
@@ -27,6 +28,14 @@ import {
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
 import { profileApi, supabase } from './lib/supabase';
+import {
+  AiProviderConfig,
+  AiProviderInput,
+  createAiProviderConfig,
+  deleteAiProviderConfig,
+  listAiProviderConfigs,
+  updateAiProviderConfig,
+} from './lib/aiProviderConfigs';
 
 interface ProfileRow {
   id: string;
@@ -75,7 +84,7 @@ function clearPersistedSelectedBookId() {
 }
 
 export default function AppSupabase() {
-  const { user, isLoading: authLoading, signIn, signOut, resetPassword } = useSupabase();
+  const { user, session, isLoading: authLoading, signIn, signOut, resetPassword } = useSupabase();
   const { books, isLoading: booksLoading, loadBooks, createBook, updateBook, deleteBook, setSyncBook } =
     useVocabularyBooks();
   const [selectedBookId, setSelectedBookId] = useState<string>('');
@@ -107,7 +116,7 @@ export default function AppSupabase() {
   const [isSmallTypography, setIsSmallTypography] = useState<boolean>(false);
   const [selectedWordId, setSelectedWordId] = useState<string>('');
   const [authError, setAuthError] = useState<string | null>(null);
-  const [models, setModels] = useState<AIModel[]>(mockDefaultModels);
+  const [models, setModels] = useState<AiProviderConfig[]>([]);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const syncServerBaseUrl =
     import.meta.env.VITE_SYNC_SERVER_URL ||
@@ -251,6 +260,25 @@ export default function AppSupabase() {
     };
   }, [user, profile]);
 
+  const loadAiProviders = useCallback(async () => {
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setModels([]);
+      return;
+    }
+
+    try {
+      setModels(await listAiProviderConfigs(accessToken));
+    } catch (error) {
+      console.error('Error loading AI providers:', error);
+      setModels([]);
+    }
+  }, [session?.access_token]);
+
+  useEffect(() => {
+    void loadAiProviders();
+  }, [loadAiProviders]);
+
   const handleSignIn = async (email: string, password: string, _remember: boolean) => {
     setAuthError(null);
     const { error } = await signIn(email, password);
@@ -381,19 +409,75 @@ export default function AppSupabase() {
     }
   };
 
-  const handleToggleModel = (modelId: string) => {
-    setModels((prev) => prev.map((model) => (model.id === modelId ? { ...model, isActive: !model.isActive } : model)));
+  const handleToggleModel = async (modelId: string) => {
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+
+    const current = models.find((model) => model.id === modelId);
+    try {
+      const updated = await updateAiProviderConfig(modelId, { isActive: !current?.isActive }, accessToken);
+      setModels((prev) => prev.map((model) => {
+        if (updated.isActive && model.id !== updated.id) {
+          return { ...model, isActive: false };
+        }
+        return model.id === updated.id ? updated : model;
+      }));
+    } catch (error) {
+      console.error('Error toggling AI provider:', error);
+    }
   };
 
-  const handleAddCustomModel = (newModel: Omit<AIModel, 'id' | 'isActive'>) => {
-    setModels((prev) => [
-      ...prev,
-      {
-        ...newModel,
-        id: `engine-${Date.now()}`,
-        isActive: false,
-      },
-    ]);
+  const handleAddCustomModel = async (newModel: AiProviderInput) => {
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+
+    try {
+      const created = await createAiProviderConfig(
+        {
+          ...newModel,
+          isActive: models.length === 0,
+        },
+        accessToken
+      );
+      setModels((prev) => {
+        const next = created.isActive ? prev.map((model) => ({ ...model, isActive: false })) : prev;
+        return [...next, created];
+      });
+    } catch (error) {
+      console.error('Error adding AI provider:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateCustomModel = async (modelId: string, updates: AiProviderInput) => {
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+
+    try {
+      const updated = await updateAiProviderConfig(modelId, updates, accessToken);
+      setModels((prev) => prev.map((model) => {
+        if (updated.isActive && model.id !== updated.id) {
+          return { ...model, isActive: false };
+        }
+        return model.id === updated.id ? updated : model;
+      }));
+    } catch (error) {
+      console.error('Error updating AI provider:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteModel = async (modelId: string) => {
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+
+    try {
+      await deleteAiProviderConfig(modelId, accessToken);
+      setModels((prev) => prev.filter((model) => model.id !== modelId));
+    } catch (error) {
+      console.error('Error deleting AI provider:', error);
+      throw error;
+    }
   };
 
   const handleAddWord = async (wordData: Parameters<typeof addWord>[0]) => {
@@ -522,6 +606,28 @@ export default function AppSupabase() {
       );
     }
 
+    if (activeView.startsWith('settings-editmodel-')) {
+      const modelId = activeView.slice('settings-editmodel-'.length);
+      const modelToEdit = models.find((modelItem) => modelItem.id === modelId) || null;
+
+      return (
+        <SettingsLayout
+          themeStyles={themeStyles}
+          language={language}
+          activeSettingsTab="settings-aimodels"
+          onNavigateSettings={setActiveView}
+        >
+          <AddNewModelView
+            themeStyles={themeStyles}
+            language={language}
+            onNavigate={setActiveView}
+            onSaveModel={(updates) => handleUpdateCustomModel(modelId, updates)}
+            initialModel={modelToEdit}
+          />
+        </SettingsLayout>
+      );
+    }
+
     switch (activeView) {
       case 'dashboard':
         return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} user={currentUser} />;
@@ -536,6 +642,7 @@ export default function AppSupabase() {
               void updateWord(id, { familiarity: level, timeUpdated: Date.now(), dateUpdated: Date.now() });
             }}
             onUpdateContexts={(id, contexts) => updateWord(id, { contexts, timeUpdated: Date.now(), dateUpdated: Date.now() })}
+            onUpdateWord={(id, updates) => updateWord(id, updates)}
           />
         );
       case 'mylists':
@@ -554,7 +661,17 @@ export default function AppSupabase() {
       case 'stories':
         return <StudyScenarioView themeStyles={themeStyles} stories={initialStories} words={words} />;
       case 'practice':
-        return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+        return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} />;
+      case 'practice-review':
+        return (
+          <ReviewView
+            themeStyles={themeStyles}
+            language={language}
+            words={words}
+            onNavigate={setActiveView}
+            onReviewWord={(id, updates) => updateWord(id, updates)}
+          />
+        );
       case 'practice-listening':
         return <ListeningPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} quizzes={listeningQuizzes} />;
       case 'practice-speaking':
@@ -615,6 +732,8 @@ export default function AppSupabase() {
                 onNavigate={setActiveView}
                 models={models}
                 onToggleModel={handleToggleModel}
+                onEditModel={(modelId) => setActiveView(`settings-editmodel-${modelId}`)}
+                onDeleteModel={handleDeleteModel}
               />
             )}
             {activeView === 'settings-addmodel' && (

@@ -28,7 +28,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   const settingsMenus = [
     { id: 'settings-account', label: copy.account, icon: User },
     { id: 'settings-appearance', label: copy.appearance, icon: Sliders },
-    { id: 'settings-aimodels', label: copy.aiModels, icon: Sparkles, hidden: true },
+    { id: 'settings-aimodels', label: copy.aiModels, icon: Sparkles },
     { id: 'settings-sync', label: copy.sync, icon: Database, hidden: true }
   ];
 

@@ -4,6 +4,7 @@ import {
   initialVocabularyBooks, initialWords, initialStories, listeningQuizzes, mockDefaultModels 
 } from './mockData';
 import { ThemeType, Word, WordContext, VocabularyBook, AIModel } from './types';
+import type { AiProviderInput } from './lib/aiProviderConfigs';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -492,10 +493,14 @@ export default function App() {
     }));
   };
 
-  const handleAddCustomModel = (newModel: Omit<AIModel, 'id' | 'isActive'>) => {
+  const handleAddCustomModel = (newModel: AiProviderInput) => {
     const id = `engine-${Date.now()}`;
     const modelItem: AIModel = {
-      ...newModel,
+      name: newModel.name,
+      provider: newModel.provider,
+      apiKey: newModel.apiKey ? `****${newModel.apiKey.slice(-4)}` : '',
+      purpose: newModel.model,
+      endpoint: newModel.endpoint,
       id,
       isActive: false
     };
