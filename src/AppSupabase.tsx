@@ -42,6 +42,7 @@ interface ProfileRow {
   display_name?: string | null;
   avatar_url?: string | null;
   created_at?: string | null;
+  theme_preference?: string | null;
 }
 
 function toTimestamp(value?: string | null): number {
@@ -90,7 +91,18 @@ export default function AppSupabase() {
   const [selectedBookId, setSelectedBookId] = useState<string>('');
   const { words, addWord, deleteWords, moveWords, updateWord } = useWords(selectedBookId);
 
-  const [theme, setTheme] = useState<ThemeType>('glass');
+  const [theme, setTheme] = useState<ThemeType>(() => {
+    if (typeof window === 'undefined') {
+      return 'glass';
+    }
+
+    try {
+      const savedTheme = localStorage.getItem('wordbase_theme');
+      return savedTheme === 'natural' ? 'natural' : 'glass';
+    } catch {
+      return 'glass';
+    }
+  });
   const [language, setLanguage] = useState<AppLanguage>(() => {
     if (typeof window === 'undefined') {
       return 'zh';
@@ -152,6 +164,15 @@ export default function AppSupabase() {
   }, [theme]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('wordbase_theme', theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadProfile() {
@@ -164,6 +185,9 @@ export default function AppSupabase() {
         const data = (await profileApi.getProfile(user.id)) as ProfileRow;
         if (!cancelled) {
           setProfile(data);
+          if (data?.theme_preference === 'natural' || data?.theme_preference === 'glass') {
+            setTheme(data.theme_preference);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -347,6 +371,19 @@ export default function AppSupabase() {
       console.error('Error updating profile:', error);
       return false;
     }
+  };
+
+  const handleThemeChange = (nextTheme: ThemeType) => {
+    setTheme(nextTheme);
+    if (!user) return;
+    void (async () => {
+      try {
+        await profileApi.updateProfile(user.id, { theme_preference: nextTheme });
+        setProfile((prev) => (prev ? { ...prev, theme_preference: nextTheme } : prev));
+      } catch (error) {
+        console.error('Error updating theme preference:', error);
+      }
+    })();
   };
 
   const handleChangePassword = async (oldPassword: string, newPassword: string) => {
@@ -718,7 +755,7 @@ export default function AppSupabase() {
                 themeStyles={themeStyles}
                 language={language}
                 activeTheme={theme}
-                onThemeChange={setTheme}
+                onThemeChange={handleThemeChange}
                 isCompactMode={isCompactMode}
                 onCompactToggle={() => setIsCompactMode(!isCompactMode)}
                 isSmallTypography={isSmallTypography}
@@ -782,7 +819,7 @@ export default function AppSupabase() {
         theme={theme}
         language={language}
         onLanguageChange={setLanguage}
-        onThemeChange={setTheme}
+        onThemeChange={handleThemeChange}
         themeStyles={themeStyles}
         isLoggedIn={!!user}
         onNavigate={setActiveView}
