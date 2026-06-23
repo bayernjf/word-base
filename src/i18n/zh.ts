@@ -19,7 +19,7 @@ export const zh: LocaleDict = {
     mylists: '单词本',
     stories: '智能句景',
     practice: '实践练习',
-    settings: '设置配置',
+    settings: '设置',
     userFallback: '用户',
     dailyTitle: '开始复习',
     dailyDescription: '浏览你的单词',

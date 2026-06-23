@@ -17,7 +17,7 @@ export const en = {
     mylists: 'Wordbook',
     stories: 'AI Stories',
     practice: 'Practice Skills',
-    settings: 'Settings Preferences',
+    settings: 'Settings',
     userFallback: 'User',
     dailyTitle: 'Start to review',
     dailyDescription: 'Revisiting your words',
