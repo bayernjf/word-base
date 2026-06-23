@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Sliders, Sparkles, Database } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
 import { AppLanguage } from '../types';
+import { createTranslator } from '../i18n';
 
 interface SettingsLayoutProps {
   themeStyles: ThemeClasses;
@@ -14,14 +15,15 @@ interface SettingsLayoutProps {
 export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ 
   themeStyles, language, activeSettingsTab, onNavigateSettings, children 
 }) => {
+  const t = createTranslator(language);
   const copy = {
-    account: language === 'zh' ? '账户设置' : 'Account Profile',
-    appearance: language === 'zh' ? '外观设置' : 'Appearance Theme',
-    aiModels: language === 'zh' ? 'AI 模型' : 'AI Engine Models',
-    sync: language === 'zh' ? '同步与存储' : 'Sync & Storage',
-    title: language === 'zh' ? '设置中心' : 'Settings Configuration',
-    subtitle: language === 'zh' ? '查看凭据、调整界面。' : 'Review credentials and select screen elements.',
-    preferences: language === 'zh' ? '偏好设置' : 'Preferences',
+    account: t('settingsLayout.account'),
+    appearance: t('settingsLayout.appearance'),
+    aiModels: t('settingsLayout.aiModels'),
+    sync: t('settingsLayout.sync'),
+    title: t('settingsLayout.title'),
+    subtitle: t('settingsLayout.subtitle'),
+    preferences: t('settingsLayout.preferences'),
   };
   const settingsMenus = [
     { id: 'settings-account', label: copy.account, icon: User },

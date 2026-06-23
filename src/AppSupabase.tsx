@@ -23,7 +23,7 @@ import {
   AIModelsView,
   AddNewModelView,
   SyncStorageView,
-} from './components/Views';
+} from './components/views';
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
 import { profileApi, supabase } from './lib/supabase';

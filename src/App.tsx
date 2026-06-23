@@ -25,7 +25,7 @@ import {
   AIModelsView,
   AddNewModelView,
   SyncStorageView
-} from './components/Views';
+} from './components/views';
 
 interface AuthState {
   accessToken: string | null;

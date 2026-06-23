@@ -5,6 +5,7 @@ import {
 import { ThemeClasses } from './ThemeStyles';
 import { AVATARS } from '../avatars';
 import { AppLanguage } from '../types';
+import { createTranslator } from '../i18n';
 
 interface SidebarProps {
   activeView: string;
@@ -15,24 +16,25 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles, language, user }) => {
+  const t = createTranslator(language);
   const menuItems = [
-    { id: 'dashboard', label: language === 'zh' ? '仪表盘' : 'Dashboard Home', icon: Home },
-    { id: 'vocabulary', label: language === 'zh' ? '单词表' : 'My Words', icon: BookOpen },
-    { id: 'mylists', label: language === 'zh' ? '词书库' : 'My Spacing Lists', icon: Layers },
-    { id: 'stories', label: language === 'zh' ? '智能句景' : 'AI Stories', icon: Sparkles, hidden: true },
-    { id: 'practice', label: language === 'zh' ? '实践练习' : 'Practice Skills', icon: Activity, hidden: true },
-    { id: 'settings-account', label: language === 'zh' ? '设置配置' : 'Settings Preferences', icon: Settings }
+    { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
+    { id: 'vocabulary', label: t('sidebar.vocabulary'), icon: BookOpen },
+    { id: 'mylists', label: t('sidebar.mylists'), icon: Layers },
+    { id: 'stories', label: t('sidebar.stories'), icon: Sparkles, hidden: true },
+    { id: 'practice', label: t('sidebar.practice'), icon: Activity, hidden: true },
+    { id: 'settings-account', label: t('sidebar.settings'), icon: Settings }
   ];
 
   const parentView = activeView.split('-')[0];
   const isGlass = themeStyles.borderClass === 'border-white/10';
   const avatarIndex = user?.avatar ?? 0;
   const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
-  const displayName = user?.nickname || user?.email?.split('@')[0] || (language === 'zh' ? '用户' : 'User');
+  const displayName = user?.nickname || user?.email?.split('@')[0] || t('sidebar.userFallback');
   const dailyCopy = {
-    title: language === 'zh' ? '开始复习' : 'Start to review',
-    description: language === 'zh' ? "浏览你的单词" : "Revisiting your words",
-    cta: language === 'zh' ? '开始' : 'Start',
+    title: t('sidebar.dailyTitle'),
+    description: t('sidebar.dailyDescription'),
+    cta: t('sidebar.dailyCta'),
   };
 
   return (

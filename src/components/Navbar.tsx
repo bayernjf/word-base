@@ -3,6 +3,7 @@ import { Sparkles, LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown, L
 import { AppLanguage, ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
 import { AVATARS } from '../avatars';
+import { createTranslator } from '../i18n';
 
 interface NavbarProps {
   theme: ThemeType;
@@ -24,24 +25,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const avatarIndex = user?.avatar ?? 0;
   const avatarSvg = AVATARS[Math.max(0, Math.min(AVATARS.length - 1, avatarIndex))];
+  const t = createTranslator(language);
   const copy = {
-    subtitle: language === 'zh' ? '添忆：添加记忆' : 'Plus One',
-    theme: language === 'zh' ? '主题:' : 'Theme:',
-    languageToggle: language === 'zh' ? '中 / EN' : 'EN / 中',
-    profile: language === 'zh' ? '个人中心' : 'Personal Center',
-    account: language === 'zh' ? '账户设置' : 'Account Settings',
-    signOut: language === 'zh' ? '退出登录' : 'Sign Out',
-    logIn: language === 'zh' ? '登录' : 'Log In',
-    userFallback: language === 'zh' ? '用户' : 'User',
+    subtitle: t('nav.subtitle'),
+    theme: t('nav.theme'),
+    languageToggle: t('nav.languageToggle'),
+    profile: t('nav.profile'),
+    account: t('nav.account'),
+    signOut: t('nav.signOut'),
+    logIn: t('nav.logIn'),
+    userFallback: t('nav.userFallback'),
   };
   const themeOptions = [
     {
       id: 'glass',
-      label: language === 'zh' ? '液态玻璃' : 'Liquid Glass',
+      label: t('nav.glassLabel'),
     },
     {
       id: 'natural',
-      label: language === 'zh' ? '清新' : 'Sage',
+      label: t('nav.sageLabel'),
     },
   ] as const;
 
