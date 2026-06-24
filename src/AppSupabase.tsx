@@ -203,6 +203,23 @@ export default function AppSupabase() {
     };
   }, [user]);
 
+  // 扩展跳转注册：URL 带 ?auth=register 且当前已登录时，自动登出以显示注册页（仅执行一次）
+  const forcedRegisterLogoutRef = useRef(false);
+  useEffect(() => {
+    if (forcedRegisterLogoutRef.current) return;
+    if (typeof window === 'undefined') return;
+    let isRegisterIntent = false;
+    try {
+      isRegisterIntent = new URLSearchParams(window.location.search).get('auth') === 'register';
+    } catch {
+      isRegisterIntent = false;
+    }
+    if (isRegisterIntent && user) {
+      forcedRegisterLogoutRef.current = true;
+      void signOut();
+    }
+  }, [user, signOut]);
+
   // 仅在真正的登录/登出状态转换时切换视图，token 刷新不触发
   const prevUserIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
