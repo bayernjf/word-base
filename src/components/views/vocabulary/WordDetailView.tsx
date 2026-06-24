@@ -181,12 +181,14 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     try {
       const enrichment = await requestAiEnrichment(
         {
+          wordId: word.id,
           word: word.word,
           translation: word.translation || word.chineseTranslation || word.definition || '',
           contexts: word.contexts || [],
         },
         accessToken
       );
+      // 后端已直接入库（刷新/离开页面也不丢失）；此处同步更新本地状态以即时反映到 UI
       await onUpdateWord(word.id, enrichmentToWordUpdates(enrichment));
     } catch (error) {
       console.error('Error enriching word:', error);
@@ -271,8 +273,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                         min="0" 
                         max="100" 
                         value={word.familiarity}
-                        onChange={(e) => onUpdateFamiliarity(word.id, Number(e.target.value))}
-                        className="w-32 accent-indigo-650 cursor-pointer"
+                        disabled
+                        readOnly
+                        className="w-32 accent-indigo-650 cursor-not-allowed pointer-events-none"
                       />
                       <span className="font-mono text-xs font-bold">{word.familiarity}%</span>
                     </div>

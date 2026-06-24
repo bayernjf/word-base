@@ -4,6 +4,7 @@ export interface AiEnrichmentRequest {
   word: string;
   translation?: string;
   contexts?: WordContext[];
+  wordId?: string;
 }
 
 export interface AiEnrichment {

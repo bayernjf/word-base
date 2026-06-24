@@ -844,6 +844,29 @@ app.post('/api/v1/ai/enrich', async (req, res) => {
       enrichment = parseAiEnrichmentPayload(response.text || '')
     }
 
+    // 直接入库：拿到 wordId 时立即持久化，确保前端刷新/离开页面也不会丢失结果
+    const wordId = String(req.body?.wordId || '').trim()
+    if (wordId) {
+      const nowIso = new Date().toISOString()
+      const { error: updateError } = await db
+        .from('words')
+        .update({
+          definition: enrichment.definition,
+          translation: enrichment.translation,
+          chinese_translation: enrichment.translation,
+          synonyms: enrichment.synonyms,
+          examples: enrichment.examples,
+          usage_history: enrichment.usageHistory,
+          time_updated: nowIso,
+          updated_at: nowIso
+        })
+        .eq('id', wordId)
+        .eq('user_id', user.id)
+
+      if (updateError) throw updateError
+      await recordChange(db, user.id, 'word', wordId, 'update')
+    }
+
     res.json({ enrichment })
   } catch (err) {
     console.error('[ai/enrich] error:', err.message)
