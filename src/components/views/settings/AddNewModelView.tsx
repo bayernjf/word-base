@@ -185,7 +185,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
         </div>
       </div>
 
-      <form onSubmit={submitForm} className="space-y-4 text-xs">
+      <form onSubmit={submitForm} className="space-y-4 text-xs" autoComplete="off">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-1">{t('addModel.name')}</label>
           <input
@@ -194,6 +194,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={t('addModel.namePlaceholder')}
+            autoComplete="off"
             className={`w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
           />
         </div>
@@ -262,6 +263,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
               value={endpoint}
               onChange={(event) => setEndpoint(event.target.value)}
               placeholder={defaultEndpointForProvider(provider) || t('addModel.endpointPlaceholder')}
+              autoComplete="off"
               className={`w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
             />
           </div>
@@ -329,6 +331,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
               value={model}
               onChange={(event) => setModel(event.target.value)}
               placeholder={language === 'zh' ? '输入自定义模型 ID' : 'Enter custom model ID'}
+              autoComplete="off"
               className={`mt-2 w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
             />
           )}
@@ -342,6 +345,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
             placeholder={isEditing ? (language === 'zh' ? '留空则继续使用已保存的 Key' : 'Leave blank to keep the saved key') : t('addModel.apiPlaceholder')}
+            autoComplete="new-password"
             className={`w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
           />
           <p className="mt-2 text-[11px] text-neutral-400">
