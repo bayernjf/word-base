@@ -73,6 +73,9 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     : 'text-[#1d3a2b] hover:bg-[#e1f0db]';
   const wordLinkClass = isGlass ? 'text-indigo-400' : 'text-[#2f805d]';
   const progressTrackClass = isGlass ? 'bg-white/10' : 'bg-[#cfe3c6] border border-[#a9d4a4]';
+  const tooltipClass = isGlass
+    ? 'bg-slate-900/95 text-neutral-100 border border-white/10 shadow-lg'
+    : 'bg-[#234235] text-[#f1f8ee] border border-[#1b3328] shadow-md shadow-[#8fb998]/20';
   // Update local state if initial prop changes
   useEffect(() => {
     setSelectedBookId(initialSelectedBookId);
@@ -424,10 +427,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                       </button>
                     </td>
                     <td className="py-3.5 px-4">
-                      <div 
-                        className="flex items-center space-x-2 cursor-help" 
-                        title={t('vocab.addedTimes', { count: getFrequency(w) })}
-                      >
+                      <div className="relative inline-flex items-center space-x-2 group">
                         <div className={`w-16 h-2 rounded-xs overflow-hidden ${progressTrackClass}`}>
                           <div 
                             className="h-full rounded-xs"
@@ -439,6 +439,12 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                           />
                         </div>
                         <span className="font-mono text-[10px]">{getFrequency(w)}</span>
+                        <span
+                          role="tooltip"
+                          className={`pointer-events-none absolute -top-8 left-0 z-30 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 ${tooltipClass}`}
+                        >
+                          {t('vocab.addedTimes', { count: getFrequency(w) })}
+                        </span>
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
