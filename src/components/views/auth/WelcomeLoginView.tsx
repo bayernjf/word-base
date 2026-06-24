@@ -25,7 +25,15 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
   authError, 
   setAuthError 
 }) => {
-  const [step, setStep] = useState<AuthStep>('login');
+  const [step, setStep] = useState<AuthStep>(() => {
+    if (typeof window === 'undefined') return 'login';
+    try {
+      const auth = new URLSearchParams(window.location.search).get('auth');
+      return auth === 'register' ? 'register' : 'login';
+    } catch {
+      return 'login';
+    }
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,6 +42,10 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const t = createTranslator(language);
+  const isGlass = themeStyles.name === 'glass';
+  const inputClass = isGlass
+    ? 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-neutral-100 placeholder:text-white/35 focus:outline-hidden focus:border-indigo-500'
+    : 'w-full px-3 py-2 bg-[#fffdf7] border border-[#9fc89f] rounded-xl text-sm text-[#1d3a2b] placeholder:text-[#8a9c89] shadow-xs shadow-[#8fb998]/10 focus:outline-hidden focus:border-[#56a978]';
 
   const clearMessages = () => {
     setAuthError?.(null);
@@ -137,7 +149,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                className={inputClass} 
                 required
               />
             </div>
@@ -150,7 +162,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                className={inputClass} 
                 required
               />
             </div>
@@ -207,7 +219,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                className={inputClass} 
                 required
               />
             </div>
@@ -218,7 +230,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 type="text" 
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                className={inputClass} 
               />
             </div>
 
@@ -228,7 +240,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                className={inputClass} 
                 required
                 minLength={6}
               />
@@ -240,7 +252,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 type="password" 
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                className={inputClass} 
                 required
                 minLength={6}
               />
@@ -284,7 +296,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-black/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500" 
+                className={inputClass} 
                 required
               />
             </div>
