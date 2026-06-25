@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, ChevronRight, ChevronDown, CheckCircle2, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { AppLanguage, MoveWordsResult, Word, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
@@ -27,6 +27,38 @@ interface VocabularyNotification {
 type SortField = 'word' | 'frequency' | 'timeAdded';
 type SortDir = 'asc' | 'desc';
 
+// 表格列定义：key 用于宽度 state，默认宽度按内容预估，min 防止拖到看不见
+type ColumnKey = 'select' | 'word' | 'frequency' | 'translation' | 'timeAdded' | 'action';
+const COLUMN_DEFS: Array<{ key: ColumnKey; defaultWidth: number; minWidth: number }> = [
+  { key: 'select', defaultWidth: 48, minWidth: 48 },
+  { key: 'word', defaultWidth: 150, minWidth: 90 },
+  { key: 'frequency', defaultWidth: 130, minWidth: 100 },
+  { key: 'translation', defaultWidth: 380, minWidth: 160 },
+  { key: 'timeAdded', defaultWidth: 170, minWidth: 120 },
+  { key: 'action', defaultWidth: 100, minWidth: 80 },
+];
+const COLUMN_WIDTH_STORAGE_KEY = 'vocab.columnWidths';
+
+function loadColumnWidths(): Record<ColumnKey, number> {
+  const defaults = Object.fromEntries(
+    COLUMN_DEFS.map((col) => [col.key, col.defaultWidth])
+  ) as Record<ColumnKey, number>;
+  try {
+    const raw = localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<Record<ColumnKey, number>>;
+    COLUMN_DEFS.forEach((col) => {
+      const value = parsed[col.key];
+      if (typeof value === 'number' && value >= col.minWidth) {
+        defaults[col.key] = value;
+      }
+    });
+    return defaults;
+  } catch {
+    return defaults;
+  }
+}
+
 export const VocabularyListView: React.FC<VocabularyProps> = ({ 
   themeStyles, language, onNavigate, words, books, onSelectWord, onAddWord,
   initialSelectedBookId = 'biz-eng', onBookChange, onDeleteWords, onMoveWords
@@ -45,6 +77,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [bookDropdownOpen, setBookDropdownOpen] = useState(false);
   const [perPageDropdownOpen, setPerPageDropdownOpen] = useState(false);
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(loadColumnWidths);
+  const resizeStateRef = useRef<{ key: ColumnKey; startX: number; startWidth: number } | null>(null);
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
   const searchPanelClass = isGlass
@@ -56,7 +90,10 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const searchIconClass = isGlass ? 'text-neutral-400' : 'text-[#6f8b72]';
   const tableHeadBorder = isGlass ? 'border-white/10' : 'border-[#9fc89f]';
   const tableHeadText = isGlass ? 'text-neutral-400' : 'text-[#4f765d]';
+  // glass 表头不加背景色（仅毛玻璃模糊）；natural 用与卡片一致的底色
+  const tableHeadBg = isGlass ? 'backdrop-blur-md' : 'bg-[#fffdf7] backdrop-blur-md';
   const tableRowBorder = isGlass ? 'border-white/5' : 'border-[#c7dfbd]';
+  const tableColDivider = isGlass ? 'border-r border-white/10' : 'border-r border-[#c7dfbd]';
   const tableRowHover = isGlass ? 'hover:bg-white/5' : 'hover:bg-[#f2faee]';
   const dropdownSelectClass = isGlass
     ? 'bg-white/5 border-white/15 text-neutral-100'
@@ -89,6 +126,67 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, itemsPerPage]);
+
+  // 列宽拖拽：mousedown 记录起点，全局 mousemove 改宽，mouseup 落库到 localStorage
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const state = resizeStateRef.current;
+      if (!state) return;
+      const colDef = COLUMN_DEFS.find((col) => col.key === state.key);
+      const minWidth = colDef?.minWidth ?? 60;
+      const nextWidth = Math.max(minWidth, state.startWidth + (e.clientX - state.startX));
+      setColumnWidths((prev) => ({ ...prev, [state.key]: nextWidth }));
+    };
+
+    const handleMouseUp = () => {
+      if (!resizeStateRef.current) return;
+      resizeStateRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setColumnWidths((current) => {
+        try {
+          localStorage.setItem(COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(current));
+        } catch {
+          // ignore persistence failure
+        }
+        return current;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const startColumnResize = (key: ColumnKey) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStateRef.current = { key, startX: e.clientX, startWidth: columnWidths[key] };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  // 表头与表体共用同一份列宽，保证两张表对齐
+  const renderColgroup = () => (
+    <colgroup>
+      {COLUMN_DEFS.map((col) => (
+        <col key={col.key} style={{ width: `${columnWidths[col.key]}px` }} />
+      ))}
+    </colgroup>
+  );
+
+  const tableMinWidth = COLUMN_DEFS.reduce((sum, col) => sum + columnWidths[col.key], 0);
+
+  // 列宽拖拽手柄（放在 th 右缘）
+  const renderResizeHandle = (key: ColumnKey) => (
+    <span
+      onMouseDown={startColumnResize(key)}
+      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none hover:bg-indigo-400/40 active:bg-indigo-400/60"
+    />
+  );
 
   const filteredWords = words
     .filter(w => w.bookId === selectedBookId)
@@ -372,46 +470,54 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 
       {/* Table Card */}
       <div className={`${themeStyles.card} overflow-hidden`}>
-        {/* 表格容器添加滚动 */}
-        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 bg-inherit">
+        {/* 单张表 + sticky 表头：保证表头表体列宽对齐、只有一套滚动条 */}
+        <div className="overflow-x-auto overflow-y-auto max-h-[540px]">
+          <table className="w-full table-fixed text-left text-xs border-collapse" style={{ minWidth: `${tableMinWidth}px` }}>
+            {renderColgroup()}
+            <thead>
               <tr className={`border-b ${tableHeadBorder} ${tableHeadText} font-mono uppercase tracking-widest text-[10px]`}>
-                <th className="py-3 px-4 w-10">
+                <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 ${tableColDivider}`}>
                   <input
                     type="checkbox"
                     checked={paginatedWords.length > 0 && selectedWordIds.length === paginatedWords.length}
                     onChange={toggleSelectAll}
                     className="w-3.5 h-3.5"
                   />
+                  {renderResizeHandle('select')}
                 </th>
-                <th className="py-3 px-4">
+                <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 ${tableColDivider}`}>
                   <button onClick={() => handleSort('word')} className="inline-flex items-center gap-1 uppercase tracking-widest font-mono cursor-pointer hover:opacity-80 select-none">
                     {t('vocab.word')}
                     {renderSortIcon('word')}
                   </button>
+                  {renderResizeHandle('word')}
                 </th>
-                <th className="py-3 px-4">
+                <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 ${tableColDivider}`}>
                   <button onClick={() => handleSort('frequency')} className="inline-flex items-center gap-1 uppercase tracking-widest font-mono cursor-pointer hover:opacity-80 select-none">
                     {t('vocab.frequency')}
                     {renderSortIcon('frequency')}
                   </button>
+                  {renderResizeHandle('frequency')}
                 </th>
-                <th className="py-3 px-4">{t('vocab.translation')}</th>
-                <th className="py-3 px-4">
+                <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 ${tableColDivider}`}>
+                  {t('vocab.translation')}
+                  {renderResizeHandle('translation')}
+                </th>
+                <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 ${tableColDivider}`}>
                   <button onClick={() => handleSort('timeAdded')} className="inline-flex items-center gap-1 uppercase tracking-widest font-mono cursor-pointer hover:opacity-80 select-none">
                     {t('vocab.timeAdded')}
                     {renderSortIcon('timeAdded')}
                   </button>
+                  {renderResizeHandle('timeAdded')}
                 </th>
-                <th className="py-3 px-4 text-right">{t('vocab.action')}</th>
+                <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 text-right`}>{t('vocab.action')}</th>
               </tr>
             </thead>
             <tbody>
               {paginatedWords.length > 0 ? (
                 paginatedWords.map(w => (
                   <tr key={w.id} className={`border-b ${tableRowBorder} ${tableRowHover} transition-colors`}>
-                    <td className="py-3.5 px-4">
+                    <td className={`py-3.5 px-4 ${tableColDivider}`}>
                       <input
                         type="checkbox"
                         checked={selectedWordIds.includes(w.id)}
@@ -419,14 +525,14 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                         className="w-3.5 h-3.5"
                       />
                     </td>
-                    <td className="py-3.5 px-4 cursor-pointer" onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}>
+                    <td className={`py-3.5 px-4 cursor-pointer ${tableColDivider}`} onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}>
                       <button
                         className={`font-semibold text-sm text-left hover:underline block ${wordLinkClass}`}
                       >
                         {w.word}
                       </button>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className={`py-3.5 px-4 ${tableColDivider}`}>
                       <div className="relative inline-flex items-center space-x-2 group">
                         <div className={`w-16 h-2 rounded-xs overflow-hidden ${progressTrackClass}`}>
                           <div 
@@ -447,10 +553,10 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                         </span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className={`py-3.5 px-4 ${tableColDivider}`}>
                       <div className={`font-medium ${themeStyles.textPrimary}`}>{w.translation || w.chineseTranslation}</div>
                     </td>
-                    <td className="py-3.5 px-4 text-neutral-500">
+                    <td className={`py-3.5 px-4 text-neutral-500 ${tableColDivider}`}>
                       {(() => {
                         const dateVal = w.timeAdded ?? w.dateAdded ?? w.meta?.createdAt;
                         if (dateVal === undefined) return '-';
