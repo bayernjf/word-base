@@ -126,6 +126,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const contextTableRef = useRef<HTMLTableElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const t = createTranslator(language);
+  const isMountedRef = useRef(true);
   const isGlass = themeStyles.name === 'glass';
   const contextColDivider = isGlass ? 'border-r border-white/10' : 'border-r border-[#c7dfbd]';
   const dropdownBtnHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
@@ -223,6 +224,14 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       cancelled = true;
     };
   }, [word?.word]);
+
+  // 组件挂载状态跟踪：卸载后阻止对已卸载组件 setState
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // 语境表列宽拖拽：拖动把宽度在「当前列」与「右邻列」间转移，总宽恒定为容器宽
   useEffect(() => {
@@ -425,6 +434,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
   const handleAiEnrich = async () => {
     if (!word) return;
+    if (aiEnrichLoading) return; // 防重入
     const accessToken = session?.access_token;
     if (!accessToken) {
       setAiEnrichError(language === 'en' ? 'Please sign in again before using AI enrich.' : '请重新登录后再使用 AI 丰富。');
@@ -449,17 +459,21 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       logger.info('handleAiEnrich success', { wordId: word.id });
     } catch (error) {
       logger.error('Error enriching word:', error);
+      if (!isMountedRef.current) return;
       const message = error instanceof Error ? error.message : 'ai_enrich_failed';
       setAiEnrichError(message === 'ai_key_not_configured'
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
         : (language === 'en' ? 'AI enrich failed. Please try again later.' : 'AI 丰富失败，请稍后重试。'));
     } finally {
-      setAiEnrichLoading(false);
+      if (isMountedRef.current) {
+        setAiEnrichLoading(false);
+      }
     }
   };
 
   const handleDeepExplain = async () => {
     if (!word) return;
+    if (deepExplainLoading) return; // 防重入
     const accessToken = session?.access_token;
     if (!accessToken) {
       setDeepExplainError(language === 'en' ? 'Please sign in again before using deep explanation.' : '请重新登录后再使用深入理解。');
@@ -484,12 +498,15 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       logger.info('handleDeepExplain success', { wordId: word.id });
     } catch (error) {
       logger.error('Error explaining word:', error);
+      if (!isMountedRef.current) return;
       const message = error instanceof Error ? error.message : 'ai_explain_failed';
       setDeepExplainError(message === 'ai_key_not_configured'
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
         : (language === 'en' ? 'Deep explanation failed. Please try again later.' : '深入理解失败，请稍后重试。'));
     } finally {
-      setDeepExplainLoading(false);
+      if (isMountedRef.current) {
+        setDeepExplainLoading(false);
+      }
     }
   };
 
