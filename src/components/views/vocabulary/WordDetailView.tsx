@@ -51,6 +51,40 @@ function loadContextColumnWidths(): Record<ContextColumnKey, number> {
   }
 }
 
+/** 从系统可用语音中挑选最优质的英语语音 */
+function selectBestEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  const englishVoices = voices.filter(
+    (v) => v.lang.toLowerCase().startsWith('en') || v.lang.toLowerCase().startsWith('en-')
+  );
+  if (englishVoices.length === 0) return undefined;
+  // 优先级排序：Google > Apple > Microsoft > 其他
+  const priorityList = [
+    'Google US English',
+    'Google UK English',
+    'Samantha',
+    'Daniel',
+    'Alex',
+    'Karen',
+    'Victoria',
+    'Microsoft David',
+    'Microsoft Zira',
+    'Microsoft Mark',
+    'Microsoft Jenny',
+    'Google UK English Male',
+    'Google UK English Female',
+    'Google US English Male',
+    'Google US English Female',
+  ];
+  for (const name of priorityList) {
+    const found = englishVoices.find((v) => v.name === name);
+    if (found) return found;
+  }
+  // fallback：优先本地（非远程）语音
+  const local = englishVoices.find((v) => v.localService);
+  if (local) return local;
+  return englishVoices[0];
+}
+
 export const WordDetailView: React.FC<WordDetailProps> = ({ 
   themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts, onUpdateWord, aiProviders = []
 }) => {
@@ -70,6 +104,12 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [deepExplainLoading, setDeepExplainLoading] = useState(false);
   const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
   const [contextColumnWidths, setContextColumnWidths] = useState<Record<ContextColumnKey, number>>(loadContextColumnWidths);
+  const [dictPhonetics, setDictPhonetics] = useState<{
+    uk?: string;
+    us?: string;
+    ukAudio?: string;
+    usAudio?: string;
+  }>({});
   const contextResizeRef = useRef<{
     key: ContextColumnKey;
     nextKey: ContextColumnKey;
@@ -127,6 +167,56 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     setContextTranslations(nextTranslations);
     setContextActionLoading({});
   }, [word?.id]);
+
+  // 从 Free Dictionary API 获取英音/美音音标与真人发音
+  useEffect(() => {
+    if (!word?.word) {
+      setDictPhonetics({});
+      return;
+    }
+    let cancelled = false;
+    fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.word.toLowerCase())}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data) || !data[0]) return;
+        const entry = data[0];
+        const phonetics = (entry.phonetics || []) as Array<{ text?: string; audio?: string }>;
+        let uk = '';
+        let us = '';
+        let ukAudio = '';
+        let usAudio = '';
+        for (const p of phonetics) {
+          const text = p.text || '';
+          const audio = p.audio || '';
+          if (audio) {
+            if (audio.includes('-uk') || audio.includes('_uk') || audio.endsWith('uk.mp3')) {
+              ukAudio = audio;
+              if (text) uk = text;
+            } else if (audio.includes('-us') || audio.includes('_us') || audio.endsWith('us.mp3')) {
+              usAudio = audio;
+              if (text) us = text;
+            }
+          }
+        }
+        // fallback：按文本分配
+        if (!uk || !us) {
+          const texts = phonetics.filter((p) => p.text).map((p) => p.text as string);
+          if (texts.length >= 2) {
+            uk = texts[0];
+            us = texts[1];
+          } else if (texts.length === 1) {
+            uk = texts[0];
+          }
+        }
+        if (!cancelled) setDictPhonetics({ uk, us, ukAudio, usAudio });
+      })
+      .catch(() => {
+        if (!cancelled) setDictPhonetics({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [word?.word]);
 
   // 语境表列宽拖拽：拖动把宽度在「当前列」与「右邻列」间转移，总宽恒定为容器宽
   useEffect(() => {
@@ -218,12 +308,32 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     );
   }
 
-  const handleSpeech = () => {
-    setIsPlaying(true);
+  const speakWithTTS = () => {
     const utterance = new SpeechSynthesisUtterance(word.word);
-    utterance.lang = 'en-US';
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = selectBestEnglishVoice(voices);
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+    utterance.rate = 0.9;
+    utterance.pitch = 1.05;
     utterance.onend = () => setIsPlaying(false);
+    utterance.onerror = () => setIsPlaying(false);
     window.speechSynthesis.speak(utterance);
+  };
+
+  const handleSpeech = (audioUrl?: string) => {
+    setIsPlaying(true);
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => {
+        speakWithTTS();
+      };
+      audio.play();
+    } else {
+      speakWithTTS();
+    }
   };
 
   const handleMouseDown = () => {
@@ -410,17 +520,51 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                       </span>
                     )}
                   </div>
-                  {word.phonetic && (
-                    <p className="text-sm text-neutral-400 font-mono mt-1 flex items-center space-x-2">
-                      <span>/{word.phonetic}/</span>
-                      <button 
-                        onClick={handleSpeech}
-                        disabled={isPlaying}
-                        className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-                      >
-                        <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
-                      </button>
-                    </p>
+                  {/* 音标：优先展示 Free Dictionary API 返回的英音/美音，fallback 到已有 phonetic */}
+                  {(dictPhonetics.uk || dictPhonetics.us || word.phonetic) && (
+                    <div className="flex items-center gap-3 mt-1">
+                      {dictPhonetics.uk && (
+                        <p className="text-sm text-neutral-400 font-mono flex items-center space-x-1">
+                          <span className="text-[10px] text-neutral-300 dark:text-white/30 uppercase">{t('wordDetail.ukPronunciation')}</span>
+                          <span>{dictPhonetics.uk}</span>
+                          <button
+                            onClick={() => handleSpeech(dictPhonetics.ukAudio)}
+                            disabled={isPlaying}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+                            title={language === 'zh' ? '英音发音' : 'UK Pronunciation'}
+                          >
+                            <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
+                          </button>
+                        </p>
+                      )}
+                      {dictPhonetics.us && (
+                        <p className="text-sm text-neutral-400 font-mono flex items-center space-x-1">
+                          <span className="text-[10px] text-neutral-300 dark:text-white/30 uppercase">{t('wordDetail.usPronunciation')}</span>
+                          <span>{dictPhonetics.us}</span>
+                          <button
+                            onClick={() => handleSpeech(dictPhonetics.usAudio)}
+                            disabled={isPlaying}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+                            title={language === 'zh' ? '美音发音' : 'US Pronunciation'}
+                          >
+                            <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
+                          </button>
+                        </p>
+                      )}
+                      {/* API 无结果时 fallback 到已有 phonetic */}
+                      {!dictPhonetics.uk && !dictPhonetics.us && word.phonetic && (
+                        <p className="text-sm text-neutral-400 font-mono flex items-center space-x-2">
+                          <span>/{word.phonetic}/</span>
+                          <button
+                            onClick={() => handleSpeech()}
+                            disabled={isPlaying}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+                          >
+                            <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
+                          </button>
+                        </p>
+                      )}
+                    </div>
                   )}
                   {/* 外部词典链接 */}
                   {word.word && (
