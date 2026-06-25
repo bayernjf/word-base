@@ -177,7 +177,17 @@ export async function requestAiTranslate(
   if (!response.ok) {
     throw new Error(String(data?.error || 'ai_translate_failed'));
   }
-  return String(data?.translatedText || '').trim();
+  const raw = String(data?.translatedText || '').trim();
+  // 某些模型会返回 JSON 格式如 {"translation":"xxx"}，提取纯文本
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.translation === 'string') {
+      return parsed.translation.trim();
+    }
+  } catch {
+    // 不是 JSON，直接返回原文
+  }
+  return raw;
 }
 
 function normalizeEnrichment(value: unknown): AiEnrichment {
