@@ -88,6 +88,20 @@ function selectBestEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesis
   return englishVoices[0];
 }
 
+// 模块级存储：记录每个单词的 AI 请求 loading 状态（不持久化，刷新即清空，符合刷新请求中断的预期）
+const aiLoadingMap = new Map<string, { enrich: boolean; explain: boolean }>();
+
+function getAiLoading(wordId: string | undefined, type: 'enrich' | 'explain'): boolean {
+  if (!wordId) return false;
+  return aiLoadingMap.get(wordId)?.[type] ?? false;
+}
+
+function setAiLoading(wordId: string, type: 'enrich' | 'explain', value: boolean) {
+  const current = aiLoadingMap.get(wordId) || { enrich: false, explain: false };
+  current[type] = value;
+  aiLoadingMap.set(wordId, current);
+}
+
 export const WordDetailView: React.FC<WordDetailProps> = ({ 
   themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts, onUpdateWord, aiProviders = []
 }) => {
@@ -102,22 +116,10 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [contextActionLoading, setContextActionLoading] = useState<Record<number, 'translate' | 'save' | 'delete'>>({});
   const [selectedTranslateEngine, setSelectedTranslateEngine] = useState<string>('mymemory');
   const [engineDropdownOpen, setEngineDropdownOpen] = useState(false);
-  const [aiEnrichLoading, setAiEnrichLoading] = useState(() => {
-    if (!word?.id) return false;
-    try {
-      const pending = JSON.parse(localStorage.getItem('wordbase-pending-ai') || '{}');
-      return pending[word.id]?.enrich === true;
-    } catch { return false; }
-  });
+  const [aiEnrichLoading, setAiEnrichLoadingState] = useState(() => getAiLoading(word?.id, 'enrich'));
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
-  const [hasAiEnrichment, setHasAiEnrichment] = useState(() => !!(word?.definition || word?.memoryTip));
-  const [deepExplainLoading, setDeepExplainLoading] = useState(() => {
-    if (!word?.id) return false;
-    try {
-      const pending = JSON.parse(localStorage.getItem('wordbase-pending-ai') || '{}');
-      return pending[word.id]?.explain === true;
-    } catch { return false; }
-  });
+  const [hasAiEnrichment, setHasAiEnrichment] = useState(() => !!(word?.definition || word?.memoryTip || word?.examples?.length));
+  const [deepExplainLoading, setDeepExplainLoadingState] = useState(() => getAiLoading(word?.id, 'explain'));
   const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
   const [hasDeepExplanation, setHasDeepExplanation] = useState(() => !!word?.deepExplanation);
   const [contextViewMode, setContextViewMode] = useState<'table' | 'timeline'>('table');
@@ -140,21 +142,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const contextTableRef = useRef<HTMLTableElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const t = createTranslator(language);
-  const isMountedRef = useRef(true);
 
-  // localStorage 辅助：持久化 AI 操作 pending 状态，使路由切换后仍能恢复 loading
-  const setPendingAi = (wordId: string, type: 'enrich' | 'explain', value: boolean) => {
-    try {
-      const key = 'wordbase-pending-ai';
-      const map = JSON.parse(localStorage.getItem(key) || '{}');
-      if (!map[wordId]) map[wordId] = {};
-      map[wordId][type] = value;
-      localStorage.setItem(key, JSON.stringify(map));
-    } catch { /* ignore */ }
-  };
-  const clearPendingAi = (wordId: string, type: 'enrich' | 'explain') => {
-    setPendingAi(wordId, type, false);
-  };
   const isGlass = themeStyles.name === 'glass';
   const contextColDivider = isGlass ? 'border-r border-white/10' : 'border-r border-[#c7dfbd]';
   const dropdownBtnHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
@@ -199,9 +187,19 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     });
     setContextTranslations(nextTranslations);
     setContextActionLoading({});
-    setHasAiEnrichment(!!(word?.definition || word?.memoryTip));
-    setHasDeepExplanation(!!word?.deepExplanation);
-  }, [word?.id]);
+    const hasEnrichment = !!(word?.definition || word?.memoryTip || word?.examples?.length);
+    const hasDeep = !!word?.deepExplanation;
+    setHasAiEnrichment(hasEnrichment);
+    setHasDeepExplanation(hasDeep);
+    // 从模块级 Map 同步当前单词的 loading 状态（切换路由返回时恢复）
+    // 模块级 Map 是唯一可信源：只有请求真正结束才会被设置为 false
+    if (word?.id) {
+      const enrichLoading = getAiLoading(word.id, 'enrich');
+      const explainLoading = getAiLoading(word.id, 'explain');
+      setAiEnrichLoadingState(enrichLoading);
+      setDeepExplainLoadingState(explainLoading);
+    }
+  }, [word?.id, word?.definition, word?.memoryTip, word?.examples?.length, word?.deepExplanation]);
 
   // 从 Free Dictionary API 获取英音/美音音标与真人发音
   useEffect(() => {
@@ -254,14 +252,6 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       cancelled = true;
     };
   }, [word?.word]);
-
-  // 组件挂载状态跟踪：卸载后阻止对已卸载组件 setState
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   // 语境表列宽拖拽：拖动把宽度在「当前列」与「右邻列」间转移，总宽恒定为容器宽
   useEffect(() => {
@@ -464,21 +454,23 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
   const handleAiEnrich = async () => {
     if (!word) return;
-    if (aiEnrichLoading) return; // 防重入
+    const currentWordId = word.id;
+    if (getAiLoading(currentWordId, 'enrich')) return; // 防重入
     const accessToken = session?.access_token;
     if (!accessToken) {
       setAiEnrichError(language === 'en' ? 'Please sign in again before using AI enrich.' : '请重新登录后再使用 AI 丰富。');
       return;
     }
 
-    setAiEnrichLoading(true);
+    // 开始加载：同时更新本地 state 和模块级 Map
+    setAiEnrichLoadingState(true);
+    setAiLoading(currentWordId, 'enrich', true);
     setAiEnrichError(null);
-    setPendingAi(word.id, 'enrich', true);
-    logger.debug('handleAiEnrich', { wordId: word.id, word: word.word });
+    logger.debug('handleAiEnrich', { wordId: currentWordId, word: word.word });
     try {
       const enrichment = await requestAiEnrichment(
         {
-          wordId: word.id,
+          wordId: currentWordId,
           word: word.word,
           translation: word.translation || word.chineseTranslation || word.definition || '',
           contexts: word.contexts || [],
@@ -487,40 +479,44 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       );
       // 后端已直接入库（刷新/离开页面也不丢失）；此处同步更新本地状态以即时反映到 UI
       if (onUpdateWord) {
-        await onUpdateWord(word.id, enrichmentToWordUpdates(enrichment));
+        await onUpdateWord(currentWordId, enrichmentToWordUpdates(enrichment));
       }
       setHasAiEnrichment(true);
-      logger.info('handleAiEnrich success', { wordId: word.id });
+      logger.info('handleAiEnrich success', { wordId: currentWordId });
     } catch (error) {
       logger.error('Error enriching word:', error);
-      if (!isMountedRef.current) return;
       const message = error instanceof Error ? error.message : 'ai_enrich_failed';
       setAiEnrichError(message === 'ai_key_not_configured'
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
         : (language === 'en' ? 'AI enrich failed. Please try again later.' : 'AI 丰富失败，请稍后重试。'));
     } finally {
-      clearPendingAi(word.id, 'enrich');
-      setAiEnrichLoading(false);
+      // 结束：始终更新模块级 Map；只有当前仍显示这个单词时才更新本地 state
+      setAiLoading(currentWordId, 'enrich', false);
+      if (word?.id === currentWordId) {
+        setAiEnrichLoadingState(false);
+      }
     }
   };
 
   const handleDeepExplain = async () => {
     if (!word) return;
-    if (deepExplainLoading) return; // 防重入
+    const currentWordId = word.id;
+    if (getAiLoading(currentWordId, 'explain')) return; // 防重入
     const accessToken = session?.access_token;
     if (!accessToken) {
       setDeepExplainError(language === 'en' ? 'Please sign in again before using deep explanation.' : '请重新登录后再使用深入理解。');
       return;
     }
 
-    setDeepExplainLoading(true);
+    // 开始加载：同时更新本地 state 和模块级 Map
+    setDeepExplainLoadingState(true);
+    setAiLoading(currentWordId, 'explain', true);
     setDeepExplainError(null);
-    setPendingAi(word.id, 'explain', true);
-    logger.debug('handleDeepExplain', { wordId: word.id, word: word.word });
+    logger.debug('handleDeepExplain', { wordId: currentWordId, word: word.word });
     try {
       const deepExplanation = await requestDeepExplanation(
         {
-          wordId: word.id,
+          wordId: currentWordId,
           word: word.word,
           translation: word.translation || word.chineseTranslation || word.definition || '',
           contexts: word.contexts || [],
@@ -529,20 +525,22 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       );
       // 后端已直接入库；此处同步本地状态以即时反映到 UI
       if (onUpdateWord) {
-        await onUpdateWord(word.id, { deepExplanation });
+        await onUpdateWord(currentWordId, { deepExplanation });
       }
       setHasDeepExplanation(true);
-      logger.info('handleDeepExplain success', { wordId: word.id });
+      logger.info('handleDeepExplain success', { wordId: currentWordId });
     } catch (error) {
       logger.error('Error explaining word:', error);
-      if (!isMountedRef.current) return;
       const message = error instanceof Error ? error.message : 'ai_explain_failed';
       setDeepExplainError(message === 'ai_key_not_configured'
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
         : (language === 'en' ? 'Deep explanation failed. Please try again later.' : '深入理解失败，请稍后重试。'));
     } finally {
-      clearPendingAi(word.id, 'explain');
-      setDeepExplainLoading(false);
+      // 结束：始终更新模块级 Map；只有当前仍显示这个单词时才更新本地 state
+      setAiLoading(currentWordId, 'explain', false);
+      if (word?.id === currentWordId) {
+        setDeepExplainLoadingState(false);
+      }
     }
   };
 
@@ -674,7 +672,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     <Sparkles className={`w-4 h-4 ${aiEnrichLoading ? 'animate-pulse' : ''}`} />
-                    <span>{aiEnrichLoading ? t('wordDetail.aiEnrichLoading') : hasAiEnrichment ? t('wordDetail.aiEnrichAgain') : t('wordDetail.aiEnrich')}</span>
+                    <span>{aiEnrichLoading 
+                      ? t('wordDetail.aiEnrichLoading') 
+                      : (hasAiEnrichment || word?.definition || word?.memoryTip || (word?.examples?.length ?? 0) > 0)
+                        ? t('wordDetail.aiEnrichAgain') 
+                        : t('wordDetail.aiEnrich')}</span>
                   </button>
                   <button
                     onClick={handleDeepExplain}
@@ -684,7 +686,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     <BrainCircuit className={`w-4 h-4 ${deepExplainLoading ? 'animate-pulse' : ''}`} />
                     <span>{deepExplainLoading
                       ? t('wordDetail.deepExplainLoading')
-                      : hasDeepExplanation
+                      : (hasDeepExplanation || word?.deepExplanation)
                         ? t('wordDetail.deepExplainAgain')
                         : t('wordDetail.deepExplain')}</span>
                   </button>
