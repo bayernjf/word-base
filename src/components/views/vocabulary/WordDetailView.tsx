@@ -106,6 +106,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
   const [deepExplainLoading, setDeepExplainLoading] = useState(false);
   const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
+  const [contextViewMode, setContextViewMode] = useState<'table' | 'timeline'>('table');
   const [contextColumnWidths, setContextColumnWidths] = useState<Record<ContextColumnKey, number>>(loadContextColumnWidths);
   const [dictPhonetics, setDictPhonetics] = useState<{
     uk?: string;
@@ -787,6 +788,31 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
               </div>
               {/* 引擎选择 + Translate to... 下拉栏 */}
               <div className="flex items-center gap-2">
+                {/* 语境视图切换 */}
+                <div className="flex items-center rounded-lg border overflow-hidden text-xs">
+                  <button
+                    onClick={() => setContextViewMode('table')}
+                    className={`px-3 py-2 transition-colors ${
+                      contextViewMode === 'table'
+                        ? (isGlass ? 'bg-indigo-500/20 text-indigo-400' : 'bg-[#d9efd2] text-[#2f805d]')
+                        : (isGlass ? 'hover:bg-white/5 text-neutral-400' : 'hover:bg-[#f2faee] text-neutral-500')
+                    }`}
+                    title={language === 'zh' ? '表格视图' : 'Table View'}
+                  >
+                    <span className="font-medium">{language === 'zh' ? '表格' : 'Table'}</span>
+                  </button>
+                  <button
+                    onClick={() => setContextViewMode('timeline')}
+                    className={`px-3 py-2 transition-colors ${
+                      contextViewMode === 'timeline'
+                        ? (isGlass ? 'bg-indigo-500/20 text-indigo-400' : 'bg-[#d9efd2] text-[#2f805d]')
+                        : (isGlass ? 'hover:bg-white/5 text-neutral-400' : 'hover:bg-[#f2faee] text-neutral-500')
+                    }`}
+                    title={language === 'zh' ? '时间线视图' : 'Timeline View'}
+                  >
+                    <span className="font-medium">{language === 'zh' ? '时间线' : 'Timeline'}</span>
+                  </button>
+                </div>
                 {/* 引擎选择自定义下拉 */}
                 <div className="relative">
                   <button
@@ -909,40 +935,109 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
             </div>
             {word.contexts && word.contexts.length > 0 ? (
               <div>
-                <table ref={contextTableRef} className="w-full table-fixed text-left border-collapse">
-                  {renderContextColgroup()}
-                  <thead className="border-b border-neutral-200 dark:border-white/10">
-                    <tr className="text-neutral-400 font-mono uppercase tracking-wider text-xs">
-                      <th className={`relative py-3 px-4 ${contextColDivider}`}>#{renderContextResizeHandle('index')}</th>
-                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.context')}{renderContextResizeHandle('context')}</th>
-                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.timeAdded')}{renderContextResizeHandle('timeAdded')}</th>
-                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.sourceLink')}{renderContextResizeHandle('sourceLink')}</th>
-                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.translation')}{renderContextResizeHandle('translation')}</th>
-                      <th className="relative py-3 px-4 text-center">{t('wordDetail.translationActions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                {contextViewMode === 'table' ? (
+                  <table ref={contextTableRef} className="w-full table-fixed text-left border-collapse">
+                    {renderContextColgroup()}
+                    <thead className="border-b border-neutral-200 dark:border-white/10">
+                      <tr className="text-neutral-400 font-mono uppercase tracking-wider text-xs">
+                        <th className={`relative py-3 px-4 ${contextColDivider}`}>#{renderContextResizeHandle('index')}</th>
+                        <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.context')}{renderContextResizeHandle('context')}</th>
+                        <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.timeAdded')}{renderContextResizeHandle('timeAdded')}</th>
+                        <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.sourceLink')}{renderContextResizeHandle('sourceLink')}</th>
+                        <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.translation')}{renderContextResizeHandle('translation')}</th>
+                        <th className="relative py-3 px-4 text-center">{t('wordDetail.translationActions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {word.contexts.map((ctx, i) => (
+                        <tr 
+                          key={i} 
+                          className={`border-b ${isGlass ? 'border-white/5 hover:bg-white/5' : 'border-[#c7dfbd] hover:bg-[#f2faee]'} `}
+                        >
+                          <td className={`py-4 px-4 text-neutral-500 font-mono text-xs ${contextColDivider}`}>{i + 1}</td>
+                          <td className={`py-4 px-4 align-top ${contextColDivider}`}>
+                            <p className={`text-sm break-words ${themeStyles.textPrimary}`}>{ctx.context}</p>
+                          </td>
+                          <td className={`py-4 px-4 text-neutral-500 text-xs ${contextColDivider}`}>
+                            {(() => {
+                              const dateVal = ctx.timeAdded ?? ctx.addedDate;
+                              if (dateVal === undefined) return '-';
+                              return formatDateTime(dateVal);
+                            })()}
+                          </td>
+                          <td className={`py-4 px-4 ${contextColDivider}`}>
+                            {ctx.sourceLink ? (
+                              <a 
+                                href={ctx.sourceLink} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                              >
+                                {t('wordDetail.source')}
+                              </a>
+                            ) : (
+                              <span className="text-neutral-400 text-xs">-</span>
+                            )}
+                          </td>
+                          <td className={`py-4 px-4 align-top ${contextColDivider}`}>
+                            <p className={`text-sm break-words ${themeStyles.textPrimary}`}>{contextTranslations[i] || ''}</p>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleTranslateContext(i, ctx.context)}
+                                disabled={!!contextActionLoading[i]}
+                                className="p-1.5 text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={t('wordDetail.translateToSelected')}
+                              >
+                                <Languages className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleSaveContextTranslation(i)}
+                                disabled={!!contextActionLoading[i]}
+                                className="p-1.5 text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={t('wordDetail.saveTranslation')}
+                              >
+                                <Save className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteContextTranslation(i)}
+                                disabled={!!contextActionLoading[i]}
+                                className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={t('wordDetail.deleteTranslation')}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  /* 时间线视图 */
+                  <div className="space-y-4">
                     {word.contexts.map((ctx, i) => (
-                      <tr 
-                        key={i} 
-                        className={`border-b ${isGlass ? 'border-white/5 hover:bg-white/5' : 'border-[#c7dfbd] hover:bg-[#f2faee]'} `}
+                      <div
+                        key={i}
+                        className={`rounded-xl border p-4 ${
+                          isGlass
+                            ? 'border-white/10 bg-white/5'
+                            : 'border-[#c7dfbd] bg-[#fffdf7]'
+                        }`}
                       >
-                        <td className={`py-4 px-4 text-neutral-500 font-mono text-xs ${contextColDivider}`}>{i + 1}</td>
-                        <td className={`py-4 px-4 align-top ${contextColDivider}`}>
-                          <p className={`text-sm break-words ${themeStyles.textPrimary}`}>{ctx.context}</p>
-                        </td>
-                        <td className={`py-4 px-4 text-neutral-500 text-xs ${contextColDivider}`}>
-                          {(() => {
-                            const dateVal = ctx.timeAdded ?? ctx.addedDate;
-                            if (dateVal === undefined) return '-';
-                            return formatDateTime(dateVal);
-                          })()}
-                        </td>
-                        <td className={`py-4 px-4 ${contextColDivider}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-mono text-neutral-400">
+                            #{i + 1} · {(() => {
+                              const dateVal = ctx.timeAdded ?? ctx.addedDate;
+                              if (dateVal === undefined) return '-';
+                              return formatDateTime(dateVal);
+                            })()}
+                          </span>
                           {ctx.sourceLink ? (
-                            <a 
-                              href={ctx.sourceLink} 
-                              target="_blank" 
+                            <a
+                              href={ctx.sourceLink}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
                             >
@@ -951,42 +1046,41 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                           ) : (
                             <span className="text-neutral-400 text-xs">-</span>
                           )}
-                        </td>
-                        <td className={`py-4 px-4 align-top ${contextColDivider}`}>
-                          <p className={`text-sm break-words ${themeStyles.textPrimary}`}>{contextTranslations[i] || ''}</p>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleTranslateContext(i, ctx.context)}
-                              disabled={!!contextActionLoading[i]}
-                              className="p-1.5 text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title={t('wordDetail.translateToSelected')}
-                            >
-                              <Languages className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleSaveContextTranslation(i)}
-                              disabled={!!contextActionLoading[i]}
-                              className="p-1.5 text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title={t('wordDetail.saveTranslation')}
-                            >
-                              <Save className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteContextTranslation(i)}
-                              disabled={!!contextActionLoading[i]}
-                              className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title={t('wordDetail.deleteTranslation')}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                        </div>
+                        <p className={`text-sm break-words ${themeStyles.textPrimary} mb-2`}>{ctx.context}</p>
+                        {contextTranslations[i] && (
+                          <p className="text-sm text-indigo-650 dark:text-indigo-400 break-words">{contextTranslations[i]}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={() => handleTranslateContext(i, ctx.context)}
+                            disabled={!!contextActionLoading[i]}
+                            className="p-1.5 text-neutral-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t('wordDetail.translateToSelected')}
+                          >
+                            <Languages className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleSaveContextTranslation(i)}
+                            disabled={!!contextActionLoading[i]}
+                            className="p-1.5 text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t('wordDetail.saveTranslation')}
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteContextTranslation(i)}
+                            disabled={!!contextActionLoading[i]}
+                            className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-200 active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t('wordDetail.deleteTranslation')}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-12">
