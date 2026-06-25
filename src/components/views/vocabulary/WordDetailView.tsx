@@ -677,10 +677,10 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   >
                     <BrainCircuit className={`w-4 h-4 ${deepExplainLoading ? 'animate-pulse' : ''}`} />
                     <span>{deepExplainLoading
-                      ? (language === 'en' ? 'Analyzing...' : '深入理解中...')
+                      ? t('wordDetail.deepExplainLoading')
                       : word.deepExplanation
-                        ? (language === 'en' ? 'Re-explain' : '重新解读')
-                        : (language === 'en' ? 'Deep Insight' : '深入理解')}</span>
+                        ? t('wordDetail.deepExplainAgain')
+                        : t('wordDetail.deepExplain')}</span>
                   </button>
                 </div>
                 {word.familiarity !== undefined && (
