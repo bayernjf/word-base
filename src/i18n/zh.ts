@@ -147,7 +147,7 @@ export const zh: LocaleDict = {
     saveTranslation: '保存翻译',
     deleteTranslation: '删除翻译',
     translateError: '所选模型翻译错误，请选择其他模型',
-    aiEnrich: 'AI 丰富',
+    aiEnrich: '生成释义',
     aiEnrichLoading: 'AI 丰富中…',
     aiEnrichAgain: '重新生成释义',
     dictLinks: '词典',

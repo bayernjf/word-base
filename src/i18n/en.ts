@@ -145,7 +145,7 @@ export const en = {
     saveTranslation: 'Save',
     deleteTranslation: 'Delete translation',
     translateError: 'Translation failed. Please select another engine.',
-    aiEnrich: 'AI Enrich',
+    aiEnrich: 'Generate Explanation',
     aiEnrichLoading: 'Enriching...',
     aiEnrichAgain: 'Re-generate Explanation',
     dictLinks: 'Dictionary',
