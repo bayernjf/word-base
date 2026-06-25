@@ -1405,10 +1405,13 @@ app.post('/api/v1/words/batch', async (req, res) => {
       if (!existing) return word
 
       const contexts = mergeContexts(existing.contexts, word.contexts)
+      const now = new Date().toISOString()
       return {
         ...word,
         contexts,
-        frequency: Math.max(Number(word.frequency) || 0, contexts.length, 1)
+        frequency: Math.max(Number(word.frequency) || 0, contexts.length, 1),
+        time_updated: now,
+        updated_at: now
       }
     })
 
