@@ -653,7 +653,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     {word.contexts.map((ctx, i) => (
                       <tr 
                         key={i} 
-                        className="border-b border-neutral-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5"
+                        className={`border-b ${isGlass ? 'border-white/5 hover:bg-white/5' : 'border-[#c7dfbd] hover:bg-[#f2faee]'} `}
                       >
                         <td className={`py-4 px-4 text-neutral-500 font-mono text-xs ${contextColDivider}`}>{i + 1}</td>
                         <td className={`py-4 px-4 align-top ${contextColDivider}`}>
