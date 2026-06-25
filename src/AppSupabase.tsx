@@ -697,6 +697,7 @@ export default function AppSupabase() {
             }}
             onUpdateContexts={(id, contexts) => updateWord(id, { contexts, timeUpdated: Date.now(), dateUpdated: Date.now() })}
             onUpdateWord={(id, updates) => updateWord(id, updates)}
+            aiProviders={models}
           />
         );
       case 'mylists':

@@ -826,6 +826,7 @@ export default function App() {
             word={activeWordCard}
             onUpdateFamiliarity={handleUpdateFamiliarity}
             onUpdateContexts={handleUpdateContexts}
+            aiProviders={[]}
           />
         );
       case 'mylists':
