@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AlertCircle, ArrowLeft, Volume2, Globe, ChevronDown, Languages, Save, Trash2, Sparkles, BrainCircuit } from 'lucide-react';
+import { createLogger } from '../../../lib/logger';
 import { AppLanguage, Word, WordContext } from '../../../types';
+
+const logger = createLogger('WordDetailView');
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
@@ -208,7 +211,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
             uk = texts[0];
           }
         }
-        if (!cancelled) setDictPhonetics({ uk, us, ukAudio, usAudio });
+        // 将 IPA 反转 R (ɹ) 替换为常见印刷体 r，提升可读性
+        const normalizeR = (s: string) => s.replace(/\u0279/g, 'r');
+        if (!cancelled) setDictPhonetics({ uk: normalizeR(uk), us: normalizeR(us), ukAudio, usAudio });
       })
       .catch(() => {
         if (!cancelled) setDictPhonetics({});
@@ -369,6 +374,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     const targetLang = targetLangMap[selectedTranslateLang] || 'zh-CN';
     const engine = selectedTranslateEngine;
     setContextLoading(contextIndex, 'translate');
+    logger.debug('handleTranslateContext', { contextIndex, engine });
     try {
       let translatedText = '';
       if (engine === 'mymemory') {
@@ -388,8 +394,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         translatedText = await requestAiTranslate(text, targetLang, accessToken, engine === 'active' ? undefined : engine);
       }
       setContextTranslations((prev) => ({ ...prev, [contextIndex]: translatedText }));
+      logger.info('handleTranslateContext success', { contextIndex, preview: translatedText.slice(0, 30) });
     } catch (error) {
-      console.error('Error translating context:', error);
+      logger.error('Error translating context:', error);
       setContextTranslations((prev) => ({ ...prev, [contextIndex]: t('wordDetail.translateError') }));
     } finally {
       setContextLoading(contextIndex);
@@ -425,6 +432,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
     setAiEnrichLoading(true);
     setAiEnrichError(null);
+    logger.debug('handleAiEnrich', { wordId: word.id, word: word.word });
     try {
       const enrichment = await requestAiEnrichment(
         {
@@ -437,8 +445,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       );
       // 后端已直接入库（刷新/离开页面也不丢失）；此处同步更新本地状态以即时反映到 UI
       await onUpdateWord(word.id, enrichmentToWordUpdates(enrichment));
+      logger.info('handleAiEnrich success', { wordId: word.id });
     } catch (error) {
-      console.error('Error enriching word:', error);
+      logger.error('Error enriching word:', error);
       const message = error instanceof Error ? error.message : 'ai_enrich_failed';
       setAiEnrichError(message === 'ai_key_not_configured'
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
@@ -458,6 +467,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
     setDeepExplainLoading(true);
     setDeepExplainError(null);
+    logger.debug('handleDeepExplain', { wordId: word.id, word: word.word });
     try {
       const deepExplanation = await requestDeepExplanation(
         {
@@ -470,8 +480,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       );
       // 后端已直接入库；此处同步本地状态以即时反映到 UI
       await onUpdateWord(word.id, { deepExplanation });
+      logger.info('handleDeepExplain success', { wordId: word.id });
     } catch (error) {
-      console.error('Error explaining word:', error);
+      logger.error('Error explaining word:', error);
       const message = error instanceof Error ? error.message : 'ai_explain_failed';
       setDeepExplainError(message === 'ai_key_not_configured'
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
