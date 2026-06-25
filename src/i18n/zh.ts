@@ -143,6 +143,7 @@ export const zh: LocaleDict = {
     translatePlaceholder: '翻译到...',
     translationActions: '翻译操作',
     translateToSelected: '翻译到选定语言',
+    translateEngine: '翻译引擎',
     saveTranslation: '保存翻译',
     deleteTranslation: '删除翻译',
   },

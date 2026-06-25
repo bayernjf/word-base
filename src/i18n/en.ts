@@ -141,6 +141,7 @@ export const en = {
     translatePlaceholder: 'Translate to...',
     translationActions: 'Translation Actions',
     translateToSelected: 'Translate to selected language',
+    translateEngine: 'Engine',
     saveTranslation: 'Save',
     deleteTranslation: 'Delete translation',
   },
