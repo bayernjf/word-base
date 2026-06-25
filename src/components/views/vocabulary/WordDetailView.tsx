@@ -6,7 +6,7 @@ import { AppLanguage, Word, WordContext } from '../../../types';
 const logger = createLogger('WordDetailView');
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
-import { getFrequency, formatDateTime } from '../shared/helpers';
+import { getFrequency, formatDateTime, formatDate } from '../shared/helpers';
 import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate } from '../../../lib/aiEnrich';
 import { useSupabase } from '../../../context/SupabaseContext';
 import { AiProviderConfig } from '../../../lib/aiProviderConfigs';
@@ -655,6 +655,21 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   <div className="flex items-center space-x-2">
                     <span className="text-[10px] text-neutral-400 font-mono uppercase tracking-wider">{t('wordDetail.frequency')}</span>
                     <span className="font-mono text-xs font-bold text-indigo-600">{getFrequency(word)}</span>
+                  </div>
+                  {/* 语境收集统计面板 */}
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className={`rounded-lg px-3 py-2 ${isGlass ? 'bg-white/5' : 'bg-slate-50'}`}>
+                      <span className="text-[10px] text-neutral-400 font-mono uppercase block">{language === 'zh' ? '收集次数' : 'Collections'}</span>
+                      <span className="font-mono text-lg font-bold text-indigo-600">{word.contexts?.length || 0}</span>
+                    </div>
+                    <div className={`rounded-lg px-3 py-2 ${isGlass ? 'bg-white/5' : 'bg-slate-50'}`}>
+                      <span className="text-[10px] text-neutral-400 font-mono uppercase block">{language === 'zh' ? '首次收集' : 'First'}</span>
+                      <span className="font-mono text-xs text-neutral-600 dark:text-neutral-300">{word.timeAdded ? formatDate(word.timeAdded) : '-'}</span>
+                    </div>
+                    <div className={`rounded-lg px-3 py-2 ${isGlass ? 'bg-white/5' : 'bg-slate-50'}`}>
+                      <span className="text-[10px] text-neutral-400 font-mono uppercase block">{language === 'zh' ? '最近收集' : 'Latest'}</span>
+                      <span className="font-mono text-xs text-neutral-600 dark:text-neutral-300">{word.timeUpdated ? formatDate(word.timeUpdated) : '-'}</span>
+                    </div>
                   </div>
               </div>
             </div>
