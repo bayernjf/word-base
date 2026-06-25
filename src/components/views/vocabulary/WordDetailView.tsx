@@ -102,9 +102,21 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [contextActionLoading, setContextActionLoading] = useState<Record<number, 'translate' | 'save' | 'delete'>>({});
   const [selectedTranslateEngine, setSelectedTranslateEngine] = useState<string>('mymemory');
   const [engineDropdownOpen, setEngineDropdownOpen] = useState(false);
-  const [aiEnrichLoading, setAiEnrichLoading] = useState(false);
+  const [aiEnrichLoading, setAiEnrichLoading] = useState(() => {
+    if (!word?.id) return false;
+    try {
+      const pending = JSON.parse(localStorage.getItem('wordbase-pending-ai') || '{}');
+      return pending[word.id]?.enrich === true;
+    } catch { return false; }
+  });
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
-  const [deepExplainLoading, setDeepExplainLoading] = useState(false);
+  const [deepExplainLoading, setDeepExplainLoading] = useState(() => {
+    if (!word?.id) return false;
+    try {
+      const pending = JSON.parse(localStorage.getItem('wordbase-pending-ai') || '{}');
+      return pending[word.id]?.explain === true;
+    } catch { return false; }
+  });
   const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
   const [contextViewMode, setContextViewMode] = useState<'table' | 'timeline'>('table');
   const [contextColumnWidths, setContextColumnWidths] = useState<Record<ContextColumnKey, number>>(loadContextColumnWidths);
@@ -127,6 +139,20 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const t = createTranslator(language);
   const isMountedRef = useRef(true);
+
+  // localStorage 辅助：持久化 AI 操作 pending 状态，使路由切换后仍能恢复 loading
+  const setPendingAi = (wordId: string, type: 'enrich' | 'explain', value: boolean) => {
+    try {
+      const key = 'wordbase-pending-ai';
+      const map = JSON.parse(localStorage.getItem(key) || '{}');
+      if (!map[wordId]) map[wordId] = {};
+      map[wordId][type] = value;
+      localStorage.setItem(key, JSON.stringify(map));
+    } catch { /* ignore */ }
+  };
+  const clearPendingAi = (wordId: string, type: 'enrich' | 'explain') => {
+    setPendingAi(wordId, type, false);
+  };
   const isGlass = themeStyles.name === 'glass';
   const contextColDivider = isGlass ? 'border-r border-white/10' : 'border-r border-[#c7dfbd]';
   const dropdownBtnHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
@@ -443,6 +469,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
     setAiEnrichLoading(true);
     setAiEnrichError(null);
+    setPendingAi(word.id, 'enrich', true);
     logger.debug('handleAiEnrich', { wordId: word.id, word: word.word });
     try {
       const enrichment = await requestAiEnrichment(
@@ -465,6 +492,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
         : (language === 'en' ? 'AI enrich failed. Please try again later.' : 'AI 丰富失败，请稍后重试。'));
     } finally {
+      clearPendingAi(word.id, 'enrich');
       if (isMountedRef.current) {
         setAiEnrichLoading(false);
       }
@@ -482,6 +510,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
     setDeepExplainLoading(true);
     setDeepExplainError(null);
+    setPendingAi(word.id, 'explain', true);
     logger.debug('handleDeepExplain', { wordId: word.id, word: word.word });
     try {
       const deepExplanation = await requestDeepExplanation(
@@ -504,6 +533,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
         : (language === 'en' ? 'Deep explanation failed. Please try again later.' : '深入理解失败，请稍后重试。'));
     } finally {
+      clearPendingAi(word.id, 'explain');
       if (isMountedRef.current) {
         setDeepExplainLoading(false);
       }
