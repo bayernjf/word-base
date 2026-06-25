@@ -5,6 +5,12 @@ export interface WordContext {
   context: string;
   timeAdded: number;
   sourceLink?: string;
+  sourceRange?: {
+    startXPath: string;
+    startOffset: number;
+    endXPath: string;
+    endOffset: number;
+  };
   translation: string;
   addedDate?: number;
 }
