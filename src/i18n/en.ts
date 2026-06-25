@@ -79,6 +79,8 @@ export const en = {
     move: 'Move',
     delete: 'Delete',
     cancelSelection: 'Clear Selection',
+    batchLimitReached: 'Batch operation limit is 10 words',
+    batchLimitSelectAll: 'Batch operation limit is 10 words, automatically selected first 10',
     targetBook: 'target wordbook',
     moveFailed: 'Failed to move words, please try again.',
     movedMany: 'Moved {count} words to',

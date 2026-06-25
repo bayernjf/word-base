@@ -59,6 +59,8 @@ function loadColumnWidths(): Record<ColumnKey, number> {
   }
 }
 
+const BATCH_LIMIT = 10;
+
 export const VocabularyListView: React.FC<VocabularyProps> = ({ 
   themeStyles, language, onNavigate, words, books, onSelectWord, onAddWord,
   initialSelectedBookId = 'biz-eng', onBookChange, onDeleteWords, onMoveWords
@@ -283,20 +285,31 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 
   // 全选/取消全选
   const toggleSelectAll = () => {
-    if (selectedWordIds.length === paginatedWords.length) {
+    const maxSelectable = Math.min(paginatedWords.length, BATCH_LIMIT);
+    if (selectedWordIds.length === maxSelectable) {
       setSelectedWordIds([]);
     } else {
-      setSelectedWordIds(paginatedWords.map(w => w.id));
+      if (paginatedWords.length > BATCH_LIMIT) {
+        setSelectedWordIds(paginatedWords.slice(0, BATCH_LIMIT).map(w => w.id));
+        setNotification({ message: t('vocab.batchLimitSelectAll') });
+      } else {
+        setSelectedWordIds(paginatedWords.map(w => w.id));
+      }
     }
   };
 
   // 切换单个选择
   const toggleSelectWord = (wordId: string) => {
-    setSelectedWordIds(prev => 
-      prev.includes(wordId) 
-        ? prev.filter(id => id !== wordId) 
-        : [...prev, wordId]
-    );
+    setSelectedWordIds(prev => {
+      if (prev.includes(wordId)) {
+        return prev.filter(id => id !== wordId);
+      }
+      if (prev.length >= BATCH_LIMIT) {
+        setNotification({ message: t('vocab.batchLimitReached') });
+        return prev;
+      }
+      return [...prev, wordId];
+    });
   };
 
   // 取消选择
@@ -469,10 +482,12 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
       )}
 
       {notification && (
-        <div className="px-4 py-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 text-sm text-indigo-700 dark:text-indigo-300">
+        <div className={`px-4 py-3 rounded-xl border ${batchBarBg} text-sm ${batchBarText}`}>
           <span>{notification.message}</span>
           {notification.highlight && (
-            <span className="ml-1 inline-flex items-center rounded-md bg-indigo-600/10 px-2 py-0.5 font-semibold text-indigo-700 dark:text-indigo-200 ring-1 ring-indigo-500/20">
+            <span className={`ml-1 inline-flex items-center rounded-md px-2 py-0.5 font-semibold ring-1 ${isGlass
+              ? 'bg-indigo-400/10 text-indigo-200 ring-indigo-400/20'
+              : 'bg-[#5aa167]/10 text-[#2f805d] ring-[#5aa167]/20'}`}>
               {notification.highlight}
             </span>
           )}
@@ -490,7 +505,13 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                 <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 ${tableColDivider}`}>
                   <input
                     type="checkbox"
-                    checked={paginatedWords.length > 0 && selectedWordIds.length === paginatedWords.length}
+                    ref={(el) => {
+                      if (el) {
+                        const maxSelectable = Math.min(paginatedWords.length, BATCH_LIMIT);
+                        el.checked = paginatedWords.length > 0 && selectedWordIds.length === maxSelectable;
+                        el.indeterminate = selectedWordIds.length > 0 && selectedWordIds.length < maxSelectable;
+                      }
+                    }}
                     onChange={toggleSelectAll}
                     className="w-3.5 h-3.5"
                   />

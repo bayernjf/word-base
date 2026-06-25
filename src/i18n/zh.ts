@@ -81,6 +81,8 @@ export const zh: LocaleDict = {
     move: '移动',
     delete: '删除',
     cancelSelection: '取消选择',
+    batchLimitReached: '批量操作上限为 10 个单词',
+    batchLimitSelectAll: '批量操作上限为 10 个单词，已自动选择前 10 个',
     targetBook: '目标单词本',
     moveFailed: '单词移动失败，请重试',
     movedMany: '已移动 {count} 个单词到',
