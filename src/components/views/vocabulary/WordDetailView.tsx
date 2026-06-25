@@ -638,7 +638,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     <Sparkles className={`w-4 h-4 ${aiEnrichLoading ? 'animate-pulse' : ''}`} />
-                    <span>{aiEnrichLoading ? (language === 'en' ? 'Enriching...' : 'AI 丰富中...') : (language === 'en' ? 'AI Enrich' : 'AI 丰富')}</span>
+                    <span>{aiEnrichLoading ? t('wordDetail.aiEnrichLoading') : (word.definition || word.memoryTip) ? t('wordDetail.aiEnrichAgain') : t('wordDetail.aiEnrich')}</span>
                   </button>
                   <button
                     onClick={handleDeepExplain}
