@@ -110,6 +110,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     } catch { return false; }
   });
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
+  const [hasAiEnrichment, setHasAiEnrichment] = useState(() => !!(word?.definition || word?.memoryTip));
   const [deepExplainLoading, setDeepExplainLoading] = useState(() => {
     if (!word?.id) return false;
     try {
@@ -118,6 +119,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     } catch { return false; }
   });
   const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
+  const [hasDeepExplanation, setHasDeepExplanation] = useState(() => !!word?.deepExplanation);
   const [contextViewMode, setContextViewMode] = useState<'table' | 'timeline'>('table');
   const [contextColumnWidths, setContextColumnWidths] = useState<Record<ContextColumnKey, number>>(loadContextColumnWidths);
   const [dictPhonetics, setDictPhonetics] = useState<{
@@ -197,6 +199,8 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     });
     setContextTranslations(nextTranslations);
     setContextActionLoading({});
+    setHasAiEnrichment(!!(word?.definition || word?.memoryTip));
+    setHasDeepExplanation(!!word?.deepExplanation);
   }, [word?.id]);
 
   // 从 Free Dictionary API 获取英音/美音音标与真人发音
@@ -258,21 +262,6 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       isMountedRef.current = false;
     };
   }, []);
-
-  // 后备：当 word prop 成功写入 enrichment 数据但 loading 未解除时自动复位
-  useEffect(() => {
-    if (aiEnrichLoading && (word?.definition || word?.memoryTip)) {
-      setAiEnrichLoading(false);
-      clearPendingAi(word.id, 'enrich');
-    }
-  }, [word?.definition, word?.memoryTip, aiEnrichLoading, word?.id]);
-
-  useEffect(() => {
-    if (deepExplainLoading && word?.deepExplanation) {
-      setDeepExplainLoading(false);
-      clearPendingAi(word.id, 'explain');
-    }
-  }, [word?.deepExplanation, deepExplainLoading, word?.id]);
 
   // 语境表列宽拖拽：拖动把宽度在「当前列」与「右邻列」间转移，总宽恒定为容器宽
   useEffect(() => {
@@ -500,6 +489,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       if (onUpdateWord) {
         await onUpdateWord(word.id, enrichmentToWordUpdates(enrichment));
       }
+      setHasAiEnrichment(true);
       logger.info('handleAiEnrich success', { wordId: word.id });
     } catch (error) {
       logger.error('Error enriching word:', error);
@@ -541,6 +531,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       if (onUpdateWord) {
         await onUpdateWord(word.id, { deepExplanation });
       }
+      setHasDeepExplanation(true);
       logger.info('handleDeepExplain success', { wordId: word.id });
     } catch (error) {
       logger.error('Error explaining word:', error);
@@ -683,7 +674,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     <Sparkles className={`w-4 h-4 ${aiEnrichLoading ? 'animate-pulse' : ''}`} />
-                    <span>{aiEnrichLoading ? t('wordDetail.aiEnrichLoading') : (word.definition || word.memoryTip) ? t('wordDetail.aiEnrichAgain') : t('wordDetail.aiEnrich')}</span>
+                    <span>{aiEnrichLoading ? t('wordDetail.aiEnrichLoading') : hasAiEnrichment ? t('wordDetail.aiEnrichAgain') : t('wordDetail.aiEnrich')}</span>
                   </button>
                   <button
                     onClick={handleDeepExplain}
@@ -693,7 +684,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     <BrainCircuit className={`w-4 h-4 ${deepExplainLoading ? 'animate-pulse' : ''}`} />
                     <span>{deepExplainLoading
                       ? t('wordDetail.deepExplainLoading')
-                      : word.deepExplanation
+                      : hasDeepExplanation
                         ? t('wordDetail.deepExplainAgain')
                         : t('wordDetail.deepExplain')}</span>
                   </button>
