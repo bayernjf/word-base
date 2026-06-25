@@ -158,6 +158,28 @@ export function enrichmentToWordUpdates(enrichment: AiEnrichment): Partial<Word>
   };
 }
 
+export async function requestAiTranslate(
+  text: string,
+  targetLanguage: string,
+  accessToken: string,
+  providerId?: string
+): Promise<string> {
+  const response = await fetch('/api/v1/ai/translate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ text, targetLanguage, providerId }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.error || 'ai_translate_failed'));
+  }
+  return String(data?.translatedText || '').trim();
+}
+
 function normalizeEnrichment(value: unknown): AiEnrichment {
   if (!value || typeof value !== 'object') {
     throw new Error('invalid_ai_enrichment_json');
