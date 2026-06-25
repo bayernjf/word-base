@@ -482,7 +482,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         accessToken
       );
       // 后端已直接入库（刷新/离开页面也不丢失）；此处同步更新本地状态以即时反映到 UI
-      await onUpdateWord(word.id, enrichmentToWordUpdates(enrichment));
+      if (onUpdateWord) {
+        await onUpdateWord(word.id, enrichmentToWordUpdates(enrichment));
+      }
       logger.info('handleAiEnrich success', { wordId: word.id });
     } catch (error) {
       logger.error('Error enriching word:', error);
@@ -523,7 +525,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         accessToken
       );
       // 后端已直接入库；此处同步本地状态以即时反映到 UI
-      await onUpdateWord(word.id, { deepExplanation });
+      if (onUpdateWord) {
+        await onUpdateWord(word.id, { deepExplanation });
+      }
       logger.info('handleDeepExplain success', { wordId: word.id });
     } catch (error) {
       logger.error('Error explaining word:', error);

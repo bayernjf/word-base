@@ -723,6 +723,17 @@ export default function App() {
     return updatedWord;
   };
 
+  const handleUpdateWord = async (wordId: string, updates: Partial<Word>) => {
+    const now = Date.now();
+    let updatedWord: Word | null = null;
+    setWords(prev => prev.map(w => {
+      if (w.id !== wordId) return w;
+      updatedWord = { ...w, ...updates, timeUpdated: now, dateUpdated: now };
+      return updatedWord;
+    }));
+    return updatedWord;
+  };
+
   const handleDeleteWords = (wordIds: string[]) => {
     setWords(prev => prev.filter(w => !wordIds.includes(w.id)));
   };
@@ -826,6 +837,7 @@ export default function App() {
             word={activeWordCard}
             onUpdateFamiliarity={handleUpdateFamiliarity}
             onUpdateContexts={handleUpdateContexts}
+            onUpdateWord={handleUpdateWord}
             aiProviders={[]}
           />
         );
