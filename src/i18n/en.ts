@@ -146,6 +146,8 @@ export const en = {
     deleteTranslation: 'Delete translation',
     translateError: 'Translation failed. Please select another engine.',
     dictLinks: 'Dictionary',
+    ukPronunciation: 'UK',
+    usPronunciation: 'US',
   },
   myLists: {
     mustHaveSync: 'At least one sync wordbook is required',
