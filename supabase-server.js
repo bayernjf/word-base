@@ -1002,6 +1002,74 @@ app.post('/api/v1/ai/explain', async (req, res) => {
   }
 })
 
+app.post('/api/v1/ai/translate', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const text = String(req.body?.text || '').trim()
+    const targetLanguage = String(req.body?.targetLanguage || 'zh-CN').trim()
+    const providerId = req.body?.providerId
+
+    if (!text) return res.status(400).json({ error: 'text_required' })
+
+    const prompt = `Translate the following text to ${targetLanguage}. Output ONLY the translation, no explanations, no markdown:\n\n${text}`
+
+    let raw = ''
+    let providerName = 'fallback'
+
+    // 指定了 providerId 时优先使用
+    if (providerId) {
+      const { data: config, error: configErr } = await db
+        .from('ai_provider_configs')
+        .select('provider, model, endpoint, encrypted_api_key')
+        .eq('id', providerId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!configErr && config) {
+        raw = await callAiProviderRaw({ config, prompt })
+        providerName = config.provider || 'custom'
+      }
+    }
+
+    // 未指定或指定 provider 不存在时，用 isActive
+    if (!raw) {
+      const { data: activeConfig, error: activeErr } = await db
+        .from('ai_provider_configs')
+        .select('provider, model, endpoint, encrypted_api_key')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (!activeErr && activeConfig) {
+        raw = await callAiProviderRaw({ config: activeConfig, prompt })
+        providerName = activeConfig.provider || 'active'
+      }
+    }
+
+    // 仍无 provider，用 Gemini fallback
+    if (!raw) {
+      if (!genAiClient) return res.status(500).json({ error: 'ai_key_not_configured' })
+      const response = await genAiClient.models.generateContent({
+        model: genAiModel,
+        contents: prompt,
+      })
+      raw = response.text || ''
+      providerName = 'gemini'
+    }
+
+    // 清理模型可能包裹的 markdown
+    const cleaned = String(raw || '').trim().replace(/^```[\s\S]*?```$/gm, '').replace(/```/g, '').trim()
+    const translatedText = cleaned || text
+
+    res.json({ translatedText, provider: providerName })
+  } catch (err) {
+    console.error('[ai/translate] error:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.get('/api/v1/books', async (req, res) => {
   try {
     const { user, db } = await getRequestContext(req)
