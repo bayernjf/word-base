@@ -495,9 +495,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         : (language === 'en' ? 'AI enrich failed. Please try again later.' : 'AI 丰富失败，请稍后重试。'));
     } finally {
       clearPendingAi(word.id, 'enrich');
-      if (isMountedRef.current) {
-        setAiEnrichLoading(false);
-      }
+      setAiEnrichLoading(false);
     }
   };
 
@@ -538,9 +536,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         : (language === 'en' ? 'Deep explanation failed. Please try again later.' : '深入理解失败，请稍后重试。'));
     } finally {
       clearPendingAi(word.id, 'explain');
-      if (isMountedRef.current) {
-        setDeepExplainLoading(false);
-      }
+      setDeepExplainLoading(false);
     }
   };
 
