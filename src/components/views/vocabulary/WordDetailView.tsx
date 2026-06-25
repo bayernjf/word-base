@@ -89,7 +89,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts, onUpdateWord, aiProviders = []
 }) => {
   const { session } = useSupabase();
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingType, setPlayingType] = useState<'uk' | 'us' | 'tts' | null>(null);
   const [showChineseExample, setShowChineseExample] = useState<Record<number, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
   const [topHeight, setTopHeight] = useState(50); // 百分比
@@ -109,7 +109,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     us?: string;
     ukAudio?: string;
     usAudio?: string;
-  }>({});
+  } | null>(null);
   const contextResizeRef = useRef<{
     key: ContextColumnKey;
     nextKey: ContextColumnKey;
@@ -317,16 +317,16 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     }
     utterance.rate = 0.9;
     utterance.pitch = 1.05;
-    utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = () => setIsPlaying(false);
+    utterance.onend = () => setPlayingType(null);
+    utterance.onerror = () => setPlayingType(null);
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleSpeech = (audioUrl?: string) => {
-    setIsPlaying(true);
+  const handleSpeech = (type: 'uk' | 'us' | 'tts', audioUrl?: string) => {
+    setPlayingType(type);
     if (audioUrl) {
       const audio = new Audio(audioUrl);
-      audio.onended = () => setIsPlaying(false);
+      audio.onended = () => setPlayingType(null);
       audio.onerror = () => {
         speakWithTTS();
       };
@@ -520,20 +520,20 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                       </span>
                     )}
                   </div>
-                  {/* 音标：优先展示 Free Dictionary API 返回的英音/美音，fallback 到已有 phonetic */}
-                  {(dictPhonetics.uk || dictPhonetics.us || word.phonetic) && (
+                  {/* 音标：API 加载完成后再展示，避免从单音标闪现到双音标 */}
+                  {dictPhonetics !== null && (
                     <div className="flex items-center gap-3 mt-1">
                       {dictPhonetics.uk && (
                         <p className="text-sm text-neutral-400 font-mono flex items-center space-x-1">
                           <span className="text-[10px] text-neutral-300 dark:text-white/30 uppercase">{t('wordDetail.ukPronunciation')}</span>
                           <span>{dictPhonetics.uk}</span>
                           <button
-                            onClick={() => handleSpeech(dictPhonetics.ukAudio)}
-                            disabled={isPlaying}
+                            onClick={() => handleSpeech('uk', dictPhonetics.ukAudio)}
+                            disabled={playingType !== null}
                             className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                             title={language === 'zh' ? '英音发音' : 'UK Pronunciation'}
                           >
-                            <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
+                            <Volume2 className={`w-4 h-4 ${playingType === 'uk' ? 'animate-bounce' : ''}`} />
                           </button>
                         </p>
                       )}
@@ -542,12 +542,12 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                           <span className="text-[10px] text-neutral-300 dark:text-white/30 uppercase">{t('wordDetail.usPronunciation')}</span>
                           <span>{dictPhonetics.us}</span>
                           <button
-                            onClick={() => handleSpeech(dictPhonetics.usAudio)}
-                            disabled={isPlaying}
+                            onClick={() => handleSpeech('us', dictPhonetics.usAudio)}
+                            disabled={playingType !== null}
                             className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                             title={language === 'zh' ? '美音发音' : 'US Pronunciation'}
                           >
-                            <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
+                            <Volume2 className={`w-4 h-4 ${playingType === 'us' ? 'animate-bounce' : ''}`} />
                           </button>
                         </p>
                       )}
@@ -556,11 +556,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                         <p className="text-sm text-neutral-400 font-mono flex items-center space-x-2">
                           <span>/{word.phonetic}/</span>
                           <button
-                            onClick={() => handleSpeech()}
-                            disabled={isPlaying}
+                            onClick={() => handleSpeech('tts')}
+                            disabled={playingType !== null}
                             className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                           >
-                            <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-bounce' : ''}`} />
+                            <Volume2 className={`w-4 h-4 ${playingType === 'tts' ? 'animate-bounce' : ''}`} />
                           </button>
                         </p>
                       )}
