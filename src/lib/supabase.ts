@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { createLogger } from './logger'
+
+const logger = createLogger('supabase')
 
 // Supabase 配置
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321'
@@ -11,6 +14,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // =============================================
 export const profileApi = {
   async getProfile(userId: string) {
+    logger.debug('profileApi.getProfile', { userId })
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -18,10 +22,12 @@ export const profileApi = {
       .single()
 
     if (error) throw error
+    logger.info('profileApi.getProfile success')
     return data
   },
 
   async updateProfile(userId: string, updates: any) {
+    logger.debug('profileApi.updateProfile', { userId, fields: Object.keys(updates) })
     const { data, error } = await supabase
       .from('profiles')
       .update(updates)
@@ -29,6 +35,7 @@ export const profileApi = {
       .select()
 
     if (error) throw error
+    logger.info('profileApi.updateProfile success')
     return data[0]
   }
 }
@@ -38,6 +45,7 @@ export const profileApi = {
 // =============================================
 export const bookApi = {
   async getBooks(userId: string) {
+    logger.debug('bookApi.getBooks', { userId })
     const { data, error } = await supabase
       .from('vocabulary_books')
       .select('*')
@@ -47,20 +55,24 @@ export const bookApi = {
       .order('created_at')
 
     if (error) throw error
+    logger.info('bookApi.getBooks success', { count: data?.length })
     return data
   },
 
   async createBook(book: any) {
+    logger.debug('bookApi.createBook', { name: book.name })
     const { data, error } = await supabase
       .from('vocabulary_books')
       .insert(book)
       .select()
 
     if (error) throw error
+    logger.info('bookApi.createBook success', { id: data?.[0]?.id })
     return data[0]
   },
 
   async updateBook(bookId: string, updates: any) {
+    logger.debug('bookApi.updateBook', { bookId })
     const { data, error } = await supabase
       .from('vocabulary_books')
       .update(updates)
@@ -68,10 +80,12 @@ export const bookApi = {
       .select()
 
     if (error) throw error
+    logger.info('bookApi.updateBook success')
     return data[0]
   },
 
   async deleteBook(bookId: string) {
+    logger.debug('bookApi.deleteBook', { bookId })
     const { data, error } = await supabase
       .from('vocabulary_books')
       .update({ is_deleted: true })
@@ -79,6 +93,7 @@ export const bookApi = {
       .select()
 
     if (error) throw error
+    logger.info('bookApi.deleteBook success')
     return data
   }
 }
@@ -88,6 +103,7 @@ export const bookApi = {
 // =============================================
 export const wordApi = {
   async getWords(userId: string, bookId?: string) {
+    logger.debug('wordApi.getWords', { userId, bookId })
     let query = supabase
       .from('words')
       .select('*')
@@ -101,20 +117,24 @@ export const wordApi = {
     const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) throw error
+    logger.info('wordApi.getWords success', { count: data?.length })
     return data
   },
 
   async createWord(word: any) {
+    logger.debug('wordApi.createWord', { word: word.word })
     const { data, error } = await supabase
       .from('words')
       .insert(word)
       .select()
 
     if (error) throw error
+    logger.info('wordApi.createWord success', { id: data?.[0]?.id })
     return data[0]
   },
 
   async updateWord(wordId: string, updates: any) {
+    logger.debug('wordApi.updateWord', { wordId })
     const { data, error } = await supabase
       .from('words')
       .update(updates)
@@ -122,10 +142,12 @@ export const wordApi = {
       .select()
 
     if (error) throw error
+    logger.info('wordApi.updateWord success')
     return data[0]
   },
 
   async deleteWord(wordId: string) {
+    logger.debug('wordApi.deleteWord', { wordId })
     const { data, error } = await supabase
       .from('words')
       .update({ is_deleted: true })
@@ -133,6 +155,7 @@ export const wordApi = {
       .select()
 
     if (error) throw error
+    logger.info('wordApi.deleteWord success')
     return data
   }
 }
@@ -142,6 +165,7 @@ export const wordApi = {
 // =============================================
 export const syncApi = {
   async getChangelogs(userId: string, sinceVersion: number) {
+    logger.debug('syncApi.getChangelogs', { userId, sinceVersion })
     const { data, error } = await supabase
       .from('sync_changelogs')
       .select('*')
@@ -150,10 +174,12 @@ export const syncApi = {
       .order('sync_version', { ascending: true })
 
     if (error) throw error
+    logger.info('syncApi.getChangelogs success', { count: data?.length })
     return data
   },
 
   async getLatestVersion(userId: string) {
+    logger.debug('syncApi.getLatestVersion', { userId })
     const { data, error } = await supabase
       .from('sync_changelogs')
       .select('sync_version')
@@ -162,6 +188,7 @@ export const syncApi = {
       .limit(1)
 
     if (error) throw error
+    logger.info('syncApi.getLatestVersion success', { version: data?.[0]?.sync_version })
     return data[0]?.sync_version || 0
   }
 }

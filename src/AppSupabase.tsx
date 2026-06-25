@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { createLogger } from './lib/logger';
 import { AppLanguage, ThemeType } from './types';
+
+const logger = createLogger('AppSupabase');
 import { initialStories, listeningQuizzes } from './mockData';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
@@ -229,6 +232,7 @@ export default function AppSupabase() {
 
     // 真正登录：之前没有 user，现在有了
     if (!prevId && currId) {
+      logger.info('user signed in', { userId: currId });
       const saved = (() => {
         try { return localStorage.getItem('wordbase_activeView'); } catch { return null; }
       })();
@@ -241,6 +245,7 @@ export default function AppSupabase() {
     }
     // 真正登出：之前有 user，现在没了
     if (prevId && !currId) {
+      logger.info('user signed out');
       setSelectedBookId('');
       setSelectedWordId('');
       setActiveView('welcome');
@@ -309,9 +314,12 @@ export default function AppSupabase() {
     }
 
     try {
-      setModels(await listAiProviderConfigs(accessToken));
+      logger.debug('loadAiProviders started');
+      const providers = await listAiProviderConfigs(accessToken);
+      setModels(providers);
+      logger.info(`loadAiProviders success, count=${providers.length}`);
     } catch (error) {
-      console.error('Error loading AI providers:', error);
+      logger.error('Error loading AI providers:', error);
       setModels([]);
     }
   }, [session?.access_token]);
@@ -365,6 +373,7 @@ export default function AppSupabase() {
 
   const handleUpdateProfile = async (data: { nickname?: string; avatar?: number }) => {
     if (!user) return false;
+    logger.debug('handleUpdateProfile', { nickname: data.nickname, avatar: data.avatar });
 
     try {
       const payload = {
@@ -383,9 +392,10 @@ export default function AppSupabase() {
       if (error) throw error;
 
       setProfile(profileRow as ProfileRow);
+      logger.info('handleUpdateProfile success');
       return true;
     } catch (error) {
-      console.error('Error updating profile:', error);
+      logger.error('Error updating profile:', error);
       return false;
     }
   };
@@ -393,12 +403,14 @@ export default function AppSupabase() {
   const handleThemeChange = (nextTheme: ThemeType) => {
     setTheme(nextTheme);
     if (!user) return;
+    logger.debug('handleThemeChange', { theme: nextTheme });
     void (async () => {
       try {
         await profileApi.updateProfile(user.id, { theme_preference: nextTheme });
         setProfile((prev) => (prev ? { ...prev, theme_preference: nextTheme } : prev));
+        logger.info('handleThemeChange success');
       } catch (error) {
-        console.error('Error updating theme preference:', error);
+        logger.error('Error updating theme preference:', error);
       }
     })();
   };
@@ -468,6 +480,7 @@ export default function AppSupabase() {
     if (!accessToken) return;
 
     const current = models.find((model) => model.id === modelId);
+    logger.debug('handleToggleModel', { modelId, currentActive: current?.isActive });
     try {
       const updated = await updateAiProviderConfig(modelId, { isActive: !current?.isActive }, accessToken);
       setModels((prev) => prev.map((model) => {
@@ -476,8 +489,9 @@ export default function AppSupabase() {
         }
         return model.id === updated.id ? updated : model;
       }));
+      logger.info('handleToggleModel success', { modelId, isActive: updated.isActive });
     } catch (error) {
-      console.error('Error toggling AI provider:', error);
+      logger.error('Error toggling AI provider:', error);
     }
   };
 
@@ -485,6 +499,7 @@ export default function AppSupabase() {
     const accessToken = session?.access_token;
     if (!accessToken) return;
 
+    logger.debug('handleAddCustomModel', { provider: newModel.provider });
     try {
       const created = await createAiProviderConfig(
         {
@@ -497,8 +512,9 @@ export default function AppSupabase() {
         const next = created.isActive ? prev.map((model) => ({ ...model, isActive: false })) : prev;
         return [...next, created];
       });
+      logger.info('handleAddCustomModel success', { id: created.id, provider: created.provider });
     } catch (error) {
-      console.error('Error adding AI provider:', error);
+      logger.error('Error adding AI provider:', error);
       throw error;
     }
   };
@@ -507,6 +523,7 @@ export default function AppSupabase() {
     const accessToken = session?.access_token;
     if (!accessToken) return;
 
+    logger.debug('handleUpdateCustomModel', { modelId, provider: updates.provider });
     try {
       const updated = await updateAiProviderConfig(modelId, updates, accessToken);
       setModels((prev) => prev.map((model) => {
@@ -515,8 +532,9 @@ export default function AppSupabase() {
         }
         return model.id === updated.id ? updated : model;
       }));
+      logger.info('handleUpdateCustomModel success', { modelId });
     } catch (error) {
-      console.error('Error updating AI provider:', error);
+      logger.error('Error updating AI provider:', error);
       throw error;
     }
   };
@@ -525,20 +543,24 @@ export default function AppSupabase() {
     const accessToken = session?.access_token;
     if (!accessToken) return;
 
+    logger.debug('handleDeleteModel', { modelId });
     try {
       await deleteAiProviderConfig(modelId, accessToken);
       setModels((prev) => prev.filter((model) => model.id !== modelId));
+      logger.info('handleDeleteModel success', { modelId });
     } catch (error) {
-      console.error('Error deleting AI provider:', error);
+      logger.error('Error deleting AI provider:', error);
       throw error;
     }
   };
 
   const handleAddWord = async (wordData: Parameters<typeof addWord>[0]) => {
+    logger.debug('handleAddWord', { word: wordData.word, bookId: wordData.bookId });
     const saved = await addWord(wordData);
     if (saved) {
       setSelectedWordId(saved.id);
       await loadBooks();
+      logger.info('handleAddWord success', { id: saved.id });
     }
   };
 

@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { createLogger } from '../lib/logger';
+
+const logger = createLogger('SupabaseContext');
 
 interface SupabaseContextType {
   user: User | null;
@@ -23,11 +26,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     // 检查现有会话
     const init = async () => {
       try {
+        logger.debug('SupabaseContext init session');
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        logger.info('SupabaseContext session loaded', { userId: currentSession?.user?.id });
       } catch (error) {
-        console.error('Error getting session:', error);
+        logger.error('Error getting session:', error);
       } finally {
         setIsLoading(false);
       }
@@ -48,23 +53,31 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string) => {
+    logger.debug('signUp', { email });
     const { error } = await supabase.auth.signUp({
       email,
       password,
     });
+    if (error) logger.error('signUp failed', { error: error.message });
+    else logger.info('signUp success');
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
+    logger.debug('signIn', { email });
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (error) logger.error('signIn failed', { error: error.message });
+    else logger.info('signIn success');
     return { error };
   };
 
   const signOut = async () => {
+    logger.debug('signOut');
     await supabase.auth.signOut();
+    logger.info('signOut success');
   };
 
   const resetPassword = async (email: string) => {

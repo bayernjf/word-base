@@ -58,6 +58,7 @@ export function parseAiEnrichmentResponse(raw: string): AiEnrichment {
 }
 
 export async function requestAiEnrichment(input: AiEnrichmentRequest, accessToken: string): Promise<AiEnrichment> {
+  console.debug('[aiEnrich] requestAiEnrichment', { word: input.word, wordId: input.wordId });
   const response = await fetch('/api/v1/ai/enrich', {
     method: 'POST',
     headers: {
@@ -72,6 +73,7 @@ export async function requestAiEnrichment(input: AiEnrichmentRequest, accessToke
     throw new Error(String(data?.error || 'ai_enrich_failed'));
   }
 
+  console.debug('[aiEnrich] requestAiEnrichment success', { word: input.word });
   return normalizeEnrichment(data?.enrichment);
 }
 
@@ -99,6 +101,7 @@ export async function requestDeepExplanation(
   input: AiEnrichmentRequest,
   accessToken: string
 ): Promise<DeepExplanation> {
+  console.debug('[aiEnrich] requestDeepExplanation', { word: input.word, wordId: input.wordId });
   const response = await fetch('/api/v1/ai/explain', {
     method: 'POST',
     headers: {
@@ -113,6 +116,7 @@ export async function requestDeepExplanation(
     throw new Error(String(data?.error || 'ai_explain_failed'));
   }
 
+  console.debug('[aiEnrich] requestDeepExplanation success', { word: input.word });
   return normalizeDeepExplanation(data?.deepExplanation);
 }
 
@@ -164,6 +168,7 @@ export async function requestAiTranslate(
   accessToken: string,
   providerId?: string
 ): Promise<string> {
+  console.debug('[aiEnrich] requestAiTranslate', { textLength: text.length, targetLanguage, providerId });
   const response = await fetch('/api/v1/ai/translate', {
     method: 'POST',
     headers: {
@@ -187,6 +192,7 @@ export async function requestAiTranslate(
   } catch {
     // 不是 JSON，直接返回原文
   }
+  console.debug('[aiEnrich] requestAiTranslate success', { resultLength: raw.length });
   return raw;
 }
 
