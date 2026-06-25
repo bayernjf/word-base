@@ -259,6 +259,21 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     };
   }, []);
 
+  // 后备：当 word prop 成功写入 enrichment 数据但 loading 未解除时自动复位
+  useEffect(() => {
+    if (aiEnrichLoading && (word?.definition || word?.memoryTip)) {
+      setAiEnrichLoading(false);
+      clearPendingAi(word.id, 'enrich');
+    }
+  }, [word?.definition, word?.memoryTip, aiEnrichLoading, word?.id]);
+
+  useEffect(() => {
+    if (deepExplainLoading && word?.deepExplanation) {
+      setDeepExplainLoading(false);
+      clearPendingAi(word.id, 'explain');
+    }
+  }, [word?.deepExplanation, deepExplainLoading, word?.id]);
+
   // 语境表列宽拖拽：拖动把宽度在「当前列」与「右邻列」间转移，总宽恒定为容器宽
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
