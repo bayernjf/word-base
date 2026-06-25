@@ -312,7 +312,7 @@ const buildAiEnrichmentPrompt = ({ word, translation, contexts }) => {
     `Word: ${String(word || '').trim()}`,
     `Current translation: ${String(translation || '').trim()}`,
     `Contexts: ${JSON.stringify(contextLines)}`,
-    'Rules: examples must be natural English with Chinese translations; synonyms must be English; do not include markdown.'
+    'Rules: "definition" must be an English explanation of the word meaning (English-English style); "translation" must be the Chinese translation; examples must be natural English with Chinese translations; synonyms must be English; memoryTip must be in Chinese; do not include markdown.'
   ].join('\n')
 }
 
@@ -359,6 +359,62 @@ const parseAiEnrichmentPayload = (raw) => {
     examples: readExamples(parsed?.examples).slice(0, 5),
     usageHistory: readUsageHistory(parsed?.usageHistory).slice(0, 5),
     memoryTip: readString(parsed?.memoryTip)
+  }
+}
+
+// 深度解释：结合用户保存的真实语境做个性化用法讲解，不覆盖基础丰富字段
+const buildDeepExplanationPrompt = ({ word, translation, contexts }) => {
+  const contextList = (Array.isArray(contexts) ? contexts : [])
+    .map((item) => ({
+      context: String(item?.context || '').trim(),
+      source: String(item?.sourceLink || item?.source || '').trim()
+    }))
+    .filter((item) => item.context)
+    .slice(0, 5)
+
+  return [
+    'You are a vocabulary coach. Explain how a word is used in the learner\'s OWN saved sentences. Output strict JSON only.',
+    'Schema: {"contextInsights":[{"context":"<the exact user sentence>","insight":"<Chinese explanation of what the word means and why it is used this way HERE>"}],"synonymComparison":"<Chinese: how this word differs from close synonyms>","memoryHook":"<Chinese: one vivid memory hook>"}',
+    `Word: ${String(word || '').trim()}`,
+    `Known translation: ${String(translation || '').trim()}`,
+    `User saved sentences: ${JSON.stringify(contextList.map((item) => item.context))}`,
+    'Rules: produce one contextInsights entry per user sentence, quoting the sentence verbatim in "context"; all "insight"/"synonymComparison"/"memoryHook" text must be in Chinese; keep each insight under 80 Chinese characters; synonymComparison under 120 Chinese characters; memoryHook one sentence; if no user sentences are provided, return contextInsights as an empty array and still fill synonymComparison and memoryHook; do not include markdown.'
+  ].join('\n')
+}
+
+const parseDeepExplanationPayload = (raw) => {
+  const text = String(raw || '').trim()
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  const jsonText = fenced?.[1]
+    ? fenced[1].trim()
+    : start >= 0 && end > start
+      ? text.slice(start, end + 1)
+      : text
+
+  let parsed
+  try {
+    parsed = JSON.parse(jsonText)
+  } catch {
+    throw new Error('invalid_ai_enrichment_json')
+  }
+
+  const readString = (value) => (typeof value === 'string' ? value.trim() : '')
+  const contextInsights = (Array.isArray(parsed?.contextInsights) ? parsed.contextInsights : [])
+    .map((item) => {
+      const context = readString(item?.context)
+      const insight = readString(item?.insight)
+      return context && insight ? { context, insight } : null
+    })
+    .filter(Boolean)
+    .slice(0, 5)
+
+  return {
+    contextInsights,
+    synonymComparison: readString(parsed?.synonymComparison),
+    memoryHook: readString(parsed?.memoryHook),
+    generatedAt: Date.now()
   }
 }
 
@@ -463,7 +519,8 @@ const fetchAiProvider = async (url, options) => {
   }
 }
 
-const generateAiEnrichmentWithConfig = async ({ config, prompt }) => {
+// 调用用户配置的 AI provider，返回模型原始文本（由各调用方自行解析）
+const callAiProviderRaw = async ({ config, prompt }) => {
   const apiKey = decryptApiKey(config.encrypted_api_key)
   const provider = normalizeAiProvider(config.provider)
   const model = config.model || defaultModelForProvider(provider)
@@ -496,7 +553,7 @@ const generateAiEnrichmentWithConfig = async ({ config, prompt }) => {
       const text = data?.candidates?.[0]?.content?.parts
         ?.map((part) => part?.text || '')
         .join('\n') || ''
-      return parseAiEnrichmentPayload(text)
+      return text
     }
 
     const client = new GoogleGenAI({ apiKey })
@@ -507,7 +564,7 @@ const generateAiEnrichmentWithConfig = async ({ config, prompt }) => {
         responseMimeType: 'application/json'
       }
     })
-    return parseAiEnrichmentPayload(response.text || '')
+    return response.text || ''
   }
 
   if (provider === 'anthropic') {
@@ -534,7 +591,7 @@ const generateAiEnrichmentWithConfig = async ({ config, prompt }) => {
     const text = Array.isArray(data?.content)
       ? data.content.map((item) => item?.text || '').join('\n')
       : ''
-    return parseAiEnrichmentPayload(text)
+    return text
   }
 
   const response = await fetchAiProvider(resolveOpenAiChatUrl(config.endpoint), {
@@ -556,8 +613,11 @@ const generateAiEnrichmentWithConfig = async ({ config, prompt }) => {
     throw new Error(data?.error?.message || data?.error || 'openai_compatible_request_failed')
   }
 
-  return parseAiEnrichmentPayload(data?.choices?.[0]?.message?.content || '')
+  return data?.choices?.[0]?.message?.content || ''
 }
+
+const generateAiEnrichmentWithConfig = async ({ config, prompt }) =>
+  parseAiEnrichmentPayload(await callAiProviderRaw({ config, prompt }))
 
 // =============================================
 // 兼容性 API 端点
@@ -857,6 +917,7 @@ app.post('/api/v1/ai/enrich', async (req, res) => {
           synonyms: enrichment.synonyms,
           examples: enrichment.examples,
           usage_history: enrichment.usageHistory,
+          memory_tip: enrichment.memoryTip,
           time_updated: nowIso,
           updated_at: nowIso
         })
@@ -870,6 +931,72 @@ app.post('/api/v1/ai/enrich', async (req, res) => {
     res.json({ enrichment })
   } catch (err) {
     console.error('[ai/enrich] error:', err.message)
+    const status = err.message === 'invalid_ai_enrichment_json' ? 502 : 500
+    res.status(status).json({ error: err.message })
+  }
+})
+
+app.post('/api/v1/ai/explain', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const word = String(req.body?.word || '').trim()
+    if (!word) return res.status(400).json({ error: 'word_required' })
+
+    const prompt = buildDeepExplanationPrompt({
+      word,
+      translation: req.body?.translation,
+      contexts: req.body?.contexts
+    })
+
+    const { data: activeConfig, error: configError } = await db
+      .from('ai_provider_configs')
+      .select('provider, model, endpoint, encrypted_api_key')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (configError) throw configError
+
+    let raw
+    if (activeConfig) {
+      raw = await callAiProviderRaw({ config: activeConfig, prompt })
+    } else {
+      if (!genAiClient) return res.status(500).json({ error: 'ai_key_not_configured' })
+      const response = await genAiClient.models.generateContent({
+        model: genAiModel,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json'
+        }
+      })
+      raw = response.text || ''
+    }
+
+    const deepExplanation = parseDeepExplanationPayload(raw)
+
+    // 直接入库：拿到 wordId 时立即持久化，刷新/离开页面也不丢失
+    const wordId = String(req.body?.wordId || '').trim()
+    if (wordId) {
+      const nowIso = new Date().toISOString()
+      const { error: updateError } = await db
+        .from('words')
+        .update({
+          deep_explanation: deepExplanation,
+          time_updated: nowIso,
+          updated_at: nowIso
+        })
+        .eq('id', wordId)
+        .eq('user_id', user.id)
+
+      if (updateError) throw updateError
+      await recordChange(db, user.id, 'word', wordId, 'update')
+    }
+
+    res.json({ deepExplanation })
+  } catch (err) {
+    console.error('[ai/explain] error:', err.message)
     const status = err.message === 'invalid_ai_enrichment_json' ? 502 : 500
     res.status(status).json({ error: err.message })
   }

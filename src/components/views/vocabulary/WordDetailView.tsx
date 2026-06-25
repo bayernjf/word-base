@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, ArrowLeft, Volume2, Globe, ChevronDown, Languages, Save, Trash2, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Volume2, Globe, ChevronDown, Languages, Save, Trash2, Sparkles, BrainCircuit } from 'lucide-react';
 import { AppLanguage, Word, WordContext } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
-import { enrichmentToWordUpdates, requestAiEnrichment } from '../../../lib/aiEnrich';
+import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation } from '../../../lib/aiEnrich';
 import { useSupabase } from '../../../context/SupabaseContext';
 
 interface WordDetailProps {
@@ -15,6 +15,38 @@ interface WordDetailProps {
   onUpdateFamiliarity: (wordId: string, level: number) => void;
   onUpdateContexts: (wordId: string, contexts: WordContext[]) => Promise<Word | null>;
   onUpdateWord: (wordId: string, updates: Partial<Word>) => Promise<Word | null>;
+}
+
+// 语境表列定义：总宽固定为容器宽（百分比），列间可此消彼长地调宽，行高随换行自适应
+type ContextColumnKey = 'index' | 'context' | 'timeAdded' | 'sourceLink' | 'translation' | 'actions';
+const CONTEXT_COLUMN_DEFS: Array<{ key: ContextColumnKey; defaultPct: number; minPct: number }> = [
+  { key: 'index', defaultPct: 5, minPct: 4 },
+  { key: 'context', defaultPct: 32, minPct: 12 },
+  { key: 'timeAdded', defaultPct: 14, minPct: 9 },
+  { key: 'sourceLink', defaultPct: 10, minPct: 6 },
+  { key: 'translation', defaultPct: 25, minPct: 10 },
+  { key: 'actions', defaultPct: 14, minPct: 10 },
+];
+const CONTEXT_COLUMN_WIDTH_STORAGE_KEY = 'wordDetail.contextColumnWidths';
+
+function loadContextColumnWidths(): Record<ContextColumnKey, number> {
+  const defaults = Object.fromEntries(
+    CONTEXT_COLUMN_DEFS.map((col) => [col.key, col.defaultPct])
+  ) as Record<ContextColumnKey, number>;
+  try {
+    const raw = localStorage.getItem(CONTEXT_COLUMN_WIDTH_STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<Record<ContextColumnKey, number>>;
+    CONTEXT_COLUMN_DEFS.forEach((col) => {
+      const value = parsed[col.key];
+      if (typeof value === 'number' && value >= col.minPct) {
+        defaults[col.key] = value;
+      }
+    });
+    return defaults;
+  } catch {
+    return defaults;
+  }
 }
 
 export const WordDetailView: React.FC<WordDetailProps> = ({ 
@@ -31,9 +63,23 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [contextActionLoading, setContextActionLoading] = useState<Record<number, 'translate' | 'save' | 'delete'>>({});
   const [aiEnrichLoading, setAiEnrichLoading] = useState(false);
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
+  const [deepExplainLoading, setDeepExplainLoading] = useState(false);
+  const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
+  const [contextColumnWidths, setContextColumnWidths] = useState<Record<ContextColumnKey, number>>(loadContextColumnWidths);
+  const contextResizeRef = useRef<{
+    key: ContextColumnKey;
+    nextKey: ContextColumnKey;
+    startX: number;
+    startPct: number;
+    startNextPct: number;
+    curMinPct: number;
+    nextMinPct: number;
+  } | null>(null);
+  const contextTableRef = useRef<HTMLTableElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
+  const contextColDivider = isGlass ? 'border-r border-white/10' : 'border-r border-[#c7dfbd]';
   const dropdownBtnHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
   const dropdownPanelClass = isGlass
     ? 'border-white/10 bg-slate-900/90'
@@ -77,6 +123,84 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     setContextTranslations(nextTranslations);
     setContextActionLoading({});
   }, [word?.id]);
+
+  // 语境表列宽拖拽：拖动把宽度在「当前列」与「右邻列」间转移，总宽恒定为容器宽
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const state = contextResizeRef.current;
+      if (!state) return;
+      const tableWidth = contextTableRef.current?.clientWidth || 0;
+      if (tableWidth <= 0) return;
+      // 像素位移换算成百分比位移
+      let deltaPct = ((e.clientX - state.startX) / tableWidth) * 100;
+      // 受两列各自最小宽度约束：当前列不能小于 min，右邻列也不能小于 min
+      const maxIncrease = state.startNextPct - state.nextMinPct; // 右邻列最多被压缩这么多
+      const maxDecrease = state.startPct - state.curMinPct;      // 当前列最多被压缩这么多
+      deltaPct = Math.min(maxIncrease, Math.max(-maxDecrease, deltaPct));
+      setContextColumnWidths((prev) => ({
+        ...prev,
+        [state.key]: state.startPct + deltaPct,
+        [state.nextKey]: state.startNextPct - deltaPct,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      if (!contextResizeRef.current) return;
+      contextResizeRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setContextColumnWidths((current) => {
+        try {
+          localStorage.setItem(CONTEXT_COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(current));
+        } catch {
+          // ignore persistence failure
+        }
+        return current;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const startContextResize = (key: ContextColumnKey) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const index = CONTEXT_COLUMN_DEFS.findIndex((col) => col.key === key);
+    const nextDef = CONTEXT_COLUMN_DEFS[index + 1];
+    if (!nextDef) return; // 最后一列无右邻，不可拖
+    const curDef = CONTEXT_COLUMN_DEFS[index];
+    contextResizeRef.current = {
+      key,
+      nextKey: nextDef.key,
+      startX: e.clientX,
+      startPct: contextColumnWidths[key],
+      startNextPct: contextColumnWidths[nextDef.key],
+      curMinPct: curDef.minPct,
+      nextMinPct: nextDef.minPct,
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const renderContextColgroup = () => (
+    <colgroup>
+      {CONTEXT_COLUMN_DEFS.map((col) => (
+        <col key={col.key} style={{ width: `${contextColumnWidths[col.key]}%` }} />
+      ))}
+    </colgroup>
+  );
+
+  const renderContextResizeHandle = (key: ContextColumnKey) => (
+    <span
+      onMouseDown={startContextResize(key)}
+      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none hover:bg-indigo-400/40 active:bg-indigo-400/60"
+    />
+  );
 
   if (!word) {
     return (
@@ -201,6 +325,39 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     }
   };
 
+  const handleDeepExplain = async () => {
+    if (!word) return;
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setDeepExplainError(language === 'en' ? 'Please sign in again before using deep explanation.' : '请重新登录后再使用深入理解。');
+      return;
+    }
+
+    setDeepExplainLoading(true);
+    setDeepExplainError(null);
+    try {
+      const deepExplanation = await requestDeepExplanation(
+        {
+          wordId: word.id,
+          word: word.word,
+          translation: word.translation || word.chineseTranslation || word.definition || '',
+          contexts: word.contexts || [],
+        },
+        accessToken
+      );
+      // 后端已直接入库；此处同步本地状态以即时反映到 UI
+      await onUpdateWord(word.id, { deepExplanation });
+    } catch (error) {
+      console.error('Error explaining word:', error);
+      const message = error instanceof Error ? error.message : 'ai_explain_failed';
+      setDeepExplainError(message === 'ai_key_not_configured'
+        ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
+        : (language === 'en' ? 'Deep explanation failed. Please try again later.' : '深入理解失败，请稍后重试。'));
+    } finally {
+      setDeepExplainLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <button 
@@ -242,7 +399,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   </div>
                   {word.phonetic && (
                     <p className="text-sm text-neutral-400 font-mono mt-1 flex items-center space-x-2">
-                      <span>{word.phonetic}</span>
+                      <span>/{word.phonetic}/</span>
                       <button 
                         onClick={handleSpeech}
                         disabled={isPlaying}
@@ -256,14 +413,28 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
               </div>
 
               <div className="flex flex-col items-end space-y-3">
-                <button
-                  onClick={handleAiEnrich}
-                  disabled={aiEnrichLoading}
-                  className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
-                >
-                  <Sparkles className={`w-4 h-4 ${aiEnrichLoading ? 'animate-pulse' : ''}`} />
-                  <span>{aiEnrichLoading ? (language === 'en' ? 'Enriching...' : 'AI 丰富中...') : (language === 'en' ? 'AI Enrich' : 'AI 丰富')}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAiEnrich}
+                    disabled={aiEnrichLoading}
+                    className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    <Sparkles className={`w-4 h-4 ${aiEnrichLoading ? 'animate-pulse' : ''}`} />
+                    <span>{aiEnrichLoading ? (language === 'en' ? 'Enriching...' : 'AI 丰富中...') : (language === 'en' ? 'AI Enrich' : 'AI 丰富')}</span>
+                  </button>
+                  <button
+                    onClick={handleDeepExplain}
+                    disabled={deepExplainLoading}
+                    className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    <BrainCircuit className={`w-4 h-4 ${deepExplainLoading ? 'animate-pulse' : ''}`} />
+                    <span>{deepExplainLoading
+                      ? (language === 'en' ? 'Analyzing...' : '深入理解中...')
+                      : word.deepExplanation
+                        ? (language === 'en' ? 'Re-explain' : '重新解读')
+                        : (language === 'en' ? 'Deep Insight' : '深入理解')}</span>
+                  </button>
+                </div>
                 {word.familiarity !== undefined && (
                   <>
                     <span className="text-[10px] text-neutral-400 font-mono uppercase tracking-wider">{t('wordDetail.confidence')}</span>
@@ -319,6 +490,48 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {word.memoryTip && (
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider block mb-1">{t('wordDetail.memoryTip')}</span>
+                  <p className={`text-sm ${themeStyles.textSecondary} italic leading-relaxed`}>
+                    {word.memoryTip}
+                  </p>
+                </div>
+              )}
+
+              {deepExplainError && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+                  {deepExplainError}
+                </div>
+              )}
+              {word.deepExplanation && (
+                <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3 space-y-3">
+                  <span className="text-[10px] font-mono uppercase text-indigo-500 tracking-wider block">{t('wordDetail.deepExplanation')}</span>
+                  {word.deepExplanation.contextInsights.length > 0 && (
+                    <div className="space-y-2">
+                      {word.deepExplanation.contextInsights.map((item, i) => (
+                        <div key={i} className="space-y-0.5">
+                          <p className={`text-xs ${themeStyles.textSecondary} italic leading-relaxed`}>“{item.context}”</p>
+                          <p className={`text-sm ${themeStyles.textPrimary} leading-relaxed`}>{item.insight}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {word.deepExplanation.synonymComparison && (
+                    <div>
+                      <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider block mb-0.5">{t('wordDetail.synonymComparison')}</span>
+                      <p className={`text-sm ${themeStyles.textPrimary} leading-relaxed`}>{word.deepExplanation.synonymComparison}</p>
+                    </div>
+                  )}
+                  {word.deepExplanation.memoryHook && (
+                    <div>
+                      <span className="text-[10px] font-mono uppercase text-neutral-400 tracking-wider block mb-0.5">{t('wordDetail.memoryHook')}</span>
+                      <p className={`text-sm ${themeStyles.textSecondary} italic leading-relaxed`}>{word.deepExplanation.memoryHook}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -423,16 +636,17 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
               </div>
             </div>
             {word.contexts && word.contexts.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
+              <div>
+                <table ref={contextTableRef} className="w-full table-fixed text-left border-collapse">
+                  {renderContextColgroup()}
                   <thead className="border-b border-neutral-200 dark:border-white/10">
                     <tr className="text-neutral-400 font-mono uppercase tracking-wider text-xs">
-                      <th className="py-3 px-4">#</th>
-                      <th className="py-3 px-4">{t('wordDetail.context')}</th>
-                      <th className="py-3 px-4">{t('wordDetail.timeAdded')}</th>
-                      <th className="py-3 px-4">{t('wordDetail.sourceLink')}</th>
-                      <th className="py-3 px-4">{t('wordDetail.translation')}</th>
-                      <th className="py-3 px-4 text-center">{t('wordDetail.translationActions')}</th>
+                      <th className={`relative py-3 px-4 ${contextColDivider}`}>#{renderContextResizeHandle('index')}</th>
+                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.context')}{renderContextResizeHandle('context')}</th>
+                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.timeAdded')}{renderContextResizeHandle('timeAdded')}</th>
+                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.sourceLink')}{renderContextResizeHandle('sourceLink')}</th>
+                      <th className={`relative py-3 px-4 ${contextColDivider}`}>{t('wordDetail.translation')}{renderContextResizeHandle('translation')}</th>
+                      <th className="relative py-3 px-4 text-center">{t('wordDetail.translationActions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -441,18 +655,18 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                         key={i} 
                         className="border-b border-neutral-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5"
                       >
-                        <td className="py-4 px-4 text-neutral-500 font-mono text-xs">{i + 1}</td>
-                        <td className="py-4 px-4">
-                          <p className={`text-sm ${themeStyles.textPrimary}`}>{ctx.context}</p>
+                        <td className={`py-4 px-4 text-neutral-500 font-mono text-xs ${contextColDivider}`}>{i + 1}</td>
+                        <td className={`py-4 px-4 align-top ${contextColDivider}`}>
+                          <p className={`text-sm break-words ${themeStyles.textPrimary}`}>{ctx.context}</p>
                         </td>
-                        <td className="py-4 px-4 text-neutral-500 text-xs">
+                        <td className={`py-4 px-4 text-neutral-500 text-xs ${contextColDivider}`}>
                           {(() => {
                             const dateVal = ctx.timeAdded ?? ctx.addedDate;
                             if (dateVal === undefined) return '-';
                             return formatDateTime(dateVal);
                           })()}
                         </td>
-                        <td className="py-4 px-4">
+                        <td className={`py-4 px-4 ${contextColDivider}`}>
                           {ctx.sourceLink ? (
                             <a 
                               href={ctx.sourceLink} 
@@ -466,8 +680,8 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                             <span className="text-neutral-400 text-xs">-</span>
                           )}
                         </td>
-                        <td className="py-4 px-4">
-                          <p className={`text-sm ${themeStyles.textPrimary}`}>{contextTranslations[i] || ''}</p>
+                        <td className={`py-4 px-4 align-top ${contextColDivider}`}>
+                          <p className={`text-sm break-words ${themeStyles.textPrimary}`}>{contextTranslations[i] || ''}</p>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">

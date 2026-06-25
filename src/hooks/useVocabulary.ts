@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useSupabase } from '../context/SupabaseContext';
 import type { MoveWordsResult, Word, WordContext, VocabularyBook } from '../types';
 
+const WORD_SELECT_COLUMNS =
+  'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, memory_tip, deep_explanation, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at';
+
 type SupabaseBookRow = {
   id: string;
   user_id: string;
@@ -31,6 +34,13 @@ type SupabaseWordRow = {
   synonyms: string[] | null;
   examples: Array<{ en: string; zh: string }> | null;
   usage_history: Array<{ context: string; translation: string; source: string }> | null;
+  memory_tip: string | null;
+  deep_explanation: {
+    contextInsights: Array<{ context: string; insight: string }>;
+    synonymComparison: string;
+    memoryHook: string;
+    generatedAt?: number;
+  } | null;
   level: Word['level'] | null;
   familiarity: number | null;
   next_review_at: string | null;
@@ -83,11 +93,13 @@ function mapWordRow(row: SupabaseWordRow): Word {
     contexts,
     phonetic: row.phonetic || '',
     partOfSpeech: row.part_of_speech || '',
-    definition: row.definition || translation,
+    definition: row.definition || '',
     chineseTranslation: row.chinese_translation || translation,
     synonyms: Array.isArray(row.synonyms) ? row.synonyms : [],
     examples,
     usageHistory: Array.isArray(row.usage_history) ? row.usage_history : [],
+    memoryTip: row.memory_tip || undefined,
+    deepExplanation: row.deep_explanation || undefined,
     level: row.level || 'B2',
     familiarity: row.familiarity ?? 0,
     nextReviewAt: toTimestamp(row.next_review_at || row.created_at),
@@ -148,11 +160,13 @@ function toWordPayload(word: Omit<Word, 'id'>) {
     contexts,
     phonetic: word.phonetic || '',
     part_of_speech: word.partOfSpeech || '',
-    definition: word.definition || translation,
+    definition: word.definition || '',
     chinese_translation: word.chineseTranslation || translation,
     synonyms: word.synonyms || [],
     examples: word.examples || [],
     usage_history: word.usageHistory || [],
+    memory_tip: word.memoryTip || '',
+    deep_explanation: word.deepExplanation || null,
     level: word.level || 'B2',
     familiarity: word.familiarity ?? 0,
     next_review_at: new Date(word.nextReviewAt ?? timeAdded).toISOString(),
@@ -441,7 +455,7 @@ export function useWords(bookId?: string) {
       let query = supabase
         .from('words')
         .select(
-          'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
+          WORD_SELECT_COLUMNS
         )
         .eq('user_id', user.id)
         .eq('is_deleted', false);
@@ -471,7 +485,7 @@ export function useWords(bookId?: string) {
         const { data: existing, error: existingError } = await supabase
           .from('words')
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
+            WORD_SELECT_COLUMNS
           )
           .eq('user_id', user.id)
           .eq('book_id', payload.book_id)
@@ -499,7 +513,7 @@ export function useWords(bookId?: string) {
             .eq('id', existing.id)
             .eq('user_id', user.id)
             .select(
-              'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
+              WORD_SELECT_COLUMNS
             )
             .single();
 
@@ -522,7 +536,7 @@ export function useWords(bookId?: string) {
             is_deleted: false,
           })
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
+            WORD_SELECT_COLUMNS
           )
           .single();
 
@@ -599,7 +613,7 @@ export function useWords(bookId?: string) {
         const { data: sourceRows, error: sourceError } = await supabase
           .from('words')
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
+            WORD_SELECT_COLUMNS
           )
           .eq('user_id', user.id)
           .eq('is_deleted', false)
@@ -622,7 +636,7 @@ export function useWords(bookId?: string) {
         const { data: targetRows, error: targetError } = await supabase
           .from('words')
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
+            WORD_SELECT_COLUMNS
           )
           .eq('user_id', user.id)
           .eq('book_id', targetBookId)
@@ -727,6 +741,8 @@ export function useWords(bookId?: string) {
         if (updates.synonyms !== undefined) payload.synonyms = updates.synonyms;
         if (updates.examples !== undefined) payload.examples = updates.examples;
         if (updates.usageHistory !== undefined) payload.usage_history = updates.usageHistory;
+        if (updates.memoryTip !== undefined) payload.memory_tip = updates.memoryTip;
+        if (updates.deepExplanation !== undefined) payload.deep_explanation = updates.deepExplanation;
         if (updates.level !== undefined) payload.level = updates.level;
         if (updates.familiarity !== undefined) payload.familiarity = updates.familiarity;
         if (updates.nextReviewAt !== undefined) payload.next_review_at = new Date(updates.nextReviewAt).toISOString();
@@ -742,7 +758,7 @@ export function useWords(bookId?: string) {
           .eq('id', wordId)
           .eq('user_id', user.id)
           .select(
-            'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at'
+            WORD_SELECT_COLUMNS
           )
           .single();
 

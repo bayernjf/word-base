@@ -28,7 +28,7 @@ export function buildAiEnrichmentPrompt(input: AiEnrichmentRequest): string {
     `Word: ${input.word.trim()}`,
     `Current translation: ${input.translation || ''}`,
     `Contexts: ${JSON.stringify(contexts)}`,
-    'Rules: examples must be natural English with Chinese translations; synonyms must be English; do not include markdown.',
+    'Rules: "definition" must be an English explanation of the word meaning (English-English style); "translation" must be the Chinese translation; examples must be natural English with Chinese translations; synonyms must be English; memoryTip must be in Chinese; do not include markdown.',
   ].join('\n');
 }
 
@@ -75,6 +75,74 @@ export async function requestAiEnrichment(input: AiEnrichmentRequest, accessToke
   return normalizeEnrichment(data?.enrichment);
 }
 
+export interface DeepExplanation {
+  contextInsights: Array<{ context: string; insight: string }>;
+  synonymComparison: string;
+  memoryHook: string;
+  generatedAt?: number;
+}
+
+export function parseDeepExplanationResponse(raw: string): DeepExplanation {
+  const jsonText = extractJsonText(raw);
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    throw new Error('invalid_ai_enrichment_json');
+  }
+
+  return normalizeDeepExplanation(parsed);
+}
+
+export async function requestDeepExplanation(
+  input: AiEnrichmentRequest,
+  accessToken: string
+): Promise<DeepExplanation> {
+  const response = await fetch('/api/v1/ai/explain', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.error || 'ai_explain_failed'));
+  }
+
+  return normalizeDeepExplanation(data?.deepExplanation);
+}
+
+function normalizeDeepExplanation(value: unknown): DeepExplanation {
+  if (!value || typeof value !== 'object') {
+    throw new Error('invalid_ai_enrichment_json');
+  }
+
+  const record = value as Record<string, unknown>;
+  const contextInsights = (Array.isArray(record.contextInsights) ? record.contextInsights : [])
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as Record<string, unknown>;
+      const context = readString(row.context);
+      const insight = readString(row.insight);
+      return context && insight ? { context, insight } : null;
+    })
+    .filter((item): item is { context: string; insight: string } => Boolean(item))
+    .slice(0, 5);
+
+  const generatedAt = typeof record.generatedAt === 'number' ? record.generatedAt : undefined;
+
+  return {
+    contextInsights,
+    synonymComparison: readString(record.synonymComparison),
+    memoryHook: readString(record.memoryHook),
+    generatedAt,
+  };
+}
+
 export function enrichmentToWordUpdates(enrichment: AiEnrichment): Partial<Word> {
   const now = Date.now();
   return {
@@ -84,6 +152,7 @@ export function enrichmentToWordUpdates(enrichment: AiEnrichment): Partial<Word>
     synonyms: enrichment.synonyms,
     examples: enrichment.examples,
     usageHistory: enrichment.usageHistory,
+    memoryTip: enrichment.memoryTip,
     timeUpdated: now,
     dateUpdated: now,
   };

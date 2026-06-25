@@ -33,6 +33,13 @@ export interface Word {
     translation: string;
     source: string;
   }>;
+  memoryTip?: string;
+  deepExplanation?: {
+    contextInsights: Array<{ context: string; insight: string }>;
+    synonymComparison: string;
+    memoryHook: string;
+    generatedAt?: number;
+  };
   level?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   familiarity?: number; // 0 to 100
   nextReviewAt?: number;
