@@ -422,6 +422,38 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                       </button>
                     </p>
                   )}
+                  {/* 外部词典链接 */}
+                  {word.word && (
+                    <p className="flex items-center gap-2 mt-1.5 text-[11px]">
+                      <span className="text-neutral-400">{t('wordDetail.dictLinks')}:</span>
+                      <a
+                        href={`https://dictionary.cambridge.org/dictionary/english-chinese-simplified/${encodeURIComponent(word.word.toLowerCase().replace(/\s+/g, '-'))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Cambridge
+                      </a>
+                      <span className="text-neutral-300 dark:text-white/20">·</span>
+                      <a
+                        href={`https://www.oxfordlearnersdictionaries.com/definition/english/${encodeURIComponent(word.word.toLowerCase().replace(/\s+/g, '_'))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Oxford
+                      </a>
+                      <span className="text-neutral-300 dark:text-white/20">·</span>
+                      <a
+                        href={`https://www.collinsdictionary.com/dictionary/english/${encodeURIComponent(word.word.toLowerCase().replace(/\s+/g, '-'))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Collins
+                      </a>
+                    </p>
+                  )}
                 </div>
               </div>
 

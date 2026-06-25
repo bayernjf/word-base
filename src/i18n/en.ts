@@ -145,6 +145,7 @@ export const en = {
     saveTranslation: 'Save',
     deleteTranslation: 'Delete translation',
     translateError: 'Translation failed. Please select another engine.',
+    dictLinks: 'Dictionary',
   },
   myLists: {
     mustHaveSync: 'At least one sync wordbook is required',

@@ -147,6 +147,7 @@ export const zh: LocaleDict = {
     saveTranslation: '保存翻译',
     deleteTranslation: '删除翻译',
     translateError: '所选模型翻译错误，请选择其他模型',
+    dictLinks: '词典',
   },
   myLists: {
     mustHaveSync: '必须有一个同步单词本',
