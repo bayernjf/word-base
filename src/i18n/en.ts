@@ -144,6 +144,7 @@ export const en = {
     translateEngine: 'Engine',
     saveTranslation: 'Save',
     deleteTranslation: 'Delete translation',
+    translateError: 'Translation failed. Please select another engine.',
   },
   myLists: {
     mustHaveSync: 'At least one sync wordbook is required',

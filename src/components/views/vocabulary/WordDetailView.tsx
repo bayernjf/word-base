@@ -64,6 +64,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [contextTranslations, setContextTranslations] = useState<Record<number, string>>({});
   const [contextActionLoading, setContextActionLoading] = useState<Record<number, 'translate' | 'save' | 'delete'>>({});
   const [selectedTranslateEngine, setSelectedTranslateEngine] = useState<string>('mymemory');
+  const [engineDropdownOpen, setEngineDropdownOpen] = useState(false);
   const [aiEnrichLoading, setAiEnrichLoading] = useState(false);
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
   const [deepExplainLoading, setDeepExplainLoading] = useState(false);
@@ -279,6 +280,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       setContextTranslations((prev) => ({ ...prev, [contextIndex]: translatedText }));
     } catch (error) {
       console.error('Error translating context:', error);
+      setContextTranslations((prev) => ({ ...prev, [contextIndex]: t('wordDetail.translateError') }));
     } finally {
       setContextLoading(contextIndex);
     }
@@ -581,8 +583,63 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   {t('wordDetail.contextsDesc')}
                 </p>
               </div>
-              {/* Translate to... 下拉栏 + 引擎选择 */}
+              {/* 引擎选择 + Translate to... 下拉栏 */}
               <div className="flex items-center gap-2">
+                {/* 引擎选择自定义下拉 */}
+                <div className="relative">
+                  <button
+                    onClick={() => setEngineDropdownOpen(!engineDropdownOpen)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all active:scale-95 ${
+                      themeStyles.card
+                    } ${themeStyles.textPrimary} ${dropdownBtnHover}`}
+                  >
+                    <BrainCircuit className="w-4 h-4" />
+                    <span className="text-xs font-medium">
+                      {selectedTranslateEngine === 'mymemory'
+                        ? 'MyMemory'
+                        : aiProviders.find((p) => p.id === selectedTranslateEngine)?.name || selectedTranslateEngine}
+                    </span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${engineDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {engineDropdownOpen && (
+                    <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-50 overflow-hidden border backdrop-blur-xl ${dropdownPanelClass}`}>
+                      <div className="p-2 flex flex-col gap-1">
+                        {(() => {
+                          const allEngines = [
+                            { key: 'mymemory', label: 'MyMemory' },
+                            ...aiProviders.map((p) => ({ key: p.id, label: p.name })),
+                          ];
+                          const sorted = selectedTranslateEngine
+                            ? [
+                                ...allEngines.filter((e) => e.key === selectedTranslateEngine),
+                                ...allEngines.filter((e) => e.key !== selectedTranslateEngine),
+                              ]
+                            : allEngines;
+                          return sorted.map((engine) => {
+                            const isSelected = engine.key === selectedTranslateEngine;
+                            return (
+                              <button
+                                key={engine.key}
+                                onClick={() => {
+                                  setSelectedTranslateEngine(engine.key);
+                                  setEngineDropdownOpen(false);
+                                }}
+                                className={`w-full px-3 py-2 rounded-lg text-xs text-left transition-colors active:scale-95 ${
+                                  isSelected
+                                    ? dropdownItemSelected
+                                    : `${themeStyles.textPrimary} ${dropdownItemHover}`
+                                }`}
+                              >
+                                {engine.label}
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* 翻译到语言下拉 */}
                 <div className="relative">
                   <button
                     onClick={() => setTranslateDropdownOpen(!translateDropdownOpen)}
@@ -646,19 +703,6 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     </div>
                   )}
                 </div>
-                <select
-                  value={selectedTranslateEngine}
-                  onChange={(e) => setSelectedTranslateEngine(e.target.value)}
-                  className={`text-xs px-2 py-2 rounded-lg border ${themeStyles.border} ${themeStyles.bg} ${themeStyles.text} focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer h-[34px]`}
-                  title={t('wordDetail.translateEngine')}
-                >
-                  <option value="mymemory">MyMemory</option>
-                  {aiProviders.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.provider}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
             {word.contexts && word.contexts.length > 0 ? (
