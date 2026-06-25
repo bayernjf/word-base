@@ -4,8 +4,9 @@ import { AppLanguage, Word, WordContext } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
-import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation } from '../../../lib/aiEnrich';
+import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate } from '../../../lib/aiEnrich';
 import { useSupabase } from '../../../context/SupabaseContext';
+import { AiProviderConfig } from '../../../lib/aiProviderConfigs';
 
 interface WordDetailProps {
   themeStyles: ThemeClasses;
@@ -15,6 +16,7 @@ interface WordDetailProps {
   onUpdateFamiliarity: (wordId: string, level: number) => void;
   onUpdateContexts: (wordId: string, contexts: WordContext[]) => Promise<Word | null>;
   onUpdateWord: (wordId: string, updates: Partial<Word>) => Promise<Word | null>;
+  aiProviders?: AiProviderConfig[];
 }
 
 // 语境表列定义：总宽固定为容器宽（百分比），列间可此消彼长地调宽，行高随换行自适应
@@ -50,7 +52,7 @@ function loadContextColumnWidths(): Record<ContextColumnKey, number> {
 }
 
 export const WordDetailView: React.FC<WordDetailProps> = ({ 
-  themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts, onUpdateWord
+  themeStyles, language, onNavigate, word, onUpdateFamiliarity, onUpdateContexts, onUpdateWord, aiProviders = []
 }) => {
   const { session } = useSupabase();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -61,6 +63,10 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [selectedTranslateLang, setSelectedTranslateLang] = useState<string>('Chinese');
   const [contextTranslations, setContextTranslations] = useState<Record<number, string>>({});
   const [contextActionLoading, setContextActionLoading] = useState<Record<number, 'translate' | 'save' | 'delete'>>({});
+  const [contextEngines, setContextEngines] = useState<Record<number, string>>(() => {
+    // 默认所有行用 MyMemory
+    return {};
+  });
   const [aiEnrichLoading, setAiEnrichLoading] = useState(false);
   const [aiEnrichError, setAiEnrichError] = useState<string | null>(null);
   const [deepExplainLoading, setDeepExplainLoading] = useState(false);
@@ -253,18 +259,26 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       German: 'de',
     };
     const targetLang = targetLangMap[selectedTranslateLang] || 'zh-CN';
+    const engine = contextEngines[contextIndex] || 'mymemory';
     setContextLoading(contextIndex, 'translate');
     try {
-      const url = new URL('https://api.mymemory.translated.net/get');
-      url.search = new URLSearchParams({
-        q: text,
-        langpair: `en|${targetLang}`,
-      }).toString();
-      const response = await fetch(url.toString());
-      if (!response.ok) throw new Error('translate_failed');
-      const data = await response.json();
-      const translatedText = String(data?.responseData?.translatedText || '').trim();
-      if (!translatedText) throw new Error('empty_translation');
+      let translatedText = '';
+      if (engine === 'mymemory') {
+        const url = new URL('https://api.mymemory.translated.net/get');
+        url.search = new URLSearchParams({
+          q: text,
+          langpair: `en|${targetLang}`,
+        }).toString();
+        const response = await fetch(url.toString());
+        if (!response.ok) throw new Error('translate_failed');
+        const data = await response.json();
+        translatedText = String(data?.responseData?.translatedText || '').trim();
+        if (!translatedText) throw new Error('empty_translation');
+      } else {
+        const accessToken = session?.access_token;
+        if (!accessToken) throw new Error('auth_required');
+        translatedText = await requestAiTranslate(text, targetLang, accessToken, engine === 'active' ? undefined : engine);
+      }
       setContextTranslations((prev) => ({ ...prev, [contextIndex]: translatedText }));
     } catch (error) {
       console.error('Error translating context:', error);
@@ -685,6 +699,19 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
+                            <select
+                              value={contextEngines[i] || 'mymemory'}
+                              onChange={(e) => setContextEngines((prev) => ({ ...prev, [i]: e.target.value }))}
+                              className={`text-xs px-1.5 py-1 rounded border ${themeStyles.border} ${themeStyles.bg} ${themeStyles.text} focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer`}
+                              title={t('wordDetail.translateEngine')}
+                            >
+                              <option value="mymemory">MyMemory</option>
+                              {aiProviders.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.provider}
+                                </option>
+                              ))}
+                            </select>
                             <button
                               onClick={() => handleTranslateContext(i, ctx.context)}
                               disabled={!!contextActionLoading[i]}
