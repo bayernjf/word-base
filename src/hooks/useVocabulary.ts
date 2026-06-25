@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { createLogger } from '../lib/logger';
 import { useSupabase } from '../context/SupabaseContext';
 import type { MoveWordsResult, Word, WordContext, VocabularyBook } from '../types';
+
+const logger = createLogger('useVocabulary');
 
 const WORD_SELECT_COLUMNS =
   'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, memory_tip, deep_explanation, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at';
@@ -92,7 +95,7 @@ function mapWordRow(row: SupabaseWordRow): Word {
     dateUpdated: timeUpdated,
     contexts,
     phonetic: row.phonetic || '',
-    partOfSpeech: row.part_of_speech || '',
+    partOfSpeech: normalizePartOfSpeech(row.part_of_speech || ''),
     definition: row.definition || '',
     chineseTranslation: row.chinese_translation || translation,
     synonyms: Array.isArray(row.synonyms) ? row.synonyms : [],
@@ -112,6 +115,59 @@ function mapWordRow(row: SupabaseWordRow): Word {
       createdAt: row.meta?.createdAt ?? timeAdded,
     },
   };
+}
+
+function normalizePartOfSpeech(value: string): string {
+  const map: Record<string, string> = {
+    a: 'adj.',
+    'a.': 'adj.',
+    adjective: 'adj.',
+    adj: 'adj.',
+    n: 'n.',
+    'n.': 'n.',
+    noun: 'n.',
+    v: 'v.',
+    'v.': 'v.',
+    verb: 'v.',
+    adv: 'adv.',
+    'adv.': 'adv.',
+    adverb: 'adv.',
+    pron: 'pron.',
+    'pron.': 'pron.',
+    pronoun: 'pron.',
+    prep: 'prep.',
+    'prep.': 'prep.',
+    preposition: 'prep.',
+    conj: 'conj.',
+    'conj.': 'conj.',
+    conjunction: 'conj.',
+    int: 'int.',
+    'int.': 'int.',
+    interjection: 'int.',
+    art: 'art.',
+    'art.': 'art.',
+    article: 'art.',
+    num: 'num.',
+    'num.': 'num.',
+    numeral: 'num.',
+    det: 'det.',
+    'det.': 'det.',
+    determiner: 'det.',
+    aux: 'aux.',
+    'aux.': 'aux.',
+    'auxiliary verb': 'aux.',
+    modal: 'modal.',
+    'modal.': 'modal.',
+    'modal verb': 'modal.',
+    phr: 'phr.',
+    'phr.': 'phr.',
+    phrase: 'phr.',
+    abbr: 'abbr.',
+    'abbr.': 'abbr.',
+    abbreviation: 'abbr.',
+  };
+  const key = String(value || '').trim().toLowerCase();
+  return map[key] || value;
 }
 
 function toBookInsert(book: {
@@ -199,6 +255,7 @@ export function useVocabularyBooks() {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadBooks = useCallback(async () => {
+    logger.debug('loadBooks started');
     if (!user) {
       setBooks([]);
       setIsLoading(false);
@@ -232,8 +289,9 @@ export function useVocabularyBooks() {
       }, {});
 
       setBooks(((bookRows || []) as SupabaseBookRow[]).map((row) => mapBookRow(row, wordCountMap)));
+      logger.info(`loadBooks success, count=${(bookRows || []).length}`);
     } catch (error) {
-      console.error('Error loading books:', error);
+      logger.error('Error loading books:', error);
     } finally {
       setIsLoading(false);
     }
@@ -242,6 +300,7 @@ export function useVocabularyBooks() {
   const applySetSyncBook = useCallback(
     async (bookId: string) => {
       if (!user) return false;
+      logger.debug('applySetSyncBook', { bookId });
 
       const fallbackSetSyncBook = async () => {
         const now = new Date().toISOString();
@@ -286,12 +345,14 @@ export function useVocabularyBooks() {
 
         return true;
       } catch (error) {
+        logger.warn('applySetSyncBook RPC failed, trying fallback', { bookId, error: String(error) });
         try {
           await fallbackSetSyncBook();
+          logger.info('applySetSyncBook fallback success', { bookId });
           return true;
         } catch (fallbackError) {
           if (!isMissingSetSyncBookRpc(error)) {
-            console.error('RPC set_sync_book failed, fallback also failed:', error, fallbackError);
+            logger.error('RPC set_sync_book failed, fallback also failed:', error, fallbackError);
             throw fallbackError;
           }
 
@@ -305,6 +366,7 @@ export function useVocabularyBooks() {
   const createBook = useCallback(
     async (book: Omit<VocabularyBook, 'id' | 'userId' | 'wordCount' | 'createdAt' | 'updatedAt'>) => {
       if (!user) return null;
+      logger.debug('createBook', { name: book.name, isSync: book.isSync });
 
       try {
         const { data, error } = await supabase
@@ -331,9 +393,10 @@ export function useVocabularyBooks() {
         }
 
         await loadBooks();
+        logger.info('createBook success', { id: mapped.id, name: mapped.name });
         return mapped;
       } catch (error) {
-        console.error('Error creating book:', error);
+        logger.error('Error creating book:', error);
         return null;
       }
     },
@@ -343,6 +406,7 @@ export function useVocabularyBooks() {
   const updateBook = useCallback(
     async (bookId: string, updates: { name?: string; description?: string; icon?: string }) => {
       if (!user) return null;
+      logger.debug('updateBook', { bookId, fields: Object.keys(updates) });
 
       try {
         const payload: Record<string, unknown> = {
@@ -365,9 +429,10 @@ export function useVocabularyBooks() {
 
         const mapped = mapBookRow(data as SupabaseBookRow, {});
         setBooks((prev) => prev.map((book) => (book.id === bookId ? { ...book, ...mapped } : book)));
+        logger.info('updateBook success', { id: mapped.id });
         return mapped;
       } catch (error) {
-        console.error('Error updating book:', error);
+        logger.error('Error updating book:', error);
         return null;
       }
     },
@@ -377,6 +442,7 @@ export function useVocabularyBooks() {
   const deleteBook = useCallback(
     async (bookId: string) => {
       if (!user) return false;
+      logger.debug('deleteBook', { bookId });
 
       try {
         const now = new Date().toISOString();
@@ -398,9 +464,10 @@ export function useVocabularyBooks() {
           const remaining = prev.filter((book) => book.id !== bookId);
           return remaining;
         });
+        logger.info('deleteBook success', { bookId });
         return true;
       } catch (error) {
-        console.error('Error deleting book:', error);
+        logger.error('Error deleting book:', error);
         return false;
       }
     },
@@ -410,13 +477,15 @@ export function useVocabularyBooks() {
   const setSyncBook = useCallback(
     async (bookId: string) => {
       if (!user) return false;
+      logger.debug('setSyncBook', { bookId });
 
       try {
         await applySetSyncBook(bookId);
         await loadBooks();
+        logger.info('setSyncBook success', { bookId });
         return true;
       } catch (error) {
-        console.error('Error setting sync book:', error);
+        logger.error('Error setting sync book:', error);
         return false;
       }
     },
@@ -444,6 +513,7 @@ export function useWords(bookId?: string) {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadWords = useCallback(async () => {
+    logger.debug('loadWords started', { bookId });
     if (!user) {
       setWords([]);
       setIsLoading(false);
@@ -468,8 +538,9 @@ export function useWords(bookId?: string) {
 
       if (error) throw error;
       setWords(((data || []) as SupabaseWordRow[]).map(mapWordRow));
+      logger.info(`loadWords success, count=${(data || []).length}`);
     } catch (error) {
-      console.error('Error loading words:', error);
+      logger.error('Error loading words:', error);
     } finally {
       setIsLoading(false);
     }
@@ -478,6 +549,7 @@ export function useWords(bookId?: string) {
   const addWord = useCallback(
     async (word: Omit<Word, 'id'>) => {
       if (!user) return null;
+      logger.debug('addWord', { word: word.word, bookId: word.bookId });
 
       try {
         const payload = toWordPayload(word);
@@ -524,6 +596,7 @@ export function useWords(bookId?: string) {
             const filtered = prev.filter((item) => item.id !== mapped.id);
             return [mapped, ...filtered];
           });
+          logger.info('addWord merged duplicate', { id: mapped.id, word: mapped.word });
           return mapped;
         }
 
@@ -544,9 +617,10 @@ export function useWords(bookId?: string) {
 
         const mapped = mapWordRow(data as SupabaseWordRow);
         setWords((prev) => [mapped, ...prev]);
+        logger.info('addWord created', { id: mapped.id, word: mapped.word });
         return mapped;
       } catch (error) {
-        console.error('Error adding word:', error);
+        logger.error('Error adding word:', error);
         return null;
       }
     },
@@ -556,6 +630,7 @@ export function useWords(bookId?: string) {
   const deleteWord = useCallback(
     async (wordId: string) => {
       if (!user) return false;
+      logger.debug('deleteWord', { wordId });
 
       try {
         const { error } = await supabase
@@ -567,9 +642,10 @@ export function useWords(bookId?: string) {
         if (error) throw error;
 
         setWords((prev) => prev.filter((word) => word.id !== wordId));
+        logger.info('deleteWord success', { wordId });
         return true;
       } catch (error) {
-        console.error('Error deleting word:', error);
+        logger.error('Error deleting word:', error);
         return false;
       }
     },
@@ -579,6 +655,7 @@ export function useWords(bookId?: string) {
   const deleteWords = useCallback(
     async (wordIds: string[]) => {
       if (!user || wordIds.length === 0) return false;
+      logger.debug('deleteWords', { count: wordIds.length });
 
       try {
         const { error } = await supabase
@@ -590,9 +667,10 @@ export function useWords(bookId?: string) {
         if (error) throw error;
 
         setWords((prev) => prev.filter((word) => !wordIds.includes(word.id)));
+        logger.info('deleteWords success', { count: wordIds.length });
         return true;
       } catch (error) {
-        console.error('Error deleting words:', error);
+        logger.error('Error deleting words:', error);
         return false;
       }
     },
@@ -608,6 +686,7 @@ export function useWords(bookId?: string) {
           duplicateCount: 0,
         } satisfies MoveWordsResult;
       }
+      logger.debug('moveWords', { count: wordIds.length, targetBookId });
 
       try {
         const { data: sourceRows, error: sourceError } = await supabase
@@ -701,13 +780,14 @@ export function useWords(bookId?: string) {
         }
 
         setWords((prev) => prev.filter((word) => !processedSourceIds.includes(word.id)));
+        logger.info('moveWords success', { movedCount, duplicateCount });
         return {
           success: true,
           movedCount,
           duplicateCount,
         } satisfies MoveWordsResult;
       } catch (error) {
-        console.error('Error moving words:', error);
+        logger.error('Error moving words:', error);
         return {
           success: false,
           movedCount: 0,
@@ -721,6 +801,7 @@ export function useWords(bookId?: string) {
   const updateWord = useCallback(
     async (wordId: string, updates: Partial<Word>) => {
       if (!user) return null;
+      logger.debug('updateWord', { wordId, fields: Object.keys(updates) });
 
       try {
         const payload: Record<string, unknown> = {
@@ -766,9 +847,10 @@ export function useWords(bookId?: string) {
 
         const mapped = mapWordRow(data as SupabaseWordRow);
         setWords((prev) => prev.map((word) => (word.id === wordId ? mapped : word)));
+        logger.info('updateWord success', { wordId });
         return mapped;
       } catch (error) {
-        console.error('Error updating word:', error);
+        logger.error('Error updating word:', error);
         return null;
       }
     },
