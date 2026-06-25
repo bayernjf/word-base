@@ -108,6 +108,13 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const dropdownOptionIdle = isGlass
     ? 'text-neutral-200 hover:bg-white/5'
     : 'text-[#1d3a2b] hover:bg-[#e1f0db]';
+  const batchBarBg = isGlass
+    ? 'bg-indigo-500/10 border-indigo-500/30'
+    : 'bg-[#e8f5e3] border-[#8fc483] shadow-xs shadow-[#8fb998]/10';
+  const batchBarText = isGlass ? 'text-indigo-300' : 'text-[#2f805d]';
+  const batchBtnMove = isGlass
+    ? 'border-indigo-400 text-indigo-300 hover:bg-indigo-500/20'
+    : 'border-[#5aa167] text-[#2f805d] hover:bg-[#d9efd2]';
   const wordLinkClass = isGlass ? 'text-indigo-400' : 'text-[#2f805d]';
   const progressTrackClass = isGlass ? 'bg-white/10' : 'bg-[#cfe3c6] border border-[#a9d4a4]';
   const tooltipClass = isGlass
@@ -430,26 +437,30 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 
       {/* 操作栏 */}
       {selectedWordIds.length > 0 && (
-        <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 px-4 py-3 rounded-xl">
-          <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
+        <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${batchBarBg}`}>
+          <span className={`text-xs font-medium ${batchBarText}`}>
             {t('vocab.selected', { count: selectedWordIds.length })}
           </span>
           <div className="flex gap-2">
             <button 
               onClick={() => setShowMoveModal(true)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg border border-indigo-600 text-indigo-600 dark:text-indigo-300 dark:border-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/30`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${batchBtnMove}`}
             >
               {t('vocab.move')}
             </button>
             <button 
               onClick={() => setShowDeleteModal(true)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-600 text-red-600 dark:text-red-400 dark:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
+              className={isGlass
+                ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/70 text-red-400 hover:bg-red-500/10"
+                : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#e57373] text-[#d32f2f] hover:bg-[#ffebee]"}
             >
               {t('vocab.delete')}
             </button>
             <button 
               onClick={clearSelection}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-300 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/10"
+              className={isGlass
+                ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-white/15 text-neutral-300 hover:bg-white/10"
+                : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#b0c9aa] text-[#5a7a5e] hover:bg-[#e1f0db]"}
             >
               {t('vocab.cancelSelection')}
             </button>
