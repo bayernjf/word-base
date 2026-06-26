@@ -110,6 +110,10 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   } | null>(null);
   const contextTableRef = useRef<HTMLTableElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const topPanelRef = useRef<HTMLDivElement>(null);
+  const bottomPanelRef = useRef<HTMLDivElement>(null);
+  const topHeightRef = useRef(50);
+  const dragRafRef = useRef<number | null>(null);
   const t = createTranslator(language);
 
   const isGlass = themeStyles.name === 'glass';
@@ -131,11 +135,25 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       const newTopHeight = ((e.clientY - rect.top) / totalHeight) * 100;
       // 限制在 20% 到 80% 之间
       const clampedHeight = Math.max(20, Math.min(80, newTopHeight));
-      setTopHeight(clampedHeight);
+      topHeightRef.current = clampedHeight;
+      // 拖拽过程直接改 DOM 样式，避免每帧触发整棵组件重渲染
+      if (dragRafRef.current == null) {
+        dragRafRef.current = requestAnimationFrame(() => {
+          dragRafRef.current = null;
+          const h = topHeightRef.current;
+          if (topPanelRef.current) topPanelRef.current.style.height = `${h}%`;
+          if (bottomPanelRef.current) bottomPanelRef.current.style.height = `${100 - h}%`;
+        });
+      }
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      // 拖拽结束落一次最终值到 state
+      setTopHeight(topHeightRef.current);
+      // 恢复文本选择与光标
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
 
     if (isDragging) {
@@ -146,6 +164,10 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      if (dragRafRef.current != null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
     };
   }, [isDragging]);
 
@@ -260,7 +282,12 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     );
   }
 
-  const handleMouseDown = () => {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    topHeightRef.current = topHeight;
+    // 拖拽全程禁用文本选择并锁定光标，防止选中文字、提升流畅度
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'row-resize';
     setIsDragging(true);
   };
 
@@ -450,8 +477,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       >
         {/* 上面部分：字典翻译 */}
         <div 
+          ref={topPanelRef}
           className={`${themeStyles.card} overflow-y-auto`}
-          style={{ height: `${topHeight}%` }}
+          style={{ height: `${topHeight}%`, willChange: 'height', transition: isDragging ? 'none' : undefined }}
         >
           <div className="p-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 dark:border-white/10 pb-6 mb-6">
@@ -672,8 +700,9 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
         {/* 下面部分：上下文列表 */}
         <div 
+          ref={bottomPanelRef}
           className={`${themeStyles.card} overflow-y-auto`}
-          style={{ height: `${100 - topHeight}%` }}
+          style={{ height: `${100 - topHeight}%`, willChange: 'height', transition: isDragging ? 'none' : undefined }}
         >
           <div className="p-6">
             {/* Usage History 风格标题 */}
