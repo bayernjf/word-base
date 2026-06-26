@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../lib/logger';
 import { useSupabase } from '../context/SupabaseContext';
+import { mergeEncounterFamiliarity } from '../lib/srs';
 import type { MoveWordsResult, Word, WordContext, VocabularyBook } from '../types';
 
 const logger = createLogger('useVocabulary');
@@ -104,7 +105,8 @@ function mapWordRow(row: SupabaseWordRow): Word {
     memoryTip: row.memory_tip || undefined,
     deepExplanation: row.deep_explanation || undefined,
     level: row.level || 'B2',
-    familiarity: row.familiarity ?? 0,
+    // 读取时兜底：旧数据或未经合并计算的词，按遇见历史补算被动熟悉度基线
+    familiarity: mergeEncounterFamiliarity(row.familiarity ?? 0, contexts),
     nextReviewAt: toTimestamp(row.next_review_at || row.created_at),
     reviewCount: row.review_count ?? 0,
     easeFactor: row.ease_factor ?? 2.5,
@@ -572,12 +574,15 @@ export function useWords(bookId?: string) {
           const existingContexts: WordContext[] = existingWord.contexts || [];
           const nextContexts: WordContext[] = payload.contexts || [];
           const mergedContexts = mergeContexts(existingContexts, nextContexts);
+          // 被动遇见抬升熟悉度：取「已有熟悉度」与「遇见基线」的较大值，主动复习高分不被拉低
+          const mergedFamiliarity = mergeEncounterFamiliarity(existingWord.familiarity, mergedContexts);
 
           const { data: updated, error: updateError } = await supabase
             .from('words')
             .update({
               ...payload,
               contexts: mergedContexts,
+              familiarity: mergedFamiliarity,
               frequency: Math.max(mergedContexts.length, payload.frequency || 1),
               time_updated: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -604,6 +609,8 @@ export function useWords(bookId?: string) {
           .from('words')
           .insert({
             ...payload,
+            // 首次添加即一次遇见，给出被动熟悉度基线
+            familiarity: mergeEncounterFamiliarity(payload.familiarity, payload.contexts),
             user_id: user.id,
             sync_version: 1,
             is_deleted: false,
