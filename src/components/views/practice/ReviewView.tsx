@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, RotateCcw } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, CheckCircle2, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AppLanguage, Word } from '../../../types';
 import type { ThemeClasses } from '../../ThemeStyles';
 import { calcNextReview, getDueWords, ReviewQuality } from '../../../lib/srs';
+import { WordPhonetics } from '../shared/WordPhonetics';
 
 interface ReviewViewProps {
   themeStyles: ThemeClasses;
@@ -63,7 +64,16 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
     [pendingWordIds, words]
   );
   const activeWord = dueWords[0];
-  const firstContext = activeWord?.contexts?.[0];
+  const contexts = activeWord?.contexts?.filter((c) => c?.context) ?? [];
+  const [contextIndex, setContextIndex] = useState(0);
+
+  // 切换到下一个待复习词时，语境索引归零
+  useEffect(() => {
+    setContextIndex(0);
+  }, [activeWord?.id]);
+
+  const safeContextIndex = Math.min(contextIndex, Math.max(0, contexts.length - 1));
+  const currentContext = contexts[safeContextIndex];
 
   const handleRate = async (quality: ReviewQuality) => {
     if (!activeWord) return;
@@ -113,15 +123,36 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
             <div>
               <p className={`text-sm ${themeStyles.textSecondary}`}>{activeWord.partOfSpeech || activeWord.level || ''}</p>
               <h3 className={`text-4xl font-bold mt-2 ${themeStyles.textPrimary}`}>{activeWord.word}</h3>
-              {activeWord.phonetic && <p className={`text-sm mt-2 ${themeStyles.textSecondary}`}>{activeWord.phonetic}</p>}
+              <WordPhonetics word={activeWord.word} fallbackPhonetic={activeWord.phonetic} language={language} />
             </div>
             <RotateCcw className="w-5 h-5 text-indigo-400" />
           </div>
 
-          {firstContext?.context && (
+          {currentContext?.context && (
             <div className={`rounded-2xl border ${themeStyles.borderClass} p-4 ${themeStyles.secondaryBg}`}>
-              <p className={`text-xs font-semibold uppercase mb-2 ${themeStyles.textSecondary}`}>{t.context}</p>
-              <p className={`text-sm leading-relaxed ${themeStyles.textPrimary}`}>{firstContext.context}</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className={`text-xs font-semibold uppercase ${themeStyles.textSecondary}`}>{t.context}</p>
+                {contexts.length > 1 && (
+                  <div className={`flex items-center gap-1.5 text-xs ${themeStyles.textSecondary}`}>
+                    <button
+                      onClick={() => setContextIndex((i) => (i - 1 + contexts.length) % contexts.length)}
+                      className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                      aria-label="previous context"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="font-mono tabular-nums">{safeContextIndex + 1}/{contexts.length}</span>
+                    <button
+                      onClick={() => setContextIndex((i) => (i + 1) % contexts.length)}
+                      className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                      aria-label="next context"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className={`text-sm leading-relaxed ${themeStyles.textPrimary}`}>{currentContext.context}</p>
             </div>
           )}
 
