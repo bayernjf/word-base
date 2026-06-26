@@ -1,4 +1,5 @@
 import type { Word, WordContext } from '../types';
+import type { SenseGroups } from '../types';
 
 export interface AiEnrichmentRequest {
   word: string;
@@ -160,6 +161,70 @@ export function enrichmentToWordUpdates(enrichment: AiEnrichment): Partial<Word>
     timeUpdated: now,
     dateUpdated: now,
   };
+}
+
+export function parseSenseGroupsResponse(raw: string): SenseGroups {
+  const jsonText = extractJsonText(raw);
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    throw new Error('invalid_ai_enrichment_json');
+  }
+
+  return normalizeSenseGroups(parsed);
+}
+
+export async function requestSenseClusters(
+  input: AiEnrichmentRequest,
+  accessToken: string
+): Promise<SenseGroups> {
+  console.debug('[aiEnrich] requestSenseClusters', { word: input.word, wordId: input.wordId });
+  const response = await fetch('/api/v1/ai/sense-cluster', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.error || 'ai_sense_cluster_failed'));
+  }
+
+  console.debug('[aiEnrich] requestSenseClusters success', { word: input.word });
+  return normalizeSenseGroups(data?.senseGroups);
+}
+
+function normalizeSenseGroups(value: unknown): SenseGroups {
+  if (!value || typeof value !== 'object') {
+    throw new Error('invalid_ai_enrichment_json');
+  }
+
+  const record = value as Record<string, unknown>;
+  const groups = (Array.isArray(record.groups) ? record.groups : [])
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as Record<string, unknown>;
+      const sense = readString(row.sense);
+      const contexts = readStringArray(row.contexts);
+      if (!sense) return null;
+      return {
+        sense,
+        translation: readString(row.translation),
+        definition: readString(row.definition),
+        contexts,
+      };
+    })
+    .filter((item): item is SenseGroups['groups'][number] => Boolean(item))
+    .slice(0, 8);
+
+  const generatedAt = typeof record.generatedAt === 'number' ? record.generatedAt : Date.now();
+
+  return { groups, generatedAt };
 }
 
 export async function requestAiTranslate(

@@ -9,7 +9,7 @@ import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime, formatDate } from '../shared/helpers';
 import { WordPhonetics } from '../shared/WordPhonetics';
 import { EncounterCurve } from './EncounterCurve';
-import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate } from '../../../lib/aiEnrich';
+import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate, requestSenseClusters } from '../../../lib/aiEnrich';
 import {
   subscribe as subscribeBatchAi,
   getSnapshot as getBatchAiSnapshot,
@@ -61,15 +61,15 @@ function loadContextColumnWidths(): Record<ContextColumnKey, number> {
 }
 
 // 模块级存储：记录每个单词的 AI 请求 loading 状态（不持久化，刷新即清空，符合刷新请求中断的预期）
-const aiLoadingMap = new Map<string, { enrich: boolean; explain: boolean }>();
+const aiLoadingMap = new Map<string, { enrich: boolean; explain: boolean; sense: boolean }>();
 
-function getAiLoading(wordId: string | undefined, type: 'enrich' | 'explain'): boolean {
+function getAiLoading(wordId: string | undefined, type: 'enrich' | 'explain' | 'sense'): boolean {
   if (!wordId) return false;
   return aiLoadingMap.get(wordId)?.[type] ?? false;
 }
 
-function setAiLoading(wordId: string, type: 'enrich' | 'explain', value: boolean) {
-  const current = aiLoadingMap.get(wordId) || { enrich: false, explain: false };
+function setAiLoading(wordId: string, type: 'enrich' | 'explain' | 'sense', value: boolean) {
+  const current = aiLoadingMap.get(wordId) || { enrich: false, explain: false, sense: false };
   current[type] = value;
   aiLoadingMap.set(wordId, current);
 }
@@ -93,6 +93,8 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [deepExplainLoading, setDeepExplainLoadingState] = useState(() => getAiLoading(word?.id, 'explain'));
   const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
   const [hasDeepExplanation, setHasDeepExplanation] = useState(() => !!word?.deepExplanation);
+  const [senseClusterLoading, setSenseClusterLoading] = useState(() => getAiLoading(word?.id, 'sense'));
+  const [senseClusterError, setSenseClusterError] = useState<string | null>(null);
   // 订阅批量任务 store：若当前单词正被批量任务处理，则按钮同步显示进行中
   const batchState = useSyncExternalStore(subscribeBatchAi, getBatchAiSnapshot);
   const batchProcessingType = word?.id ? batchState.processingMap[word.id] : undefined;
@@ -188,8 +190,10 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     if (word?.id) {
       const enrichLoading = getAiLoading(word.id, 'enrich');
       const explainLoading = getAiLoading(word.id, 'explain');
+      const senseLoading = getAiLoading(word.id, 'sense');
       setAiEnrichLoadingState(enrichLoading);
       setDeepExplainLoadingState(explainLoading);
+      setSenseClusterLoading(senseLoading);
     }
   }, [word?.id, word?.definition, word?.memoryTip, word?.examples?.length, word?.deepExplanation]);
 
@@ -457,6 +461,51 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       setAiLoading(currentWordId, 'explain', false);
       if (word?.id === currentWordId) {
         setDeepExplainLoadingState(false);
+      }
+    }
+  };
+
+  const handleSenseCluster = async () => {
+    if (!word) return;
+    const currentWordId = word.id;
+    if (getAiLoading(currentWordId, 'sense')) return; // 防重入
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setSenseClusterError(language === 'en' ? 'Please sign in again before using sense clustering.' : '请重新登录后再使用义项分离。');
+      return;
+    }
+
+    // 开始加载：同时更新本地 state 和模块级 Map
+    setSenseClusterLoading(true);
+    setAiLoading(currentWordId, 'sense', true);
+    setSenseClusterError(null);
+    logger.debug('handleSenseCluster', { wordId: currentWordId, word: word.word });
+    try {
+      const senseGroups = await requestSenseClusters(
+        {
+          wordId: currentWordId,
+          word: word.word,
+          translation: word.translation || word.chineseTranslation || word.definition || '',
+          contexts: word.contexts || [],
+        },
+        accessToken
+      );
+      // 后端已直接入库；此处同步本地状态以即时反映到 UI
+      if (onUpdateWord) {
+        await onUpdateWord(currentWordId, { senseGroups });
+      }
+      logger.info('handleSenseCluster success', { wordId: currentWordId, groups: senseGroups.groups.length });
+    } catch (error) {
+      logger.error('Error clustering senses:', error);
+      const message = error instanceof Error ? error.message : 'ai_sense_cluster_failed';
+      setSenseClusterError(message === 'ai_key_not_configured'
+        ? (language === 'en' ? 'Gemini API key is not configured on the server.' : '服务器还没有配置 Gemini API Key。')
+        : (language === 'en' ? `Sense clustering failed: ${message}` : `义项分离失败：${message}`));
+    } finally {
+      // 结束：始终更新模块级 Map；只有当前仍显示这个单词时才更新本地 state
+      setAiLoading(currentWordId, 'sense', false);
+      if (word?.id === currentWordId) {
+        setSenseClusterLoading(false);
       }
     }
   };
@@ -873,6 +922,69 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
             {word.contexts && word.contexts.length > 0 ? (
               <div>
                 <EncounterCurve contexts={word.contexts} themeStyles={themeStyles} language={language} />
+
+                {/* AI 多语境义项分离 */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${themeStyles.textPrimary}`}>
+                      {t('wordDetail.senseTitle')}
+                    </span>
+                    <button
+                      onClick={() => void handleSenseCluster()}
+                      disabled={senseClusterLoading}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                        isGlass ? 'border-white/10 text-indigo-300 hover:bg-indigo-500/10' : 'border-[#bad8b7] text-[#2f805d] hover:bg-[#e1f0db]'
+                      }`}
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${senseClusterLoading ? 'animate-pulse' : ''}`} />
+                      <span>
+                        {senseClusterLoading
+                          ? t('wordDetail.senseClustering')
+                          : word.senseGroups?.groups?.length
+                            ? t('wordDetail.senseRecluster')
+                            : t('wordDetail.senseCluster')}
+                      </span>
+                    </button>
+                  </div>
+
+                  {senseClusterError && (
+                    <p className="text-xs text-rose-500 mb-2">{senseClusterError}</p>
+                  )}
+
+                  {word.senseGroups?.groups && word.senseGroups.groups.length > 0 && (
+                    <div className="space-y-2">
+                      {word.senseGroups.groups.map((group, gi) => (
+                        <div
+                          key={gi}
+                          className={`rounded-xl border px-4 py-3 ${isGlass ? 'border-white/10 bg-white/[0.03]' : 'border-[#bad8b7] bg-[#f3faef]'}`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`text-sm font-bold truncate ${themeStyles.textPrimary}`}>{group.sense}</span>
+                              {group.translation && (
+                                <span className={`text-xs ${isGlass ? 'text-indigo-300' : 'text-[#2f805d]'}`}>{group.translation}</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-mono text-neutral-400 whitespace-nowrap">
+                              {t('wordDetail.senseCount', { count: group.contexts.length })}
+                            </span>
+                          </div>
+                          {group.definition && (
+                            <p className={`text-xs mb-2 ${themeStyles.textSecondary}`}>{group.definition}</p>
+                          )}
+                          <ul className="space-y-1">
+                            {group.contexts.map((ctx, ci) => (
+                              <li key={ci} className={`text-xs leading-relaxed pl-3 border-l-2 ${isGlass ? 'border-white/10 text-white/80' : 'border-[#84c796] text-[#3a5244]'}`}>
+                                {ctx}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {contextViewMode === 'table' ? (
                   <table ref={contextTableRef} className="w-full table-fixed text-left border-collapse">
                     {renderContextColgroup()}

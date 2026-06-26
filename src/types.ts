@@ -15,6 +15,19 @@ export interface WordContext {
   addedDate?: number;
 }
 
+// AI 多语境义项分离：把同一个词在不同语境里的不同含义聚类成组
+export interface SenseGroup {
+  sense: string; // 简短英文义项标签
+  translation: string; // 该义项的中文翻译
+  definition: string; // 该义项的英文释义
+  contexts: string[]; // 归属该义项的用户原句
+}
+
+export interface SenseGroups {
+  groups: SenseGroup[];
+  generatedAt?: number;
+}
+
 export interface Word {
   id: string;
   word: string;
@@ -46,6 +59,7 @@ export interface Word {
     memoryHook: string;
     generatedAt?: number;
   };
+  senseGroups?: SenseGroups;
   level?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   familiarity?: number; // 0 to 100
   nextReviewAt?: number;

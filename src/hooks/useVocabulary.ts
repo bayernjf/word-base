@@ -8,7 +8,7 @@ import type { MoveWordsResult, Word, WordContext, VocabularyBook } from '../type
 const logger = createLogger('useVocabulary');
 
 const WORD_SELECT_COLUMNS =
-  'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, memory_tip, deep_explanation, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at';
+  'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, memory_tip, deep_explanation, sense_groups, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at';
 
 type SupabaseBookRow = {
   id: string;
@@ -45,6 +45,7 @@ type SupabaseWordRow = {
     memoryHook: string;
     generatedAt?: number;
   } | null;
+  sense_groups: Word['senseGroups'] | null;
   level: Word['level'] | null;
   familiarity: number | null;
   next_review_at: string | null;
@@ -104,6 +105,7 @@ function mapWordRow(row: SupabaseWordRow): Word {
     usageHistory: Array.isArray(row.usage_history) ? row.usage_history : [],
     memoryTip: row.memory_tip || undefined,
     deepExplanation: row.deep_explanation || undefined,
+    senseGroups: row.sense_groups || undefined,
     level: row.level || 'B2',
     // 读取时兜底：旧数据或未经合并计算的词，按遇见历史补算被动熟悉度基线
     familiarity: mergeEncounterFamiliarity(row.familiarity ?? 0, contexts),
@@ -225,6 +227,7 @@ function toWordPayload(word: Omit<Word, 'id'>) {
     usage_history: word.usageHistory || [],
     memory_tip: word.memoryTip || '',
     deep_explanation: word.deepExplanation || null,
+    sense_groups: word.senseGroups || null,
     level: word.level || 'B2',
     familiarity: word.familiarity ?? 0,
     next_review_at: new Date(word.nextReviewAt ?? timeAdded).toISOString(),
@@ -831,6 +834,7 @@ export function useWords(bookId?: string) {
         if (updates.usageHistory !== undefined) payload.usage_history = updates.usageHistory;
         if (updates.memoryTip !== undefined) payload.memory_tip = updates.memoryTip;
         if (updates.deepExplanation !== undefined) payload.deep_explanation = updates.deepExplanation;
+        if (updates.senseGroups !== undefined) payload.sense_groups = updates.senseGroups;
         if (updates.level !== undefined) payload.level = updates.level;
         if (updates.familiarity !== undefined) payload.familiarity = updates.familiarity;
         if (updates.nextReviewAt !== undefined) payload.next_review_at = new Date(updates.nextReviewAt).toISOString();

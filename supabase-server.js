@@ -418,6 +418,63 @@ const parseDeepExplanationPayload = (raw) => {
   }
 }
 
+// 多语境义项分离：把同一个词在不同语境里的不同含义聚类成组
+const buildSenseClusterPrompt = ({ word, translation, contexts }) => {
+  const contextList = (Array.isArray(contexts) ? contexts : [])
+    .map((item) => String(item?.context || '').trim())
+    .filter(Boolean)
+    .slice(0, 12)
+
+  return [
+    'You are a lexicographer. Cluster the learner\'s OWN saved sentences for a word by the DISTINCT MEANING (sense) the word carries in each sentence. Output strict JSON only.',
+    'Schema: {"groups":[{"sense":"<short English sense label>","translation":"<Chinese translation for this sense>","definition":"<English-English explanation of this sense>","contexts":["<exact user sentence>", ...]}]}',
+    `Word: ${String(word || '').trim()}`,
+    `Known translation: ${String(translation || '').trim()}`,
+    `User saved sentences: ${JSON.stringify(contextList)}`,
+    'Rules: group sentences that use the SAME meaning together; create a separate group for each distinct meaning; quote each sentence verbatim in "contexts" and assign every sentence to exactly one group; "sense" is a short English label; "translation" is Chinese; "definition" is an English-English explanation; if all sentences share one meaning, return a single group; do not include markdown.'
+  ].join('\n')
+}
+
+const parseSenseClusterPayload = (raw) => {
+  const text = String(raw || '').trim()
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  const jsonText = fenced?.[1]
+    ? fenced[1].trim()
+    : start >= 0 && end > start
+      ? text.slice(start, end + 1)
+      : text
+
+  let parsed
+  try {
+    parsed = JSON.parse(jsonText)
+  } catch {
+    throw new Error('invalid_ai_enrichment_json')
+  }
+
+  const readString = (value) => (typeof value === 'string' ? value.trim() : '')
+  const readStringArray = (value) => (Array.isArray(value) ? value.map(readString).filter(Boolean) : [])
+  const groups = (Array.isArray(parsed?.groups) ? parsed.groups : [])
+    .map((item) => {
+      const sense = readString(item?.sense)
+      if (!sense) return null
+      return {
+        sense,
+        translation: readString(item?.translation),
+        definition: readString(item?.definition),
+        contexts: readStringArray(item?.contexts)
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
+
+  return {
+    groups,
+    generatedAt: Date.now()
+  }
+}
+
 const getAiConfigEncryptionKey = () => {
   if (!aiConfigEncryptionSecret) {
     throw new Error('ai_config_encryption_key_required')
@@ -997,6 +1054,72 @@ app.post('/api/v1/ai/explain', async (req, res) => {
     res.json({ deepExplanation })
   } catch (err) {
     console.error('[ai/explain] error:', err.message)
+    const status = err.message === 'invalid_ai_enrichment_json' ? 502 : 500
+    res.status(status).json({ error: err.message })
+  }
+})
+
+app.post('/api/v1/ai/sense-cluster', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const word = String(req.body?.word || '').trim()
+    if (!word) return res.status(400).json({ error: 'word_required' })
+
+    const prompt = buildSenseClusterPrompt({
+      word,
+      translation: req.body?.translation,
+      contexts: req.body?.contexts
+    })
+
+    const { data: activeConfig, error: configError } = await db
+      .from('ai_provider_configs')
+      .select('provider, model, endpoint, encrypted_api_key')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (configError) throw configError
+
+    let raw
+    if (activeConfig) {
+      raw = await callAiProviderRaw({ config: activeConfig, prompt })
+    } else {
+      if (!genAiClient) return res.status(500).json({ error: 'ai_key_not_configured' })
+      const response = await genAiClient.models.generateContent({
+        model: genAiModel,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json'
+        }
+      })
+      raw = response.text || ''
+    }
+
+    const senseGroups = parseSenseClusterPayload(raw)
+
+    // 直接入库：拿到 wordId 时立即持久化
+    const wordId = String(req.body?.wordId || '').trim()
+    if (wordId) {
+      const nowIso = new Date().toISOString()
+      const { error: updateError } = await db
+        .from('words')
+        .update({
+          sense_groups: senseGroups,
+          time_updated: nowIso,
+          updated_at: nowIso
+        })
+        .eq('id', wordId)
+        .eq('user_id', user.id)
+
+      if (updateError) throw updateError
+      await recordChange(db, user.id, 'word', wordId, 'update')
+    }
+
+    res.json({ senseGroups })
+  } catch (err) {
+    console.error('[ai/sense-cluster] error:', err.message)
     const status = err.message === 'invalid_ai_enrichment_json' ? 502 : 500
     res.status(status).json({ error: err.message })
   }
