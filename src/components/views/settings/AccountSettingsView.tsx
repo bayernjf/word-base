@@ -24,11 +24,11 @@ function AccountAvatarSelect({
 }) {
   const isGlass = themeStyles.name === 'glass';
   const avatarSelectedClass = isGlass
-    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
-    : 'border-[#56a978] bg-[#d9efd2]';
+    ? 'border-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+    : 'border border-[#a9d4a9] bg-[#eaf4e4]';
   const avatarIdleClass = isGlass
-    ? 'border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-600'
-    : 'border-[#9fc89f] hover:border-[#56a978] bg-[#fffdf7]';
+    ? 'border-2 border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-600'
+    : 'border border-[#dcebd4] hover:border-[#bad8b7] bg-[#fffdf7]';
   const [avatars, setAvatars] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -80,7 +80,7 @@ function AccountAvatarSelect({
             key={index}
             onClick={() => handleSelectAvatar(index)}
             disabled={isLoading}
-            className={`p-1 rounded-lg border-2 transition-all ${
+            className={`p-1 rounded-lg transition-all ${
               currentAvatar === index
                 ? avatarSelectedClass
                 : avatarIdleClass
