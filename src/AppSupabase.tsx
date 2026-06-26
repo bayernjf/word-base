@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createLogger } from './lib/logger';
-import { AppLanguage, ThemeType } from './types';
+import { AppLanguage, ThemeType, Word } from './types';
 
 const logger = createLogger('AppSupabase');
 import { initialStories, listeningQuizzes } from './mockData';
@@ -24,6 +24,7 @@ import {
   WritingPracticeView,
   AccountSettingsView,
   AppearanceSettingsView,
+  AutoAiSettingsView,
   AIModelsView,
   AddNewModelView,
   SyncStorageView,
@@ -31,6 +32,8 @@ import {
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
 import { profileApi, supabase } from './lib/supabase';
+import { createTranslator } from './i18n';
+import { enqueueAutoAi, type BatchAiType } from './lib/batchAiStore';
 import {
   AiProviderConfig,
   AiProviderInput,
@@ -46,6 +49,8 @@ interface ProfileRow {
   avatar_url?: string | null;
   created_at?: string | null;
   theme_preference?: string | null;
+  auto_enrich?: boolean | null;
+  auto_explain?: boolean | null;
 }
 
 function toTimestamp(value?: string | null): number {
@@ -133,6 +138,8 @@ export default function AppSupabase() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [models, setModels] = useState<AiProviderConfig[]>([]);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [autoEnrich, setAutoEnrich] = useState<boolean>(false);
+  const [autoExplain, setAutoExplain] = useState<boolean>(false);
   const syncServerBaseUrl =
     import.meta.env.VITE_SYNC_SERVER_URL ||
     (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001');
@@ -191,6 +198,8 @@ export default function AppSupabase() {
           if (data?.theme_preference === 'natural' || data?.theme_preference === 'glass') {
             setTheme(data.theme_preference);
           }
+          setAutoEnrich(!!data?.auto_enrich);
+          setAutoExplain(!!data?.auto_explain);
         }
       } catch {
         if (!cancelled) {
@@ -577,6 +586,82 @@ export default function AppSupabase() {
     return result;
   };
 
+  // ============ 自动 AI 分析 ============
+  const hasActiveModel = models.some((model) => model.isActive);
+
+  // 切换开关：需有激活模型才能开启；持久化到 profile（跨设备）
+  const persistAutoFlag = async (field: 'auto_enrich' | 'auto_explain', value: boolean) => {
+    const accessToken = session?.access_token;
+    if (!user || !accessToken) return;
+    try {
+      await profileApi.updateProfile(user.id, { [field]: value });
+      setProfile((prev) => (prev ? { ...prev, [field]: value } : prev));
+    } catch (error) {
+      logger.error('persistAutoFlag failed', { field, value, error });
+    }
+  };
+
+  const handleToggleAutoEnrich = () => {
+    if (!autoEnrich && !hasActiveModel) return; // 无激活模型不允许开启
+    const next = !autoEnrich;
+    // 开启瞬间记录基线，避免对存量老词触发
+    if (next) autoAiBaselineRef.current = null;
+    setAutoEnrich(next);
+    void persistAutoFlag('auto_enrich', next);
+  };
+
+  const handleToggleAutoExplain = () => {
+    if (!autoExplain && !hasActiveModel) return;
+    const next = !autoExplain;
+    if (next) autoAiBaselineRef.current = null;
+    setAutoExplain(next);
+    void persistAutoFlag('auto_explain', next);
+  };
+
+  // 基线：开关开启后第一次扫描时记录当时单词本里已存在的词 id，之后只处理新词
+  const autoAiBaselineRef = useRef<Set<string> | null>(null);
+
+  const needsEnrich = (word: Word) => !word.definition && !word.memoryTip && !(word.examples && word.examples.length > 0);
+  const needsExplain = (word: Word) => !word.deepExplanation;
+
+  // loadWords 后扫描当前单词本：对基线之后新出现且缺分析的词，按开关入队
+  useEffect(() => {
+    if (!autoEnrich && !autoExplain) {
+      autoAiBaselineRef.current = null;
+      return;
+    }
+    if (!hasActiveModel) return;
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+
+    // 首次（或开关刚开启）建立基线：记录当前全部词 id，本轮不处理
+    if (autoAiBaselineRef.current === null) {
+      autoAiBaselineRef.current = new Set(words.map((w) => w.id));
+      return;
+    }
+
+    const baseline = autoAiBaselineRef.current;
+    const t = createTranslator(language);
+    const messages = {
+      progress: (current: number, total: number, type: BatchAiType) =>
+        type === 'enrich'
+          ? t('vocab.autoEnriching', { current, total })
+          : t('vocab.autoExplaining', { current, total }),
+      complete: (success: number, fail: number) => t('vocab.autoComplete', { success, fail }),
+    };
+
+    for (const word of words) {
+      if (baseline.has(word.id)) continue; // 存量老词，跳过
+      if (autoEnrich && needsEnrich(word)) {
+        enqueueAutoAi(word, 'enrich', { accessToken, onUpdateWord: (id, updates) => updateWord(id, updates), messages });
+      }
+      if (autoExplain && needsExplain(word)) {
+        enqueueAutoAi(word, 'explain', { accessToken, onUpdateWord: (id, updates) => updateWord(id, updates), messages });
+      }
+      baseline.add(word.id); // 标记已知，避免重复入队
+    }
+  }, [words, autoEnrich, autoExplain, hasActiveModel, session?.access_token, language, updateWord]);
+
   const handleCreateBook = async (bookData: Parameters<typeof createBook>[0]) => {
     const created = await createBook(bookData);
     if (created) {
@@ -772,6 +857,7 @@ export default function AppSupabase() {
       case 'settings-account':
       case 'settings-appearance':
       case 'settings-aimodels':
+      case 'settings-autoai':
       case 'settings-addmodel':
       case 'settings-sync':
         return (
@@ -801,6 +887,17 @@ export default function AppSupabase() {
                 onCompactToggle={() => setIsCompactMode(!isCompactMode)}
                 isSmallTypography={isSmallTypography}
                 onTypographyToggle={() => setIsSmallTypography(!isSmallTypography)}
+              />
+            )}
+            {activeView === 'settings-autoai' && (
+              <AutoAiSettingsView
+                themeStyles={themeStyles}
+                language={language}
+                autoEnrich={autoEnrich}
+                autoExplain={autoExplain}
+                onAutoEnrichToggle={handleToggleAutoEnrich}
+                onAutoExplainToggle={handleToggleAutoExplain}
+                hasActiveModel={hasActiveModel}
               />
             )}
             {activeView === 'settings-aimodels' && (

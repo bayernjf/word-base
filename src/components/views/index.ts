@@ -12,6 +12,7 @@ export { ReadingPracticeView } from './practice/ReadingPracticeView';
 export { WritingPracticeView } from './practice/WritingPracticeView';
 export { AccountSettingsView } from './settings/AccountSettingsView';
 export { AppearanceSettingsView } from './settings/AppearanceSettingsView';
+export { AutoAiSettingsView } from './settings/AutoAiSettingsView';
 export { AIModelsView } from './settings/AIModelsView';
 export { AddNewModelView } from './settings/AddNewModelView';
 export { SyncStorageView } from './settings/SyncStorageView';

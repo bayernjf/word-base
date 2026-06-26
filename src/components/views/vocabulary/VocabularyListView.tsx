@@ -111,6 +111,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(loadColumnWidths);
   const batchState = useSyncExternalStore(subscribeBatchAi, getBatchAiSnapshot);
   const batchAiLoading = batchState.runningType;
+  // 自动分析进行中时也要禁用批量按钮，避免与自动队列冲突
+  const aiBusy = !!batchAiLoading || batchState.autoRunning;
   const resizeStateRef = useRef<{ key: ColumnKey; startX: number; startWidth: number } | null>(null);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = createTranslator(language);
@@ -386,7 +388,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   // 实际执行委托给模块级 store，脱离组件生命周期，切换路由不中断、状态可恢复。
   const handleBatchAi = async (type: 'enrich' | 'explain') => {
     logger.info('handleBatchAi called', { type, selectedCount: selectedWordIds.length, batchAiLoading });
-    if (selectedWordIds.length === 0 || batchAiLoading) {
+    if (selectedWordIds.length === 0 || aiBusy) {
       logger.warn('handleBatchAi early return', { selectedCount: selectedWordIds.length, batchAiLoading });
       return;
     }
@@ -529,7 +531,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
             {/* Batch AI buttons */}
             <button 
               onClick={() => handleBatchAi('enrich')}
-              disabled={selectedWordIds.length === 0 || !!batchAiLoading}
+              disabled={selectedWordIds.length === 0 || aiBusy}
               className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-xl border cursor-pointer ${batchBtnEnrich} disabled:opacity-40 disabled:cursor-not-allowed transition-all`}
             >
               {batchAiLoading === 'enrich' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
@@ -537,7 +539,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
             </button>
             <button 
               onClick={() => handleBatchAi('explain')}
-              disabled={selectedWordIds.length === 0 || !!batchAiLoading}
+              disabled={selectedWordIds.length === 0 || aiBusy}
               className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-xl border cursor-pointer ${batchBtnExplain} disabled:opacity-40 disabled:cursor-not-allowed transition-all`}
             >
               {batchAiLoading === 'explain' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5" />}
@@ -599,14 +601,14 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           <div className="flex gap-2">
             <button 
               onClick={() => setShowMoveModal(true)}
-              disabled={!!batchAiLoading}
+              disabled={aiBusy}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${batchBtnMove} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {t('vocab.move')}
             </button>
             <button 
               onClick={() => setShowDeleteModal(true)}
-              disabled={!!batchAiLoading}
+              disabled={aiBusy}
               className={isGlass
                 ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/70 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#e57373] text-[#d32f2f] hover:bg-[#ffebee] disabled:opacity-50 disabled:cursor-not-allowed"}
@@ -615,7 +617,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
             </button>
             <button 
               onClick={clearSelection}
-              disabled={!!batchAiLoading}
+              disabled={aiBusy}
               className={isGlass
                 ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-white/15 text-neutral-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#b0c9aa] text-[#5a7a5e] hover:bg-[#e1f0db] disabled:opacity-50 disabled:cursor-not-allowed"}

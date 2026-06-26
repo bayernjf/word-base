@@ -16,7 +16,7 @@ interface AppearanceSettingsProps {
 }
 
 export const AppearanceSettingsView: React.FC<AppearanceSettingsProps> = ({ 
-  themeStyles, language, activeTheme, onThemeChange, isCompactMode, onCompactToggle, isSmallTypography, onTypographyToggle 
+  themeStyles, language, activeTheme, onThemeChange, isCompactMode, onCompactToggle, isSmallTypography, onTypographyToggle
 }) => {
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';

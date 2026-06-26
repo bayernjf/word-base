@@ -20,6 +20,8 @@ export interface BatchAiNotification {
 export interface BatchAiState {
   // 当前正在运行的批量任务类型；null 表示空闲
   runningType: BatchAiType | null;
+  // 自动分析队列是否正在运行
+  autoRunning: boolean;
   // 进度
   current: number;
   total: number;
@@ -50,6 +52,7 @@ interface RunDeps {
 
 const initialState: BatchAiState = {
   runningType: null,
+  autoRunning: false,
   current: 0,
   total: 0,
   processingWordId: null,
@@ -198,8 +201,124 @@ export async function startBatchAi(type: BatchAiType, deps: RunDeps): Promise<vo
   setState({
     runningType: null,
     processingWordId: null,
-    processingMap: {},
     notification: { message: messages.complete(successCount, failCount) },
   });
   clearNotificationLater(5000);
+}
+
+// ============ 自动 AI 分析队列 ============
+// 新词加入单词本时按开关自动生成释义 / 深入理解。
+// 与批量任务共用 processingMap（详情页按钮据此显示进行中）；
+// 串行执行，避免连续加词打爆 API。任务脱离组件生命周期。
+
+interface AutoAiTask {
+  word: Word;
+  type: BatchAiType;
+}
+
+interface AutoRunDeps {
+  accessToken: string;
+  onUpdateWord: (wordId: string, updates: Partial<Word>) => Promise<Word | null> | void;
+  messages: {
+    progress: (current: number, total: number, type: BatchAiType) => string;
+    complete: (success: number, fail: number) => string;
+  };
+}
+
+const autoQueue: AutoAiTask[] = [];
+let autoRunning = false;
+let autoDeps: AutoRunDeps | null = null;
+let autoTotal = 0;
+let autoDone = 0;
+let autoSuccess = 0;
+let autoFail = 0;
+
+// 已入队/已处理过的 "wordId:type"，避免同一词同一类型重复入队
+const autoSeen = new Set<string>();
+
+function autoKey(wordId: string, type: BatchAiType): string {
+  return `${wordId}:${type}`;
+}
+
+/**
+ * 把一个自动分析任务加入队列。deps 每次刷新（accessToken 可能变化）。
+ * 返回 false 表示被去重忽略。
+ */
+export function enqueueAutoAi(word: Word, type: BatchAiType, deps: AutoRunDeps): boolean {
+  const key = autoKey(word.id, type);
+  if (autoSeen.has(key)) return false;
+  autoSeen.add(key);
+  autoQueue.push({ word, type });
+  autoDeps = deps;
+  autoTotal += 1;
+  void runAutoQueue();
+  return true;
+}
+
+async function runAutoQueue(): Promise<void> {
+  if (autoRunning) return;
+  autoRunning = true;
+  setState({ autoRunning: true });
+
+  while (autoQueue.length > 0) {
+    const task = autoQueue.shift()!;
+    const deps = autoDeps!;
+    autoDone += 1;
+
+    // 登记到 processingMap，供详情页按钮显示进行中
+    setState({
+      processingWordId: task.word.id,
+      processingMap: { ...state.processingMap, [task.word.id]: task.type },
+      notification: { message: deps.messages.progress(autoDone, autoTotal, task.type) },
+    });
+
+    try {
+      if (task.type === 'enrich') {
+        const enrichment = await requestAiEnrichment(
+          {
+            wordId: task.word.id,
+            word: task.word.word,
+            translation: task.word.translation || task.word.chineseTranslation || task.word.definition || '',
+            contexts: task.word.contexts || [],
+          },
+          deps.accessToken
+        );
+        await deps.onUpdateWord(task.word.id, enrichmentToWordUpdates(enrichment));
+      } else {
+        const deepExplanation = await requestDeepExplanation(
+          {
+            wordId: task.word.id,
+            word: task.word.word,
+            translation: task.word.translation || task.word.chineseTranslation || task.word.definition || '',
+            contexts: task.word.contexts || [],
+          },
+          deps.accessToken
+        );
+        await deps.onUpdateWord(task.word.id, { deepExplanation });
+      }
+      autoSuccess += 1;
+    } catch (err) {
+      logger.error(`Auto ${task.type} failed for word:`, task.word.word, err);
+      autoFail += 1;
+    } finally {
+      const nextMap = { ...state.processingMap };
+      delete nextMap[task.word.id];
+      setState({ processingMap: nextMap });
+    }
+  }
+
+  // 队列清空：显示完成统计并重置计数
+  const deps = autoDeps;
+  const success = autoSuccess;
+  const fail = autoFail;
+  autoRunning = false;
+  autoTotal = 0;
+  autoDone = 0;
+  autoSuccess = 0;
+  autoFail = 0;
+  setState({ processingWordId: null, autoRunning: false });
+  if (deps && (success > 0 || fail > 0)) {
+    setState({ notification: { message: deps.messages.complete(success, fail) } });
+    clearNotificationLater(5000);
+  }
 }
