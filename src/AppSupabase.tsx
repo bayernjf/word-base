@@ -678,6 +678,7 @@ export default function AppSupabase() {
           }}
           onDeleteWords={handleDeleteWords}
           onMoveWords={handleMoveWords}
+          onUpdateWord={(id, updates) => updateWord(id, updates)}
         />
       );
     }

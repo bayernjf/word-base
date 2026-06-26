@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import { AlertCircle, ArrowLeft, Volume2, Globe, ChevronDown, Languages, Save, Trash2, Sparkles, BrainCircuit } from 'lucide-react';
 import { createLogger } from '../../../lib/logger';
 import { AppLanguage, Word, WordContext } from '../../../types';
@@ -8,6 +8,10 @@ import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime, formatDate } from '../shared/helpers';
 import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate } from '../../../lib/aiEnrich';
+import {
+  subscribe as subscribeBatchAi,
+  getSnapshot as getBatchAiSnapshot,
+} from '../../../lib/batchAiStore';
 import { useSupabase } from '../../../context/SupabaseContext';
 import { AiProviderConfig } from '../../../lib/aiProviderConfigs';
 
@@ -122,6 +126,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [deepExplainLoading, setDeepExplainLoadingState] = useState(() => getAiLoading(word?.id, 'explain'));
   const [deepExplainError, setDeepExplainError] = useState<string | null>(null);
   const [hasDeepExplanation, setHasDeepExplanation] = useState(() => !!word?.deepExplanation);
+  // 订阅批量任务 store：若当前单词正被批量任务处理，则按钮同步显示进行中
+  const batchState = useSyncExternalStore(subscribeBatchAi, getBatchAiSnapshot);
+  const batchProcessingType = word?.id ? batchState.processingMap[word.id] : undefined;
+  const effectiveEnrichLoading = aiEnrichLoading || batchProcessingType === 'enrich';
+  const effectiveDeepExplainLoading = deepExplainLoading || batchProcessingType === 'explain';
   const [contextViewMode, setContextViewMode] = useState<'table' | 'timeline'>('table');
   const [contextColumnWidths, setContextColumnWidths] = useState<Record<ContextColumnKey, number>>(loadContextColumnWidths);
   const [dictPhonetics, setDictPhonetics] = useState<{
@@ -668,11 +677,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleAiEnrich}
-                    disabled={aiEnrichLoading}
+                    disabled={effectiveEnrichLoading}
                     className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
-                    <Sparkles className={`w-4 h-4 ${aiEnrichLoading ? 'animate-pulse' : ''}`} />
-                    <span>{aiEnrichLoading 
+                    <Sparkles className={`w-4 h-4 ${effectiveEnrichLoading ? 'animate-pulse' : ''}`} />
+                    <span>{effectiveEnrichLoading 
                       ? t('wordDetail.aiEnrichLoading') 
                       : (hasAiEnrichment || word?.definition || word?.memoryTip || (word?.examples?.length ?? 0) > 0)
                         ? t('wordDetail.aiEnrichAgain') 
@@ -680,11 +689,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                   </button>
                   <button
                     onClick={handleDeepExplain}
-                    disabled={deepExplainLoading}
+                    disabled={effectiveDeepExplainLoading}
                     className={`${themeStyles.btnSecondary} inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
-                    <BrainCircuit className={`w-4 h-4 ${deepExplainLoading ? 'animate-pulse' : ''}`} />
-                    <span>{deepExplainLoading
+                    <BrainCircuit className={`w-4 h-4 ${effectiveDeepExplainLoading ? 'animate-pulse' : ''}`} />
+                    <span>{effectiveDeepExplainLoading
                       ? t('wordDetail.deepExplainLoading')
                       : (hasDeepExplanation || word?.deepExplanation)
                         ? t('wordDetail.deepExplainAgain')

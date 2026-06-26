@@ -1,9 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronRight, ChevronDown, CheckCircle2, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
+import { Search, ChevronRight, ChevronDown, CheckCircle2, ArrowUp, ArrowDown, ChevronsUpDown, Sparkles, BrainCircuit, Loader2 } from 'lucide-react';
 import { AppLanguage, MoveWordsResult, Word, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
+import { createLogger } from '../../../lib/logger';
+import { useSupabase } from '../../../context/SupabaseContext';
+import {
+  BATCH_AI_LIMIT,
+  startBatchAi,
+  subscribe as subscribeBatchAi,
+  getSnapshot as getBatchAiSnapshot,
+} from '../../../lib/batchAiStore';
+
+const logger = createLogger('VocabularyListView');
 
 interface VocabularyProps {
   themeStyles: ThemeClasses;
@@ -17,6 +27,8 @@ interface VocabularyProps {
   onBookChange?: (bookId: string) => void;
   onDeleteWords?: (wordIds: string[]) => void;
   onMoveWords?: (wordIds: string[], targetBookId: string) => Promise<MoveWordsResult>;
+  onUpdateWord?: (wordId: string, updates: Partial<Word>) => Promise<Word | null>;
+  accessToken?: string | null;
 }
 
 interface VocabularyNotification {
@@ -59,17 +71,34 @@ function loadColumnWidths(): Record<ColumnKey, number> {
   }
 }
 
-const BATCH_LIMIT = 10;
+// 模块级存储：按单词本记录勾选的单词 id（不持久化到 localStorage，
+// 仅在会话内保留，切换路由/单词本返回时恢复勾选状态）
+const selectionMap = new Map<string, string[]>();
+
+function getStoredSelection(bookId: string): string[] {
+  return selectionMap.get(bookId) ?? [];
+}
+
+function setStoredSelection(bookId: string, wordIds: string[]) {
+  if (wordIds.length === 0) {
+    selectionMap.delete(bookId);
+  } else {
+    selectionMap.set(bookId, wordIds);
+  }
+}
 
 export const VocabularyListView: React.FC<VocabularyProps> = ({ 
   themeStyles, language, onNavigate, words, books, onSelectWord, onAddWord,
-  initialSelectedBookId = 'biz-eng', onBookChange, onDeleteWords, onMoveWords
+  initialSelectedBookId = 'biz-eng', onBookChange, onDeleteWords, onMoveWords, onUpdateWord,
+  accessToken: propAccessToken
 }) => {
+  const { session } = useSupabase();
+  const accessToken = propAccessToken || session?.access_token;
   const [selectedBookId, setSelectedBookId] = useState(initialSelectedBookId);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
+  const [selectedWordIds, setSelectedWordIds] = useState<string[]>(() => getStoredSelection(initialSelectedBookId));
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showMoveConfirmModal, setShowMoveConfirmModal] = useState(false);
@@ -80,7 +109,10 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [bookDropdownOpen, setBookDropdownOpen] = useState(false);
   const [perPageDropdownOpen, setPerPageDropdownOpen] = useState(false);
   const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(loadColumnWidths);
+  const batchState = useSyncExternalStore(subscribeBatchAi, getBatchAiSnapshot);
+  const batchAiLoading = batchState.runningType;
   const resizeStateRef = useRef<{ key: ColumnKey; startX: number; startWidth: number } | null>(null);
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
   const searchPanelClass = isGlass
@@ -117,16 +149,32 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const batchBtnMove = isGlass
     ? 'border-indigo-400 text-indigo-300 hover:bg-indigo-500/20'
     : 'border-[#5aa167] text-[#2f805d] hover:bg-[#d9efd2]';
+  const batchBtnEnrich = isGlass
+    ? 'border-amber-400/70 text-amber-300 hover:bg-amber-500/10'
+    : 'border-[#ed9e37] text-[#c67a1e] hover:bg-[#fff4e0]';
+  const batchBtnExplain = isGlass
+    ? 'border-violet-400/70 text-violet-300 hover:bg-violet-500/10'
+    : 'border-[#9c6ade] text-[#7c4dbb] hover:bg-[#f3ebff]';
   const wordLinkClass = isGlass ? 'text-indigo-400' : 'text-[#2f805d]';
   const progressTrackClass = isGlass ? 'bg-white/10' : 'bg-[#cfe3c6] border border-[#a9d4a4]';
   const tooltipClass = isGlass
     ? 'bg-slate-900/95 text-neutral-100 border border-white/10 shadow-lg'
     : 'bg-[#234235] text-[#f1f8ee] border border-[#1b3328] shadow-md shadow-[#8fb998]/20';
+  // 分页按钮样式：上一页/下一页（普通按钮）、页码（选中/未选中）
+  const pageNavBtnClass = isGlass
+    ? 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+    : 'border-[#9fc89f] text-[#2f805d] hover:bg-[#e1f0db]';
+  const pageNumActiveClass = isGlass
+    ? 'bg-indigo-600 text-white border-indigo-600'
+    : 'bg-[#5aa167] text-white border-[#5aa167] shadow-xs shadow-[#8fb998]/30';
+  const pageNumIdleClass = isGlass
+    ? 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+    : 'border-[#9fc89f] text-[#2f805d] hover:bg-[#e1f0db]';
   // Update local state if initial prop changes
   useEffect(() => {
     setSelectedBookId(initialSelectedBookId);
     setCurrentPage(1); // 切换单词本时回到第一页
-    setSelectedWordIds([]); // 切换单词本时清空选择
+    setSelectedWordIds(getStoredSelection(initialSelectedBookId)); // 恢复该单词本的勾选状态
     setSortField(null); // 切换单词本时重置排序
     setSortDir('asc');
   }, [initialSelectedBookId]);
@@ -279,42 +327,98 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   }, [filteredWords.length, itemsPerPage, currentPage]);
 
   useEffect(() => {
+    // 单词尚未加载完成时不修剪，避免清掉刚恢复的勾选
+    if (filteredWords.length === 0) return;
     const availableWordIds = new Set(filteredWords.map((word) => word.id));
-    setSelectedWordIds((prev) => prev.filter((id) => availableWordIds.has(id)));
-  }, [filteredWords]);
+    setSelectedWordIds((prev) => {
+      // 仅当存在失效的勾选 id 时才更新，避免每次都返回新数组导致无限渲染循环
+      const next = prev.filter((id) => availableWordIds.has(id));
+      if (next.length === prev.length) return prev;
+      setStoredSelection(selectedBookId, next);
+      return next;
+    });
+  }, [filteredWords, selectedBookId]);
+
+  // 统一更新勾选：同时写 state 与模块级 Map（用当前 selectedBookId，避免书本/选择错配）
+  const updateSelection = (
+    updater: string[] | ((prev: string[]) => string[])
+  ) => {
+    setSelectedWordIds((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      setStoredSelection(selectedBookId, next);
+      return next;
+    });
+  };
 
   // 全选/取消全选
   const toggleSelectAll = () => {
-    const maxSelectable = Math.min(paginatedWords.length, BATCH_LIMIT);
-    if (selectedWordIds.length === maxSelectable) {
-      setSelectedWordIds([]);
+    if (selectedWordIds.length === paginatedWords.length) {
+      updateSelection([]);
     } else {
-      if (paginatedWords.length > BATCH_LIMIT) {
-        setSelectedWordIds(paginatedWords.slice(0, BATCH_LIMIT).map(w => w.id));
-        setNotification({ message: t('vocab.batchLimitSelectAll') });
-      } else {
-        setSelectedWordIds(paginatedWords.map(w => w.id));
-      }
+      updateSelection(paginatedWords.map(w => w.id));
     }
   };
 
   // 切换单个选择
   const toggleSelectWord = (wordId: string) => {
-    setSelectedWordIds(prev => {
-      if (prev.includes(wordId)) {
-        return prev.filter(id => id !== wordId);
-      }
-      if (prev.length >= BATCH_LIMIT) {
-        setNotification({ message: t('vocab.batchLimitReached') });
-        return prev;
-      }
-      return [...prev, wordId];
-    });
+    updateSelection(prev =>
+      prev.includes(wordId)
+        ? prev.filter(id => id !== wordId)
+        : [...prev, wordId]
+    );
   };
 
   // 取消选择
   const clearSelection = () => {
-    setSelectedWordIds([]);
+    updateSelection([]);
+  };
+
+  // 显示临时通知
+  const showTempNotification = (msg: string, highlight?: string, duration = 3000) => {
+    if (notificationTimerRef.current) {
+      clearTimeout(notificationTimerRef.current);
+    }
+    setNotification({ message: msg, highlight });
+    notificationTimerRef.current = setTimeout(() => setNotification(null), duration);
+  };
+
+  // 批量AI处理：enrich=生成释义，explain=深入理解。
+  // 实际执行委托给模块级 store，脱离组件生命周期，切换路由不中断、状态可恢复。
+  const handleBatchAi = async (type: 'enrich' | 'explain') => {
+    logger.info('handleBatchAi called', { type, selectedCount: selectedWordIds.length, batchAiLoading });
+    if (selectedWordIds.length === 0 || batchAiLoading) {
+      logger.warn('handleBatchAi early return', { selectedCount: selectedWordIds.length, batchAiLoading });
+      return;
+    }
+    if (!accessToken) {
+      showTempNotification(language === 'en' ? 'Please sign in first.' : '请先登录后再使用AI功能。');
+      return;
+    }
+    if (!onUpdateWord) {
+      logger.warn('handleBatchAi: onUpdateWord is missing');
+      return;
+    }
+
+    const selectedWords = words.filter((w) => selectedWordIds.includes(w.id));
+
+    await startBatchAi(type, {
+      words: selectedWords,
+      accessToken,
+      onUpdateWord,
+      onTruncate: (keptWordIds) => updateSelection(keptWordIds),
+      messages: {
+        limitHit: t('vocab.batchLimitHit', { limit: BATCH_AI_LIMIT }),
+        selectedFirstN: t('vocab.selectedFirstN', { n: BATCH_AI_LIMIT }),
+        progress: (current, total) =>
+          type === 'enrich'
+            ? t('vocab.batchEnriching', { current, total })
+            : t('vocab.batchExplaining', { current, total }),
+        complete: (success, fail) =>
+          type === 'enrich'
+            ? t('vocab.batchEnrichComplete', { success, fail })
+            : t('vocab.batchExplainComplete', { success, fail }),
+      },
+    });
   };
 
   // 删除操作
@@ -390,6 +494,10 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
       : <ArrowDown className="w-3 h-3" />;
   };
 
+  // 通知：批量任务通知（来自 store）优先，其次本地移动/删除通知。
+  // 用稳定的局部常量，避免在 JSX 中二次求值时因 store 异步清空导致读取 null。
+  const displayNotification = batchState.notification || notification;
+
   return (
     <div className="space-y-6 relative">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -401,9 +509,42 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
             {t('vocab.subtitle')}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Book switcher dropdown */}
-          <div className="relative">
+        <div className="flex flex-col items-end gap-2">
+          {/* 通知 - 放在按钮上方 */}
+          {displayNotification && (
+            <div className={`px-3 py-2 rounded-lg border text-xs font-medium shadow-sm ${isGlass
+              ? 'bg-indigo-500/15 border-indigo-400/40 text-indigo-200'
+              : 'bg-white border-[#5aa167] text-[#2f805d]'}`}>
+              <span>{displayNotification.message}</span>
+              {displayNotification.highlight && (
+                <span className={`ml-1 inline-flex items-center rounded-md px-1.5 py-0.5 font-semibold ring-1 ${isGlass
+                  ? 'bg-indigo-400/20 text-indigo-100 ring-indigo-400/30'
+                  : 'bg-[#d9efd2] text-[#1d6b3d] ring-[#5aa167]/30'}`}>
+                  {displayNotification.highlight}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Batch AI buttons */}
+            <button 
+              onClick={() => handleBatchAi('enrich')}
+              disabled={selectedWordIds.length === 0 || !!batchAiLoading}
+              className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-xl border cursor-pointer ${batchBtnEnrich} disabled:opacity-40 disabled:cursor-not-allowed transition-all`}
+            >
+              {batchAiLoading === 'enrich' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              {t('vocab.batchEnrich')}
+            </button>
+            <button 
+              onClick={() => handleBatchAi('explain')}
+              disabled={selectedWordIds.length === 0 || !!batchAiLoading}
+              className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-xl border cursor-pointer ${batchBtnExplain} disabled:opacity-40 disabled:cursor-not-allowed transition-all`}
+            >
+              {batchAiLoading === 'explain' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5" />}
+              {t('vocab.batchExplain')}
+            </button>
+            {/* Book switcher dropdown */}
+            <div className="relative">
             <button
               type="button"
               onClick={() => setBookDropdownOpen((prev) => !prev)}
@@ -429,6 +570,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                 </div>
               </>
             )}
+          </div>
           </div>
         </div>
       </div>
@@ -457,40 +599,30 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           <div className="flex gap-2">
             <button 
               onClick={() => setShowMoveModal(true)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${batchBtnMove}`}
+              disabled={!!batchAiLoading}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${batchBtnMove} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {t('vocab.move')}
             </button>
             <button 
               onClick={() => setShowDeleteModal(true)}
+              disabled={!!batchAiLoading}
               className={isGlass
-                ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/70 text-red-400 hover:bg-red-500/10"
-                : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#e57373] text-[#d32f2f] hover:bg-[#ffebee]"}
+                ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/70 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#e57373] text-[#d32f2f] hover:bg-[#ffebee] disabled:opacity-50 disabled:cursor-not-allowed"}
             >
               {t('vocab.delete')}
             </button>
             <button 
               onClick={clearSelection}
+              disabled={!!batchAiLoading}
               className={isGlass
-                ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-white/15 text-neutral-300 hover:bg-white/10"
-                : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#b0c9aa] text-[#5a7a5e] hover:bg-[#e1f0db]"}
+                ? "px-3 py-1.5 text-xs font-medium rounded-lg border border-white/15 text-neutral-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                : "px-3 py-1.5 text-xs font-medium rounded-lg border border-[#b0c9aa] text-[#5a7a5e] hover:bg-[#e1f0db] disabled:opacity-50 disabled:cursor-not-allowed"}
             >
               {t('vocab.cancelSelection')}
             </button>
           </div>
-        </div>
-      )}
-
-      {notification && (
-        <div className={`px-4 py-3 rounded-xl border ${batchBarBg} text-sm ${batchBarText}`}>
-          <span>{notification.message}</span>
-          {notification.highlight && (
-            <span className={`ml-1 inline-flex items-center rounded-md px-2 py-0.5 font-semibold ring-1 ${isGlass
-              ? 'bg-indigo-400/10 text-indigo-200 ring-indigo-400/20'
-              : 'bg-[#5aa167]/10 text-[#2f805d] ring-[#5aa167]/20'}`}>
-              {notification.highlight}
-            </span>
-          )}
         </div>
       )}
 
@@ -505,13 +637,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                 <th className={`sticky top-0 z-10 ${tableHeadBg} relative py-3 px-4 ${tableColDivider}`}>
                   <input
                     type="checkbox"
-                    ref={(el) => {
-                      if (el) {
-                        const maxSelectable = Math.min(paginatedWords.length, BATCH_LIMIT);
-                        el.checked = paginatedWords.length > 0 && selectedWordIds.length === maxSelectable;
-                        el.indeterminate = selectedWordIds.length > 0 && selectedWordIds.length < maxSelectable;
-                      }
-                    }}
+                    checked={paginatedWords.length > 0 && selectedWordIds.length === paginatedWords.length}
                     onChange={toggleSelectAll}
                     className="w-3.5 h-3.5"
                   />
@@ -664,7 +790,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-2 py-1 text-xs rounded-lg border border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {t('vocab.previous')}
                 </button>
@@ -674,10 +800,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                   <button
                     key={1}
                     onClick={() => setCurrentPage(1)}
-                    className={`px-2 py-1 text-xs rounded-lg border ${
-                      currentPage === 1
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+                    className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
+                      currentPage === 1 ? pageNumActiveClass : pageNumIdleClass
                     }`}
                   >
                     {1}
@@ -721,10 +845,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`px-2 py-1 text-xs rounded-lg border ${
-                          currentPage === page
-                            ? 'bg-indigo-600 text-white border-indigo-600'
-                            : 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+                        className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
+                          currentPage === page ? pageNumActiveClass : pageNumIdleClass
                         }`}
                       >
                         {page}
@@ -742,10 +864,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                     <button
                       key={totalPages}
                       onClick={() => setCurrentPage(totalPages)}
-                      className={`px-2 py-1 text-xs rounded-lg border ${
-                        currentPage === totalPages
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10'
+                      className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
+                        currentPage === totalPages ? pageNumActiveClass : pageNumIdleClass
                       }`}
                     >
                       {totalPages}
@@ -756,7 +876,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1 text-xs rounded-lg border border-neutral-300 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {t('vocab.next')}
                 </button>
