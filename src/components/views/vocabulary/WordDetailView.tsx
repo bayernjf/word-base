@@ -686,16 +686,23 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
         <div 
           className={`h-2 cursor-row-resize flex items-center justify-center border-t border-b ${
             isDragging 
-              ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/30' 
-              : 'border-neutral-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-700'
+              ? (isGlass ? 'border-indigo-500 bg-indigo-900/30' : 'border-[#56a978] bg-[#cceac8]')
+              : (isGlass ? 'border-white/10 hover:border-indigo-700' : 'border-[#bad8b7] hover:border-[#84c796]')
           } transition-colors`}
           onMouseDown={handleMouseDown}
         >
-          <div className="flex gap-1">
-            <div className={`w-8 h-1 rounded-full ${isDragging ? 'bg-indigo-500' : 'bg-neutral-300 dark:bg-white/20'}`} />
-            <div className={`w-8 h-1 rounded-full ${isDragging ? 'bg-indigo-500' : 'bg-neutral-300 dark:bg-white/20'}`} />
-            <div className={`w-8 h-1 rounded-full ${isDragging ? 'bg-indigo-500' : 'bg-neutral-300 dark:bg-white/20'}`} />
-          </div>
+          {(() => {
+            const barClass = isDragging
+              ? (isGlass ? 'bg-indigo-500' : 'bg-[#56a978]')
+              : (isGlass ? 'bg-white/20' : 'bg-[#84c796]');
+            return (
+              <div className="flex gap-1">
+                <div className={`w-8 h-1 rounded-full ${barClass}`} />
+                <div className={`w-8 h-1 rounded-full ${barClass}`} />
+                <div className={`w-8 h-1 rounded-full ${barClass}`} />
+              </div>
+            );
+          })()}
         </div>
 
         {/* 下面部分：上下文列表 */}
