@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Check, ChevronDown } from 'lucide-react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
@@ -68,7 +68,6 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
   const [apiKey, setApiKey] = useState('');
   const [endpoint, setEndpoint] = useState(initialModel?.endpoint || defaultEndpointForProvider(initialProvider));
   const [isSaving, setIsSaving] = useState(false);
-  const apiKeyRef = useRef<HTMLInputElement>(null);
   const [isProviderMenuOpen, setIsProviderMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isCustomModel, setIsCustomModel] = useState(!isKnownProviderModel(initialProvider, initialModelValue));
@@ -139,10 +138,6 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
     event.preventDefault();
     setIsSaving(true);
     setSaveError(null);
-    // 提交前把密码输入框类型改为 text，阻止浏览器弹密码保存提示
-    const inputEl = apiKeyRef.current;
-    const originalType = inputEl?.type;
-    if (inputEl) inputEl.type = 'text';
     try {
       const trimmedApiKey = apiKey.trim();
       if (!isEditing && !trimmedApiKey) {
@@ -165,8 +160,6 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
       const message = error instanceof Error ? error.message : 'save_failed';
       setSaveError(message);
     } finally {
-      // 恢复原始类型
-      if (inputEl && originalType) inputEl.type = originalType;
       setIsSaving(false);
     }
   };
@@ -347,15 +340,20 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-1">{t('addModel.apiKey')}</label>
           <input
-            ref={apiKeyRef}
-            type="password"
+            type="text"
             required={!isEditing}
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
             placeholder={isEditing ? (language === 'zh' ? '留空则继续使用已保存的 Key' : 'Leave blank to keep the saved key') : t('addModel.apiPlaceholder')}
+            name="ai-provider-secret"
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             data-lpignore="true"
+            data-1p-ignore="true"
             data-form-type="other"
+            style={{ WebkitTextSecurity: 'disc' } as React.CSSProperties}
             className={`w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
           />
           <p className="mt-2 text-[11px] text-neutral-400">
