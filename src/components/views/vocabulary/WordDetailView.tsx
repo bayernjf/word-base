@@ -8,6 +8,7 @@ import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime, formatDate } from '../shared/helpers';
 import { WordPhonetics } from '../shared/WordPhonetics';
+import { EncounterCurve } from './EncounterCurve';
 import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate } from '../../../lib/aiEnrich';
 import {
   subscribe as subscribeBatchAi,
@@ -871,6 +872,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
             </div>
             {word.contexts && word.contexts.length > 0 ? (
               <div>
+                <EncounterCurve contexts={word.contexts} themeStyles={themeStyles} language={language} />
                 {contextViewMode === 'table' ? (
                   <table ref={contextTableRef} className="w-full table-fixed text-left border-collapse">
                     {renderContextColgroup()}
