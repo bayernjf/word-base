@@ -22,6 +22,8 @@ const copy = {
     emptyTitle: '今天没有到期词',
     emptyDesc: '新的复习会在间隔到期后自动出现。',
     context: '语境',
+    clozeHint: '根据语境填出空缺的单词',
+    recallHint: '根据释义回忆这个单词',
     showAnswer: '显示答案',
     again: '忘记',
     hard: '吃力',
@@ -37,6 +39,8 @@ const copy = {
     emptyTitle: 'No due words today',
     emptyDesc: 'New reviews appear here when their interval expires.',
     context: 'Context',
+    clozeHint: 'Recall the missing word from the context',
+    recallHint: 'Recall the word from its meaning',
     showAnswer: 'Show answer',
     again: 'Again',
     hard: 'Hard',
@@ -52,6 +56,36 @@ const ratings: Array<{ quality: ReviewQuality; key: 'again' | 'hard' | 'good' | 
   { quality: 4, key: 'good', className: 'border-sky-500/30 text-sky-500 hover:bg-sky-500/10' },
   { quality: 5, key: 'easy', className: 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10' },
 ];
+
+const CLOZE_BLANK = '\u0000CLOZE\u0000';
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 把语境句中的目标词挖空，返回 { masked, matched }。
+ * 优先整词匹配；匹配不到时（词形变化等）退化为前缀匹配，挖掉同词根的词。
+ * matched=false 时表示句子里找不到该词，调用方应回退到纯释义回忆模式。
+ */
+function buildCloze(sentence: string, word: string): { masked: string; matched: boolean } {
+  const target = word.trim();
+  if (!target) return { masked: sentence, matched: false };
+
+  const whole = new RegExp(`\\b${escapeRegExp(target)}\\b`, 'gi');
+  if (whole.test(sentence)) {
+    return { masked: sentence.replace(whole, CLOZE_BLANK), matched: true };
+  }
+
+  // 退化：匹配以目标词为前缀的变形（如 measure → measured / measures）
+  const stem = target.length > 4 ? target.slice(0, Math.ceil(target.length * 0.7)) : target;
+  const prefix = new RegExp(`\\b${escapeRegExp(stem)}[a-z]*\\b`, 'gi');
+  if (prefix.test(sentence)) {
+    return { masked: sentence.replace(prefix, CLOZE_BLANK), matched: true };
+  }
+
+  return { masked: sentence, matched: false };
+}
 
 export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, words, onNavigate, onReviewWord }) => {
   const t = copy[language];
@@ -74,6 +108,13 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
 
   const safeContextIndex = Math.min(contextIndex, Math.max(0, contexts.length - 1));
   const currentContext = contexts[safeContextIndex];
+
+  // 语境化复习：把当前语境句中的目标词挖空做完形填空；句中找不到该词则回退到纯释义回忆
+  const cloze = useMemo(
+    () => (currentContext?.context && activeWord ? buildCloze(currentContext.context, activeWord.word) : null),
+    [currentContext?.context, activeWord]
+  );
+  const isCloze = !showAnswer && !!cloze?.matched;
 
   const handleRate = async (quality: ReviewQuality) => {
     if (!activeWord) return;
@@ -122,8 +163,14 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className={`text-sm ${themeStyles.textSecondary}`}>{activeWord.partOfSpeech || activeWord.level || ''}</p>
-              <h3 className={`text-4xl font-bold mt-2 ${themeStyles.textPrimary}`}>{activeWord.word}</h3>
-              <WordPhonetics word={activeWord.word} fallbackPhonetic={activeWord.phonetic} language={language} />
+              {isCloze ? (
+                <h3 className={`text-2xl font-bold mt-2 ${themeStyles.textSecondary}`}>{t.clozeHint}</h3>
+              ) : (
+                <>
+                  <h3 className={`text-4xl font-bold mt-2 ${themeStyles.textPrimary}`}>{activeWord.word}</h3>
+                  <WordPhonetics word={activeWord.word} fallbackPhonetic={activeWord.phonetic} language={language} />
+                </>
+              )}
             </div>
             <RotateCcw className="w-5 h-5 text-indigo-400" />
           </div>
@@ -131,7 +178,9 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
           {currentContext?.context && (
             <div className={`rounded-2xl border ${themeStyles.borderClass} p-4 ${themeStyles.secondaryBg}`}>
               <div className="flex items-center justify-between mb-2">
-                <p className={`text-xs font-semibold uppercase ${themeStyles.textSecondary}`}>{t.context}</p>
+                <p className={`text-xs font-semibold uppercase ${themeStyles.textSecondary}`}>
+                  {isCloze ? '' : t.context}
+                </p>
                 {contexts.length > 1 && (
                   <div className={`flex items-center gap-1.5 text-xs ${themeStyles.textSecondary}`}>
                     <button
@@ -152,14 +201,31 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
                   </div>
                 )}
               </div>
-              <p className={`text-sm leading-relaxed ${themeStyles.textPrimary}`}>{currentContext.context}</p>
+              <p className={`text-sm leading-relaxed ${themeStyles.textPrimary}`}>
+                {isCloze
+                  ? cloze!.masked.split(CLOZE_BLANK).map((segment, i, arr) => (
+                      <React.Fragment key={i}>
+                        {segment}
+                        {i < arr.length - 1 && (
+                          <span className="inline-block w-10 border-b-2 border-current align-baseline mx-0.5" />
+                        )}
+                      </React.Fragment>
+                    ))
+                  : currentContext.context}
+              </p>
             </div>
+          )}
+
+          {/* 无可用语境时，提示用释义回忆 */}
+          {!currentContext?.context && !showAnswer && (
+            <p className={`text-sm ${themeStyles.textSecondary}`}>{t.recallHint}</p>
           )}
 
           {showAnswer ? (
             <div className="space-y-4">
               <div className={`rounded-2xl border ${themeStyles.borderClass} p-4`}>
-                <p className={`text-sm leading-relaxed ${themeStyles.textPrimary}`}>
+                <p className={`text-2xl font-bold ${themeStyles.textPrimary}`}>{activeWord.word}</p>
+                <p className={`text-sm leading-relaxed mt-2 ${themeStyles.textPrimary}`}>
                   {activeWord.translation || activeWord.chineseTranslation || activeWord.definition || '-'}
                 </p>
               </div>
