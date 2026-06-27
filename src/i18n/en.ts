@@ -109,6 +109,7 @@ export const en = {
     autoEnriching: 'Auto-generating definition ({current}/{total})...',
     autoExplaining: 'Auto deep explanation ({current}/{total})...',
     autoComplete: 'Auto analysis complete: {success} succeeded, {fail} failed',
+    batchAllFailed: 'All failed — please check your AI model configuration (configured & active, and a valid API key).',
     targetBook: 'target wordbook',
     moveFailed: 'Failed to move words, please try again.',
     movedMany: 'Moved {count} words to',

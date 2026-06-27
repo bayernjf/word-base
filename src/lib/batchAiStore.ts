@@ -45,6 +45,7 @@ interface RunDeps {
     selectedFirstN: string;
     progress: (current: number, total: number) => string;
     complete: (success: number, fail: number) => string;
+    allFailed: string;
   };
   // 截断到前 N 个时回调，让组件同步勾选状态
   onTruncate?: (keptWordIds: string[]) => void;
@@ -201,7 +202,7 @@ export async function startBatchAi(type: BatchAiType, deps: RunDeps): Promise<vo
   setState({
     runningType: null,
     processingWordId: null,
-    notification: { message: messages.complete(successCount, failCount) },
+    notification: { message: successCount === 0 && failCount > 0 ? messages.allFailed : messages.complete(successCount, failCount) },
   });
   clearNotificationLater(5000);
 }
@@ -222,6 +223,7 @@ interface AutoRunDeps {
   messages: {
     progress: (current: number, total: number, type: BatchAiType) => string;
     complete: (success: number, fail: number) => string;
+    allFailed: string;
   };
 }
 
@@ -318,7 +320,7 @@ async function runAutoQueue(): Promise<void> {
   autoFail = 0;
   setState({ processingWordId: null, autoRunning: false });
   if (deps && (success > 0 || fail > 0)) {
-    setState({ notification: { message: deps.messages.complete(success, fail) } });
+    setState({ notification: { message: success === 0 && fail > 0 ? deps.messages.allFailed : deps.messages.complete(success, fail) } });
     clearNotificationLater(5000);
   }
 }

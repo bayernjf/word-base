@@ -419,6 +419,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           type === 'enrich'
             ? t('vocab.batchEnrichComplete', { success, fail })
             : t('vocab.batchExplainComplete', { success, fail }),
+        allFailed: t('vocab.batchAllFailed'),
       },
     });
   };

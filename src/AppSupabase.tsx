@@ -659,6 +659,7 @@ export default function AppSupabase() {
           ? t('vocab.autoEnriching', { current, total })
           : t('vocab.autoExplaining', { current, total }),
       complete: (success: number, fail: number) => t('vocab.autoComplete', { success, fail }),
+      allFailed: t('vocab.batchAllFailed'),
     };
 
     for (const word of words) {

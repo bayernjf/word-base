@@ -111,6 +111,7 @@ export const zh: LocaleDict = {
     autoEnriching: '自动生成释义中 ({current}/{total})...',
     autoExplaining: '自动深入理解中 ({current}/{total})...',
     autoComplete: '自动分析完成：成功{success}个，失败{fail}个',
+    batchAllFailed: '全部失败，请检查 AI 模型配置（是否已配置并激活、API Key 是否有效）。',
     targetBook: '目标单词本',
     moveFailed: '单词移动失败，请重试',
     movedMany: '已移动 {count} 个单词到',
