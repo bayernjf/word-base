@@ -475,6 +475,100 @@ const parseSenseClusterPayload = (raw) => {
   }
 }
 
+// =============================================
+// 智能句景：AI 故事生成 prompt 与解析
+// =============================================
+const buildStoryGeneratePrompt = ({ topic, difficulty, words }) => {
+  const wordList = (Array.isArray(words) ? words : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .slice(0, 20)
+
+  return [
+    'You are an English teacher writing a short graded-reading passage for a learner. Output strict JSON only, no markdown.',
+    'Schema: {"title":"<English title> (<Chinese title>)","category":"<short English category>","difficulty":"<CEFR level like B2>","contentEn":"<English passage, 120-180 words, one paragraph>","contentZh":"<faithful Chinese translation of the whole passage>","sentences":[{"en":"<one English sentence>","zh":"<its Chinese translation>","words":["<token>", ...]}],"highlightedWords":["<lowercase word>", ...],"grammarInsight":"<one short English note about a grammar point used in the passage>"}',
+    `Topic: ${String(topic || 'daily life').trim()}`,
+    `Target CEFR difficulty: ${String(difficulty || 'B2').trim()}`,
+    wordList.length
+      ? `You MUST naturally use these target words in the passage: ${JSON.stringify(wordList)}. Put every one of them (lowercased) into "highlightedWords".`
+      : 'Choose a handful of useful vocabulary words and list them in "highlightedWords".',
+    'Rules: "contentEn" must be coherent and self-contained; "sentences" must split "contentEn" into its sentences in order, each with a Chinese translation and its word tokens; "highlightedWords" are lowercase single words that appear verbatim in contentEn; keep it appropriate to the requested difficulty; do not include markdown fences.'
+  ].join('\n')
+}
+
+const parseStoryPayload = (raw) => {
+  const text = String(raw || '').trim()
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  const jsonText = fenced?.[1]
+    ? fenced[1].trim()
+    : start >= 0 && end > start
+      ? text.slice(start, end + 1)
+      : text
+
+  let parsed
+  try {
+    parsed = JSON.parse(jsonText)
+  } catch {
+    throw new Error('invalid_ai_enrichment_json')
+  }
+
+  const readString = (value) => (typeof value === 'string' ? value.trim() : '')
+  const readStringArray = (value) => (Array.isArray(value) ? value.map(readString).filter(Boolean) : [])
+  const sentences = (Array.isArray(parsed?.sentences) ? parsed.sentences : [])
+    .map((item) => {
+      const en = readString(item?.en)
+      if (!en) return null
+      return { en, zh: readString(item?.zh), words: readStringArray(item?.words) }
+    })
+    .filter(Boolean)
+    .slice(0, 40)
+
+  return {
+    title: readString(parsed?.title),
+    category: readString(parsed?.category) || 'General',
+    difficulty: readString(parsed?.difficulty) || 'B2',
+    contentEn: readString(parsed?.contentEn),
+    contentZh: readString(parsed?.contentZh),
+    sentences,
+    highlightedWords: readStringArray(parsed?.highlightedWords).map((w) => w.toLowerCase()).slice(0, 40),
+    grammarInsight: readString(parsed?.grammarInsight)
+  }
+}
+
+const buildTutorChatPrompt = ({ story, history, message }) => {
+  const recent = (Array.isArray(history) ? history : [])
+    .slice(-6)
+    .map((m) => `${m?.sender === 'user' ? 'Student' : 'Tutor'}: ${String(m?.text || '').trim()}`)
+    .filter(Boolean)
+    .join('\n')
+
+  return [
+    'You are a friendly, concise English tutor helping a learner understand a reading passage. Answer in clear English (you may add a short Chinese gloss in parentheses for hard words). Keep replies under 120 words. Do not output JSON or markdown fences.',
+    story?.title ? `Passage title: ${String(story.title).trim()}` : '',
+    story?.contentEn ? `Passage: ${String(story.contentEn).trim()}` : '',
+    recent ? `Recent conversation:\n${recent}` : '',
+    `Student question: ${String(message || '').trim()}`
+  ].filter(Boolean).join('\n')
+}
+
+const STORY_DAILY_LIMIT = Number(process.env.STORY_DAILY_LIMIT || 10)
+
+// 故事行 → 前端 camelCase 结构（对齐 Story 类型）
+const serializeStoryRow = (row) => ({
+  id: row.id,
+  title: row.title || '',
+  category: row.category || '',
+  difficulty: row.difficulty || 'B2',
+  contentEn: row.content_en || '',
+  contentZh: row.content_zh || '',
+  sentences: Array.isArray(row.sentences) ? row.sentences : [],
+  highlightedWords: Array.isArray(row.highlighted_words) ? row.highlighted_words : [],
+  grammarInsight: row.grammar_insight || '',
+  createdAt: row.created_at
+})
+
 const getAiConfigEncryptionKey = () => {
   if (!aiConfigEncryptionSecret) {
     throw new Error('ai_config_encryption_key_required')
@@ -1122,6 +1216,140 @@ app.post('/api/v1/ai/sense-cluster', async (req, res) => {
     console.error('[ai/sense-cluster] error:', err.message)
     const status = err.message === 'invalid_ai_enrichment_json' ? 502 : 500
     res.status(status).json({ error: err.message })
+  }
+})
+
+// =============================================
+// 智能句景：生成故事（带每日生成限流，控 AI 成本与存储）
+// =============================================
+app.post('/api/v1/ai/story-generate', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    // 每日生成限流
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: quotaRow, error: quotaErr } = await db
+      .from('story_generation_quota')
+      .select('generated_count')
+      .eq('user_id', user.id)
+      .eq('quota_date', today)
+      .maybeSingle()
+    if (quotaErr) throw quotaErr
+
+    const usedToday = quotaRow?.generated_count || 0
+    if (usedToday >= STORY_DAILY_LIMIT) {
+      return res.status(429).json({ error: 'story_daily_limit_reached', limit: STORY_DAILY_LIMIT })
+    }
+
+    const prompt = buildStoryGeneratePrompt({
+      topic: req.body?.topic,
+      difficulty: req.body?.difficulty,
+      words: req.body?.words
+    })
+
+    const { data: activeConfig, error: configError } = await db
+      .from('ai_provider_configs')
+      .select('provider, model, endpoint, encrypted_api_key')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (configError) throw configError
+
+    let raw
+    if (activeConfig) {
+      raw = await callAiProviderRaw({ config: activeConfig, prompt })
+    } else {
+      if (!genAiClient) return res.status(500).json({ error: 'ai_key_not_configured' })
+      const response = await genAiClient.models.generateContent({
+        model: genAiModel,
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+      })
+      raw = response.text || ''
+    }
+
+    const story = parseStoryPayload(raw)
+    if (!story.contentEn) return res.status(502).json({ error: 'invalid_ai_enrichment_json' })
+
+    // 入库
+    const nowIso = new Date().toISOString()
+    const sourceWordIds = Array.isArray(req.body?.sourceWordIds) ? req.body.sourceWordIds : []
+    const { data: inserted, error: insertError } = await db
+      .from('stories')
+      .insert({
+        user_id: user.id,
+        title: story.title,
+        category: story.category,
+        difficulty: story.difficulty,
+        content_en: story.contentEn,
+        content_zh: story.contentZh,
+        sentences: story.sentences,
+        highlighted_words: story.highlightedWords,
+        grammar_insight: story.grammarInsight,
+        source_word_ids: sourceWordIds,
+        last_read_at: nowIso
+      })
+      .select('id, title, category, difficulty, content_en, content_zh, sentences, highlighted_words, grammar_insight, created_at')
+      .single()
+    if (insertError) throw insertError
+
+    // 更新限流计数（upsert）
+    const { error: upsertErr } = await db
+      .from('story_generation_quota')
+      .upsert({ user_id: user.id, quota_date: today, generated_count: usedToday + 1 }, { onConflict: 'user_id,quota_date' })
+    if (upsertErr) console.error('[ai/story-generate] quota upsert error:', upsertErr.message)
+
+    res.json({ story: serializeStoryRow(inserted), remaining: Math.max(0, STORY_DAILY_LIMIT - usedToday - 1) })
+  } catch (err) {
+    console.error('[ai/story-generate] error:', err.message)
+    const status = err.message === 'invalid_ai_enrichment_json' ? 502 : 500
+    res.status(status).json({ error: err.message })
+  }
+})
+
+// =============================================
+// 智能句景：AI 导师对话（带文章上下文，非流式）
+// =============================================
+app.post('/api/v1/ai/tutor-chat', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const message = String(req.body?.message || '').trim()
+    if (!message) return res.status(400).json({ error: 'message_required' })
+
+    const prompt = buildTutorChatPrompt({
+      story: req.body?.story,
+      history: req.body?.history,
+      message
+    })
+
+    const { data: activeConfig, error: configError } = await db
+      .from('ai_provider_configs')
+      .select('provider, model, endpoint, encrypted_api_key')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (configError) throw configError
+
+    let raw
+    if (activeConfig) {
+      raw = await callAiProviderRaw({ config: activeConfig, prompt })
+    } else {
+      if (!genAiClient) return res.status(500).json({ error: 'ai_key_not_configured' })
+      const response = await genAiClient.models.generateContent({
+        model: genAiModel,
+        contents: prompt
+      })
+      raw = response.text || ''
+    }
+
+    const reply = String(raw || '').trim().replace(/```/g, '').trim()
+    res.json({ reply: reply || (req.body?.story ? 'Could you rephrase your question?' : '') })
+  } catch (err) {
+    console.error('[ai/tutor-chat] error:', err.message)
+    res.status(500).json({ error: err.message })
   }
 })
 

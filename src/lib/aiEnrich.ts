@@ -1,5 +1,5 @@
 import type { Word, WordContext } from '../types';
-import type { SenseGroups } from '../types';
+import type { SenseGroups, Story, ChatMessage } from '../types';
 
 export interface AiEnrichmentRequest {
   word: string;
@@ -317,4 +317,56 @@ function readUsageHistory(value: unknown): AiEnrichment['usageHistory'] {
       return context && translation ? { context, translation, source } : null;
     })
     .filter((item): item is { context: string; translation: string; source: string } => Boolean(item));
+}
+
+export interface StoryGenerateRequest {
+  topic?: string;
+  difficulty?: string;
+  words?: string[];
+  sourceWordIds?: string[];
+}
+
+// 生成的故事（未持久化前的形态，与 Story 对齐但 id/createdAt 由后端返回）
+export type GeneratedStory = Story & { createdAt?: string };
+
+export async function requestStoryGenerate(
+  input: StoryGenerateRequest,
+  accessToken: string
+): Promise<{ story: GeneratedStory; remaining: number }> {
+  console.debug('[aiEnrich] requestStoryGenerate', { topic: input.topic, words: input.words?.length });
+  const response = await fetch('/api/v1/ai/story-generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.error || 'ai_story_generate_failed'));
+  }
+  return { story: data.story as GeneratedStory, remaining: Number(data?.remaining ?? 0) };
+}
+
+export async function requestTutorChat(
+  input: { story?: Pick<Story, 'title' | 'contentEn'>; history?: ChatMessage[]; message: string },
+  accessToken: string
+): Promise<string> {
+  console.debug('[aiEnrich] requestTutorChat', { messageLength: input.message.length });
+  const response = await fetch('/api/v1/ai/tutor-chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.error || 'ai_tutor_chat_failed'));
+  }
+  return String(data?.reply || '').trim();
 }

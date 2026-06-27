@@ -4,7 +4,7 @@ import { createLogger } from './lib/logger';
 import { AppLanguage, ThemeType, Word } from './types';
 
 const logger = createLogger('AppSupabase');
-import { initialStories, listeningQuizzes } from './mockData';
+import { listeningQuizzes } from './mockData';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -31,6 +31,7 @@ import {
 } from './components/views';
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
+import { useStories } from './hooks/useStories';
 import { profileApi, supabase } from './lib/supabase';
 import { createTranslator } from './i18n';
 import { enqueueAutoAi, type BatchAiType } from './lib/batchAiStore';
@@ -98,6 +99,7 @@ export default function AppSupabase() {
     useVocabularyBooks();
   const [selectedBookId, setSelectedBookId] = useState<string>('');
   const { words, addWord, deleteWords, moveWords, updateWord } = useWords(selectedBookId);
+  const { stories, isGenerating: isGeneratingStory, generateStory, deleteStory } = useStories();
 
   const [theme, setTheme] = useState<ThemeType>(() => {
     if (typeof window === 'undefined') {
@@ -822,7 +824,17 @@ export default function AppSupabase() {
           />
         );
       case 'stories':
-        return <StudyScenarioView themeStyles={themeStyles} stories={initialStories} words={words} />;
+        return <StudyScenarioView
+          themeStyles={themeStyles}
+          language={language}
+          stories={stories}
+          words={words}
+          isGenerating={isGeneratingStory}
+          hasActiveModel={hasActiveModel}
+          accessToken={session?.access_token}
+          onGenerateStory={generateStory}
+          onDeleteStory={deleteStory}
+        />;
       case 'practice':
         return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} />;
       case 'practice-review':

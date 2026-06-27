@@ -17,11 +17,11 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles, language, user }) => {
   const t = createTranslator(language);
-  const menuItems = [
+  const menuItems: { id: string; label: string; icon: typeof Home; hidden?: boolean }[] = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
     { id: 'vocabulary', label: t('sidebar.vocabulary'), icon: BookOpen },
     { id: 'mylists', label: t('sidebar.mylists'), icon: Layers },
-    { id: 'stories', label: t('sidebar.stories'), icon: Sparkles, hidden: true },
+    { id: 'stories', label: t('sidebar.stories'), icon: Sparkles },
     { id: 'practice', label: t('sidebar.practice'), icon: Activity },
     { id: 'settings-account', label: t('sidebar.settings'), icon: Settings }
   ];
