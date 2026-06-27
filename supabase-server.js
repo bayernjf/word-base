@@ -652,9 +652,11 @@ const resolveGeminiGenerateContentUrl = ({ endpoint, model, apiKey }) => {
   return `${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
 }
 
+const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 120000)
+
 const fetchAiProvider = async (url, options) => {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000)
+  const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS)
   try {
     return await fetch(url, {
       ...options,
