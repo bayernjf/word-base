@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
@@ -55,10 +56,11 @@ interface AddNewModelProps {
   language: AppLanguage;
   onNavigate: (view: string) => void;
   onSaveModel: (model: AiProviderInput) => void | Promise<void>;
+  onTestConnection?: (input: { provider: AiProvider; model: string; endpoint?: string; apiKey?: string; id?: string }) => Promise<boolean>;
   initialModel?: EditableModel | null;
 }
 
-export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, language, onNavigate, onSaveModel, initialModel }) => {
+export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, language, onNavigate, onSaveModel, onTestConnection, initialModel }) => {
   const isEditing = Boolean(initialModel?.id);
   const initialProvider = normalizeProvider(initialModel?.provider);
   const initialModelValue = initialModel?.model || defaultModelForProvider(initialProvider);
@@ -68,11 +70,19 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
   const [apiKey, setApiKey] = useState('');
   const [endpoint, setEndpoint] = useState(initialModel?.endpoint || defaultEndpointForProvider(initialProvider));
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const [isProviderMenuOpen, setIsProviderMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isCustomModel, setIsCustomModel] = useState(!isKnownProviderModel(initialProvider, initialModelValue));
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const t = createTranslator(language);
+
+  // 局部 toast：在页面内容区顶部弹出，自动消失
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ type, message });
+    window.setTimeout(() => setToast(null), 3200);
+  };
   const providerLabel = providerOptions.find((option) => option.value === provider)?.label || 'OpenAI';
   const modelOptions = modelOptionsByProvider[provider as SelectableProvider] || modelOptionsByProvider.openai;
   const selectedModelOption = modelOptions.find((option) => option.value === model);
@@ -92,6 +102,9 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
   const cancelBtnClass = isGlass
     ? 'bg-white/5 hover:bg-white/10 border border-white/10 text-white/60'
     : 'bg-[#fffdf7] hover:bg-[#f2faee] border border-[#9fc89f] text-[#5d7564]';
+  const testBtnClass = isGlass
+    ? 'bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-400/30 text-indigo-300'
+    : 'bg-[#eaf5e6] hover:bg-[#dceed5] border border-[#84c796] text-[#2f805d]';
 
   useEffect(() => {
     setName(initialModel?.name || '');
@@ -134,6 +147,40 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
     setIsModelMenuOpen(false);
   };
 
+  const handleTest = async () => {
+    if (!onTestConnection || isTesting) return;
+    setSaveError(null);
+    const trimmedApiKey = apiKey.trim();
+    if (!trimmedApiKey && !isEditing) {
+      showToast(language === 'zh' ? '请填写 API Key' : 'API Key is required', 'error');
+      return;
+    }
+    if (!model.trim()) {
+      showToast(language === 'zh' ? '请填写模型 ID' : 'Model ID is required', 'error');
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const ok = await onTestConnection({
+        provider,
+        model: model.trim(),
+        endpoint: endpoint.trim() || undefined,
+        ...(trimmedApiKey ? { apiKey: trimmedApiKey } : {}),
+        ...(isEditing && initialModel?.id ? { id: initialModel.id } : {}),
+      });
+      if (ok) {
+        showToast(language === 'zh' ? '连接成功，模型可用。' : 'Connection successful — the model is reachable.', 'success');
+      } else {
+        showToast(language === 'zh' ? '连接失败，请检查配置。' : 'Connection failed — please check your configuration.', 'error');
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'connection_test_failed';
+      showToast(language === 'zh' ? `连接失败：${msg}` : `Connection failed: ${msg}`, 'error');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const submitForm = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSaving(true);
@@ -165,7 +212,30 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
   };
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-xl relative">
+      {/* 页面内容区顶部局部 toast */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 z-30 flex justify-center">
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              key={toast.message}
+              initial={{ opacity: 0, y: -16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className={`pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-medium max-w-sm ${
+                toast.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-red-500/10 border-red-500/30 text-red-500'
+              }`}
+            >
+              {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+              <span className="leading-relaxed">{toast.message}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       <div className="flex items-center space-x-2 border-b border-neutral-200 dark:border-white/10 pb-4">
         <button
           onClick={() => onNavigate('settings-aimodels')}
@@ -370,6 +440,16 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
         )}
 
         <div className="flex gap-2 pt-4">
+          <button
+            type="button"
+            onClick={() => void handleTest()}
+            disabled={isTesting || isSaving}
+            className={`py-2 rounded-xl font-bold flex-1 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${testBtnClass}`}
+          >
+            {isTesting
+              ? (language === 'zh' ? '测试中...' : 'Testing...')
+              : (language === 'zh' ? '测试连接' : 'Test Connection')}
+          </button>
           <button type="submit" disabled={isSaving} className={`${themeStyles.btnPrimary} py-2 font-bold flex-1 disabled:opacity-60`}>
             {isSaving ? 'Saving...' : (isEditing ? (language === 'zh' ? '保存修改' : 'Save Changes') : t('addModel.save'))}
           </button>

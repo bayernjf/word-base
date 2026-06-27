@@ -42,6 +42,8 @@ import {
   deleteAiProviderConfig,
   listAiProviderConfigs,
   updateAiProviderConfig,
+  testAiProviderConfig,
+  type AiProviderTestInput,
 } from './lib/aiProviderConfigs';
 
 interface ProfileRow {
@@ -530,6 +532,13 @@ export default function AppSupabase() {
     }
   };
 
+  const handleTestModelConnection = async (input: AiProviderTestInput): Promise<boolean> => {
+    const accessToken = session?.access_token;
+    if (!accessToken) throw new Error('not_authenticated');
+    logger.debug('handleTestModelConnection', { provider: input.provider, model: input.model });
+    return testAiProviderConfig(input, accessToken);
+  };
+
   const handleUpdateCustomModel = async (modelId: string, updates: AiProviderInput) => {
     const accessToken = session?.access_token;
     if (!accessToken) return;
@@ -929,6 +938,7 @@ export default function AppSupabase() {
                 language={language}
                 onNavigate={setActiveView}
                 onSaveModel={handleAddCustomModel}
+                onTestConnection={handleTestModelConnection}
               />
             )}
             {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}

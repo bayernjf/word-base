@@ -81,6 +81,22 @@ export async function deleteAiProviderConfig(id: string, accessToken: string): P
   });
 }
 
+export interface AiProviderTestInput {
+  provider: AiProvider;
+  model: string;
+  endpoint?: string;
+  apiKey?: string;
+  id?: string;
+}
+
+export async function testAiProviderConfig(input: AiProviderTestInput, accessToken: string): Promise<boolean> {
+  const data = await requestAiProviderApi('/api/v1/ai/providers/test', accessToken, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return Boolean(data?.ok);
+}
+
 function normalizeProvider(value: unknown): AiProvider {
   if (value === 'anthropic') return 'anthropic';
   if (value === 'gemini') return 'gemini';

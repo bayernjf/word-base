@@ -1017,6 +1017,46 @@ app.delete('/api/v1/ai/providers/:id', async (req, res) => {
   }
 })
 
+// 测试连接：用提供的凭据（或编辑时已保存的 Key）发一个极小请求验证模型可用
+app.post('/api/v1/ai/providers/test', async (req, res) => {
+  try {
+    const { user, db } = await getRequestContext(req)
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const provider = normalizeAiProvider(req.body?.provider)
+    const model = String(req.body?.model || '').trim() || defaultModelForProvider(provider)
+    const endpoint = String(req.body?.endpoint || '').trim()
+    const apiKey = String(req.body?.apiKey || '').trim()
+    const id = String(req.body?.id || '').trim()
+
+    // 取加密 Key：优先用本次传入的明文 Key；否则（编辑场景留空）回退到已保存的 Key
+    let encrypted_api_key
+    if (apiKey) {
+      encrypted_api_key = encryptApiKey(apiKey)
+    } else if (id) {
+      const { data: saved, error: savedErr } = await db
+        .from('ai_provider_configs')
+        .select('encrypted_api_key')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (savedErr) throw savedErr
+      if (!saved?.encrypted_api_key) return res.status(400).json({ error: 'api_key_required' })
+      encrypted_api_key = saved.encrypted_api_key
+    } else {
+      return res.status(400).json({ error: 'api_key_required' })
+    }
+
+    const config = { provider, model, endpoint: endpoint || undefined, encrypted_api_key }
+    const raw = await callAiProviderRaw({ config, prompt: 'Reply with the single word: OK' })
+    const ok = String(raw || '').trim().length > 0
+    res.json({ ok, model, provider })
+  } catch (err) {
+    console.error('[ai/providers/test] error:', err.message)
+    res.status(502).json({ error: err.message || 'connection_test_failed' })
+  }
+})
+
 app.post('/api/v1/ai/enrich', async (req, res) => {
   try {
     const { user, db } = await getRequestContext(req)
