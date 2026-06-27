@@ -1,6 +1,7 @@
 import { ThemeType } from '../types';
 
 export interface ThemeClasses {
+  name: ThemeType;
   bodyBg: string;
   card: string;
   sidebar: string;
@@ -23,25 +24,27 @@ export function getThemeClasses(theme: ThemeType, isSmallTypography: boolean = f
   switch (theme) {
     case 'natural':
       return {
-        bodyBg: 'bg-[#f4f2eb] font-sans transition-colors duration-500 min-h-screen text-emerald-950',
-        card: 'bg-[#faf9f4] border border-[#d6d2c4] rounded-2xl shadow-sm p-6 hover:shadow-md transition-all duration-300',
-        sidebar: 'bg-[#ece9df] border-r border-[#d6d2c4] p-6',
-        textPrimary: 'text-[#1c2e24] font-semibold tracking-tight',
-        textSecondary: 'text-[#525f54] font-normal leading-relaxed',
-        btnPrimary: 'bg-emerald-700 hover:bg-emerald-800 text-[#f4f2eb] rounded-xl transition-all shadow-sm hover:shadow-md px-4 py-2 hover:scale-[1.01] active:translate-y-0 px-4 py-2 text-center cursor-pointer',
-        btnSecondary: 'bg-stone-100 hover:bg-stone-200 text-emerald-900 rounded-xl border border-stone-300 px-4 py-2 text-center cursor-pointer',
-        accent: 'bg-amber-100 border border-amber-200 text-amber-800',
-        borderClass: 'border-[#d6d2c4]',
-        badgeClass: 'bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md text-xs font-serif uppercase tracking-wider border border-emerald-900/10',
-        navClass: 'bg-[#ece9df] border-b border-[#d6d2c4] py-4 px-6',
-        accentText: 'text-emerald-700 underline decoration-amber-500/50 decoration-wavy decoration-2 underline-offset-4 font-normal',
+        name: 'natural',
+        bodyBg: 'bg-[#edf6e7] font-sans transition-colors duration-500 min-h-screen text-[#244235]',
+        card: 'bg-[#fffdf7] border border-[#bad8b7] rounded-2xl shadow-md shadow-[#8fb998]/20 p-6 hover:shadow-lg hover:shadow-[#8fb998]/25 transition-all duration-300',
+        sidebar: 'bg-[#e3f0dd] border-r border-[#bad8b7] p-6 shadow-sm shadow-[#8fb998]/20',
+        textPrimary: 'text-[#1d3a2b] font-semibold tracking-tight',
+        textSecondary: 'text-[#556a5b] font-normal leading-relaxed',
+        btnPrimary: 'bg-[#56a978] hover:bg-[#4a9669] text-white rounded-full transition-all shadow-sm shadow-[#56a978]/30 hover:shadow-md hover:shadow-[#56a978]/35 px-4 py-2 hover:scale-[1.01] active:scale-[0.99] text-center cursor-pointer',
+        btnSecondary: 'bg-[#fffdf7] hover:bg-[#e1f0db] text-[#2a4d3a] rounded-xl border border-[#adcfa9] px-4 py-2 text-center cursor-pointer transition-all shadow-xs shadow-[#8fb998]/10 active:scale-[0.99]',
+        accent: 'bg-[#fff4d8] border border-[#f2d8aa] text-[#8a6338]',
+        borderClass: 'border-[#bad8b7]',
+        badgeClass: 'bg-[#d9efd2] text-[#336f4e] px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border border-[#9fcea8]',
+        navClass: 'bg-[#f8fbf5]/95 border-b border-[#bad8b7] py-4 px-6 shadow-sm shadow-[#8fb998]/10',
+        accentText: 'text-[#2f805d] underline decoration-[#e6b85c]/80 decoration-wavy decoration-2 underline-offset-4 font-semibold',
         glowEffect: '',
-        secondaryBg: 'bg-[#ece9df]',
+        secondaryBg: 'bg-[#dfeeda]',
       };
       
     case 'glass':
     default:
       return {
+        name: 'glass',
         bodyBg: 'bg-[#0f172a] font-sans min-h-screen text-white transition-colors duration-500 relative overflow-x-hidden',
         card: 'bg-white/5 border border-white/10 backdrop-blur-md rounded-3xl p-6 transition-all hover:bg-white/[0.08] hover:border-white/15 hover:shadow-lg hover:shadow-indigo-500/5 duration-300',
         sidebar: 'bg-white/5 border border-white/10 backdrop-blur-xl p-5 rounded-2xl shadow-xl shadow-black/10',
