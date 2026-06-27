@@ -348,7 +348,16 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       logger.info('handleTranslateContext success', { contextIndex, preview: translatedText.slice(0, 30) });
     } catch (error) {
       logger.error('Error translating context:', error);
-      setContextTranslations((prev) => ({ ...prev, [contextIndex]: t('wordDetail.translateError') }));
+      const code = error instanceof Error ? error.message : 'translate_failed';
+      const reason =
+        code === 'auth_required'
+          ? (language === 'en' ? 'please sign in again' : '请重新登录')
+          : code === 'ai_key_not_configured'
+            ? (language === 'en' ? 'no AI model configured' : '未配置 AI 模型')
+            : code === 'empty_translation'
+              ? (language === 'en' ? 'empty result' : '返回为空')
+              : code;
+      setContextTranslations((prev) => ({ ...prev, [contextIndex]: `${t('wordDetail.translateError')}（${reason}）` }));
     } finally {
       setContextLoading(contextIndex);
     }
