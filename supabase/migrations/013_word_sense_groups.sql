@@ -1,0 +1,13 @@
+-- AI 多语境义项分离：对一个词的多条语境聚类，把不同含义分组存储
+-- 结构：{
+--   "groups": [
+--     {
+--       "sense": "<English short sense label>",
+--       "translation": "<Chinese translation for this sense>",
+--       "definition": "<English-English explanation of this sense>",
+--       "contexts": ["<verbatim user sentence>", ...]
+--     }
+--   ],
+--   "generatedAt": 1700000000000
+-- }
+ALTER TABLE words ADD COLUMN IF NOT EXISTS sense_groups JSONB DEFAULT NULL;

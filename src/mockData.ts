@@ -195,7 +195,7 @@ export const mockDefaultModels: AIModel[] = [
     id: 'gemini-15',
     name: 'Gemini 1.5 Pro',
     provider: 'Google AI',
-    apiKey: 'GEMINI_API_KEY (System Inject)',
+    apiKey: 'your-gemini-api-key-here',
     purpose: 'Conversational Voice & Fluency Grading',
     isActive: false
   }

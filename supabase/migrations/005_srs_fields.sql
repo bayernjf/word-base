@@ -1,0 +1,8 @@
+ALTER TABLE words ADD COLUMN IF NOT EXISTS next_review_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE words ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0;
+ALTER TABLE words ADD COLUMN IF NOT EXISTS ease_factor REAL DEFAULT 2.5;
+ALTER TABLE words ADD COLUMN IF NOT EXISTS interval_days INTEGER DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_words_next_review
+  ON words(user_id, next_review_at)
+  WHERE is_deleted = FALSE;

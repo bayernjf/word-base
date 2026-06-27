@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "word-base",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,10 +9,12 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "server": "node server.js",
+    "server:supabase": "node supabase-server.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@supabase/supabase-js": "^2.48.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "better-sqlite3": "^12.10.0",

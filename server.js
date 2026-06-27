@@ -7,6 +7,7 @@ import * as usersDAL from './db/users.js';
 import * as booksDAL from './db/books.js';
 import * as wordsDAL from './db/words.js';
 import * as authDAL from './db/auth.js';
+import * as syncDAL from './db/sync.js';
 
 dotenv.config();
 
@@ -579,7 +580,7 @@ app.post('/api/v1/user/change-password', requireAuth, async (req, res) => {
 // API: 获取用户的所有单词本
 app.get('/api/v1/books', requireAuth, async (req, res) => {
   const userId = req.user.id;
-  const books = await booksDAL.getBooksByUserId(userId);
+  const books = booksDAL.getBooksByUserId(userId);
   res.json({ ok: true, books });
 });
 
@@ -593,14 +594,14 @@ app.post('/api/v1/books', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'name_required' });
   }
   
-  const existingBooks = await booksDAL.getBooksByUserId(userId);
+  const existingBooks = booksDAL.getBooksByUserId(userId);
   const existing = existingBooks.find(b => b.name.toLowerCase() === name.trim().toLowerCase());
   if (existing) {
     return res.status(409).json({ error: 'book_name_already_exists' });
   }
   
   const bookId = crypto.randomUUID();
-  const newBook = await booksDAL.createBook({
+  const newBook = booksDAL.createBook({
     id: bookId, userId, name: name.trim(),
     description: description || '',
     wordCount: 0,
@@ -616,12 +617,12 @@ app.patch('/api/v1/books/:bookId/set-sync', requireAuth, async (req, res) => {
   const { bookId } = req.params;
   const userId = req.user.id;
   
-  const existingBook = await booksDAL.getBookById(bookId, userId);
+  const existingBook = booksDAL.getBookById(bookId, userId);
   if (!existingBook) {
     return res.status(404).json({ error: 'book_not_found' });
   }
   
-  const books = await booksDAL.setSyncBook(userId, bookId);
+  const books = booksDAL.setSyncBook(userId, bookId);
   res.json({ ok: true, books });
 });
 
@@ -631,12 +632,12 @@ app.patch('/api/v1/books/:bookId', requireAuth, async (req, res) => {
   const { name, description, icon } = req.body;
   const userId = req.user.id;
   
-  const existingBook = await booksDAL.getBookById(bookId, userId);
+  const existingBook = booksDAL.getBookById(bookId, userId);
   if (!existingBook) {
     return res.status(404).json({ error: 'book_not_found' });
   }
   
-  const updatedBook = await booksDAL.updateBook(bookId, userId, { name, description, icon });
+  const updatedBook = booksDAL.updateBook(bookId, userId, { name, description, icon });
   res.json({ ok: true, book: updatedBook });
 });
 
@@ -645,7 +646,7 @@ app.delete('/api/v1/books/:bookId', requireAuth, async (req, res) => {
   const { bookId } = req.params;
   const userId = req.user.id;
   
-  const existingBook = await booksDAL.getBookById(bookId, userId);
+  const existingBook = booksDAL.getBookById(bookId, userId);
   if (!existingBook) {
     return res.status(404).json({ error: 'book_not_found' });
   }
@@ -654,7 +655,7 @@ app.delete('/api/v1/books/:bookId', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'cannot_delete_sync_book' });
   }
   
-  await booksDAL.deleteBook(bookId, userId);
+  booksDAL.deleteBook(bookId, userId);
   res.json({ ok: true });
 });
 
@@ -667,7 +668,7 @@ app.post('/api/v1/books/batch-delete', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'invalid_input' });
   }
   
-  const books = await booksDAL.getBooksByUserId(userId);
+  const books = booksDAL.getBooksByUserId(userId);
   const syncBook = books.find(b => b.isSync);
   
   if (syncBook && bookIds.includes(syncBook.id)) {
@@ -675,7 +676,7 @@ app.post('/api/v1/books/batch-delete', requireAuth, async (req, res) => {
   }
   
   for (const id of bookIds) {
-    await booksDAL.deleteBook(id, userId);
+    booksDAL.deleteBook(id, userId);
   }
   
   res.json({ ok: true });
@@ -684,7 +685,7 @@ app.post('/api/v1/books/batch-delete', requireAuth, async (req, res) => {
 // API: 获取单词
 app.get('/api/v1/words', requireAuth, async (req, res) => {
   const { bookId } = req.query;
-  const words = await wordsDAL.getWords(req.user.id, bookId);
+  const words = wordsDAL.getWords(req.user.id, bookId);
   res.json({ ok: true, words });
 });
 
@@ -732,7 +733,7 @@ app.post('/api/v1/words', requireAuth, async (req, res) => {
   const userId = req.user.id;
   const input = req.body;
   
-  const syncBook = await booksDAL.getSyncBook(userId);
+  const syncBook = booksDAL.getSyncBook(userId);
   if (!input.bookId && syncBook) {
     input.bookId = syncBook.id;
   }
@@ -747,21 +748,21 @@ app.post('/api/v1/words', requireAuth, async (req, res) => {
   }
 
   const { word } = normalized;
-  const existing = await wordsDAL.checkWordExists(userId, word.word, word.bookId);
+  const existing = wordsDAL.checkWordExists(userId, word.word, word.bookId);
   if (existing) {
     return res.json({ ok: true, saved: false, duplicate: true, word: existing });
   }
 
-  const newWord = await wordsDAL.createWord(word);
+  const newWord = wordsDAL.createWord(word);
   res.json({ ok: true, saved: true, duplicate: false, word: newWord });
 });
 
 // 处理新格式单词添加
-async function handleAddNewFormatWord(input, userId, now, res) {
+function handleAddNewFormatWord(input, userId, now, res) {
   const wordId = input.id || crypto.randomUUID();
   const bookId = input.bookId || `${userId}_default`;
   
-  const existing = await wordsDAL.checkWordExists(userId, input.word, bookId);
+  const existing = wordsDAL.checkWordExists(userId, input.word, bookId);
   
   if (existing) {
     let existingContexts = [];
@@ -782,12 +783,12 @@ async function handleAddNewFormatWord(input, userId, now, res) {
       }
     }
     
-    const updatedWord = await wordsDAL.updateWordContexts(existing.id, userId, mergedContexts);
+    const updatedWord = wordsDAL.updateWordContexts(existing.id, userId, mergedContexts);
     return res.json({ ok: true, saved: true, duplicate: false, word: updatedWord });
   }
   
   const normalized = normalizeWordInput(input, userId, now);
-  const newWord = await wordsDAL.createWord(normalized.word);
+  const newWord = wordsDAL.createWord(normalized.word);
   res.json({ ok: true, saved: true, duplicate: false, word: newWord });
 }
 
@@ -801,7 +802,7 @@ app.post('/api/v1/words/batch', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'invalid_input' });
   }
 
-  const syncBook = await booksDAL.getSyncBook(userId);
+  const syncBook = booksDAL.getSyncBook(userId);
   const processedEntryIds = [];
   let savedCount = 0;
   let duplicateCount = 0;
@@ -816,7 +817,7 @@ app.post('/api/v1/words/batch', requireAuth, async (req, res) => {
     }
     
     if (entry.frequency !== undefined || entry.contexts !== undefined) {
-      await handleAddNewFormatWord(input, userId, now, { json: () => {} });
+      handleAddNewFormatWord(input, userId, now, { json: () => {} });
       savedCount++;
       processedEntryIds.push(entryId);
       continue;
@@ -826,14 +827,14 @@ app.post('/api/v1/words/batch', requireAuth, async (req, res) => {
     if (!normalized.ok) continue;
 
     const { word } = normalized;
-    const existing = await wordsDAL.checkWordExists(userId, word.word, word.bookId);
+    const existing = wordsDAL.checkWordExists(userId, word.word, word.bookId);
     if (existing) {
       duplicateCount++;
       processedEntryIds.push(entryId);
       continue;
     }
 
-    await wordsDAL.createWord(word);
+    wordsDAL.createWord(word);
     savedCount++;
     processedEntryIds.push(entryId);
   }
@@ -844,6 +845,89 @@ app.post('/api/v1/words/batch', requireAuth, async (req, res) => {
     savedCount,
     duplicateCount,
     processedEntryIds
+  });
+});
+
+// API: 批量删除单词
+app.post('/api/v1/words/batch-delete', requireAuth, async (req, res) => {
+  const { wordIds } = req.body;
+  const userId = req.user.id;
+  
+  if (!wordIds || !Array.isArray(wordIds)) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+  
+  for (const wordId of wordIds) {
+    wordsDAL.deleteWordById(wordId, userId);
+  }
+  
+  res.json({ ok: true, deletedCount: wordIds.length });
+});
+
+// API: 获取同步状态和最新版本
+app.get('/api/v1/sync/status', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const latestVersion = syncDAL.getLatestSyncVersion(userId);
+  res.json({ ok: true, latestVersion });
+});
+
+// API: 获取增量变更
+app.get('/api/v1/sync/changes', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const sinceVersion = Number(req.query.sinceVersion) || 0;
+  
+  const changelogs = syncDAL.getChangelogsSince(userId, sinceVersion);
+  
+  // 获取所有变更的实体数据
+  const changes = [];
+  const bookIds = new Set();
+  const wordIds = new Set();
+  
+  for (const log of changelogs) {
+    if (log.action !== 'delete') {
+      if (log.entityType === 'book') {
+        bookIds.add(log.entityId);
+      } else if (log.entityType === 'word') {
+        wordIds.add(log.entityId);
+      }
+    }
+    changes.push({
+      entityType: log.entityType,
+      entityId: log.entityId,
+      action: log.action,
+      syncVersion: log.syncVersion
+    });
+  }
+  
+  // 获取变更的单词本
+  const books = booksDAL.getBooksByUserId(userId);
+  const changedBooks = books.filter(b => bookIds.has(b.id));
+  
+  // 获取变更的单词
+  const allWords = wordsDAL.getWords(userId);
+  const changedWords = allWords.filter(w => wordIds.has(w.id));
+  
+  res.json({
+    ok: true,
+    changes,
+    books: changedBooks,
+    words: changedWords,
+    latestVersion: changelogs.length > 0 ? changelogs[changelogs.length - 1].syncVersion : sinceVersion
+  });
+});
+
+// API: 全量同步（获取所有数据）
+app.get('/api/v1/sync/full', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const books = booksDAL.getBooksByUserId(userId);
+  const words = wordsDAL.getWords(userId);
+  const latestVersion = syncDAL.getLatestSyncVersion(userId);
+  
+  res.json({
+    ok: true,
+    books,
+    words,
+    latestVersion
   });
 });
 
