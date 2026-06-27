@@ -14,6 +14,9 @@ interface PracticeMainProps {
 
 export const PracticeMainView: React.FC<PracticeMainProps> = ({ themeStyles, language, onNavigate, words = [] }) => {
   const t = createTranslator(language);
+  const isGlass = themeStyles.name === 'glass';
+  const accentIcon = isGlass ? 'bg-indigo-500/10 text-indigo-300' : 'bg-[#56a978]/15 text-[#2f805d]';
+  const accentBar = isGlass ? 'bg-indigo-400' : 'bg-[#56a978]';
   const dueCount = getDueWords(words).length;
   const cards = [
     {
@@ -44,7 +47,7 @@ export const PracticeMainView: React.FC<PracticeMainProps> = ({ themeStyles, lan
           <div key={card.id} className={`${themeStyles.card} flex flex-col justify-between hover:scale-[1.01] transition-transform`}>
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl">
+                <span className={`p-3 ${accentIcon} rounded-2xl`}>
                   {card.id === 'listening' ? <Volume2 className="w-6 h-6" /> :
                    card.id === 'speaking' ? <Mic className="w-6 h-6" /> :
                    card.id === 'reading' ? <BookOpen className="w-6 h-6" /> :
@@ -64,12 +67,12 @@ export const PracticeMainView: React.FC<PracticeMainProps> = ({ themeStyles, lan
                 <span>{card.progress}%</span>
               </div>
               <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-600" style={{ width: `${card.progress}%` }} />
+                <div className={`h-full ${accentBar}`} style={{ width: `${card.progress}%` }} />
               </div>
               
               <button 
                 onClick={() => onNavigate(`practice-${card.id}`)}
-                className="w-full text-center text-xs mt-3 ${themeStyles.btnPrimary} bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-xl transition-transform cursor-pointer"
+                className={`w-full text-xs mt-3 ${themeStyles.btnPrimary}`}
               >
                 {t('practiceMain.launch')}
               </button>
