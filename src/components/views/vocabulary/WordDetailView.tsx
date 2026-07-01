@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
-import { AlertCircle, ArrowLeft, Globe, ChevronDown, Languages, Save, Trash2, Sparkles, BrainCircuit } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Globe, ChevronDown, Languages, Save, Trash2, Sparkles, BrainCircuit, Maximize2, Minimize2 } from 'lucide-react';
 import { createLogger } from '../../../lib/logger';
 import { AppLanguage, Word, WordContext } from '../../../types';
 
@@ -9,6 +9,7 @@ import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime, formatDate } from '../shared/helpers';
 import { WordPhonetics } from '../shared/WordPhonetics';
 import { EncounterCurve } from './EncounterCurve';
+import { WordDetailCompact } from './WordDetailCompact';
 import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate, requestSenseClusters } from '../../../lib/aiEnrich';
 import {
   subscribe as subscribeBatchAi,
@@ -95,6 +96,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const [hasDeepExplanation, setHasDeepExplanation] = useState(() => !!word?.deepExplanation);
   const [senseClusterLoading, setSenseClusterLoading] = useState(() => getAiLoading(word?.id, 'sense'));
   const [senseClusterError, setSenseClusterError] = useState<string | null>(null);
+  const [forceCompact, setForceCompact] = useState<boolean | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  const expandAll = () => setExpandedSections({ details: true, deepExplain: true, dictLinks: true, encounterCurve: true, senseClusters: true, allContexts: true });
+  const collapseAll = () => setExpandedSections({});
   // 订阅批量任务 store：若当前单词正被批量任务处理，则按钮同步显示进行中
   const batchState = useSyncExternalStore(subscribeBatchAi, getBatchAiSnapshot);
   const batchProcessingType = word?.id ? batchState.processingMap[word.id] : undefined;
@@ -119,6 +125,13 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
   const dragRafRef = useRef<number | null>(null);
   const t = createTranslator(language);
 
+  const [windowHeight, setWindowHeight] = useState<number>(typeof window !== 'undefined' ? window.innerHeight : 900);
+  useEffect(() => {
+    const handleResize = () => setWindowHeight(window.innerHeight);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  const isCompact = forceCompact ?? (windowHeight < 800);
   const isGlass = themeStyles.name === 'glass';
   const contextColDivider = isGlass ? 'border-r border-white/10' : 'border-r border-[#c7dfbd]';
   const dropdownBtnHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
@@ -521,15 +534,54 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
 
   return (
     <div className="space-y-4">
-      <button 
-        onClick={() => onNavigate('vocabulary')}
-        className="inline-flex items-center space-x-1 text-xs font-medium hover:underline text-neutral-500 cursor-pointer"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>{t('wordDetail.backToWordbook')}</span>
-      </button>
+      <div className="flex items-center justify-between">
+        <button 
+          onClick={() => onNavigate('vocabulary')}
+          className="inline-flex items-center space-x-1 text-xs font-medium hover:underline text-neutral-500 cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>{t('wordDetail.backToWordbook')}</span>
+        </button>
+        <button
+          onClick={() => setForceCompact(prev => prev === null ? true : prev === true ? false : null)}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-colors cursor-pointer ${
+            isCompact
+              ? (isGlass ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400' : 'border-[#84c796] bg-[#d9efd2] text-[#2f805d]')
+              : (isGlass ? 'border-white/10 text-white/40 hover:text-white/60' : 'border-[#bad8b7] text-neutral-400 hover:text-neutral-600')
+          }`}
+          title={isCompact ? (language === 'zh' ? '切换完整模式' : 'Switch to full mode') : (language === 'zh' ? '切换紧凑模式' : 'Switch to compact mode')}
+        >
+          {isCompact ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+          <span>{isCompact ? (language === 'zh' ? '完整' : 'Full') : (language === 'zh' ? '紧凑' : 'Compact')}</span>
+        </button>
+      </div>
 
-      {/* 主容器，包含两部分和分隔条 */}
+      {isCompact && (
+        <WordDetailCompact
+          themeStyles={themeStyles}
+          language={language}
+          word={word}
+          contextTranslations={contextTranslations}
+          contextActionLoading={contextActionLoading}
+          expandedSections={expandedSections}
+          aiEnrichError={aiEnrichError}
+          deepExplainError={deepExplainError}
+          effectiveEnrichLoading={effectiveEnrichLoading}
+          effectiveDeepExplainLoading={effectiveDeepExplainLoading}
+          onToggleSection={toggleSection}
+          onExpandAll={expandAll}
+          onCollapseAll={collapseAll}
+          onAiEnrich={handleAiEnrich}
+          onDeepExplain={handleDeepExplain}
+          onSenseCluster={handleSenseCluster}
+          senseClusterError={senseClusterError}
+          senseClusterLoading={senseClusterLoading}
+          onTranslateContext={handleTranslateContext}
+          onSaveContextTranslation={handleSaveContextTranslation}
+          onDeleteContextTranslation={handleDeleteContextTranslation}
+        />
+      )}
+      <div className={isCompact ? 'hidden' : ''}>
       <div 
         ref={containerRef}
         className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]"
@@ -1150,6 +1202,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };
