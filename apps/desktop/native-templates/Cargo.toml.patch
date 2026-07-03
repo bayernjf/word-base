@@ -1,0 +1,10 @@
+# =============================================
+# Tauri src-tauri/Cargo.toml 补丁片段
+# =============================================
+# tauri init 生成 Cargo.toml 之后，把以下四行加进 [dependencies]：
+
+[dependencies]
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-store = "2"
