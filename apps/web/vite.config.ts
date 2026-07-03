@@ -1,8 +1,19 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import type { ManualChunksOption } from 'rollup';
 import path from 'path';
 import { defineConfig } from 'vite';
-import { manualChunks } from '@wordbase/shared/vite-chunks';
+
+const manualChunks: ManualChunksOption = (id) => {
+  if (!id.includes('node_modules')) return;
+  if (id.includes('/@supabase/') || id.includes('/supabase-js/')) return 'vendor-supabase';
+  if (id.includes('/@google/genai') || id.includes('/google-genai/')) return 'vendor-ai';
+  if (id.includes('/motion') || id.includes('/framer-motion/')) return 'vendor-motion';
+  if (id.includes('/lucide-react')) return 'vendor-icons';
+  if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('scheduler')) return 'vendor-react';
+  if (id.includes('/react-router') || id.includes('/react-router-dom')) return 'vendor-router';
+  return 'vendor-other';
+};
 
 export default defineConfig(() => {
   return {
