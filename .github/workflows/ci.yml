@@ -126,12 +126,11 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm -w @wordbase/desktop run build
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build Tauri macOS app
+        working-directory: apps/desktop
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: apps/desktop
-          args: --verbose
+          TAURI_SIGNING_PRIVATE_KEY: ''
+        run: npx tauri build --verbose
 
       - name: Upload macOS dmg artifact
         uses: actions/upload-artifact@v4
@@ -167,12 +166,9 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm -w @wordbase/desktop run build
 
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: apps/desktop
-          args: --verbose
+      - name: Build Tauri Windows app
+        working-directory: apps/desktop
+        run: npx tauri build --verbose
 
       - name: Upload Windows exe artifact
         uses: actions/upload-artifact@v4
@@ -208,6 +204,10 @@ jobs:
       - name: Capacitor sync iOS
         working-directory: apps/mobile
         run: npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios/App
+        run: pod install
 
       - name: Build iOS simulator app
         working-directory: apps/mobile/ios
@@ -258,7 +258,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
