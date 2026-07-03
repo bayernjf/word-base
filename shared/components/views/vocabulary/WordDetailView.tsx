@@ -8,6 +8,7 @@ import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime, formatDate } from '../shared/helpers';
 import { WordPhonetics } from '../shared/WordPhonetics';
+import { getPlatform } from '../../../platform';
 import { EncounterCurve } from './EncounterCurve';
 import { WordDetailCompact } from './WordDetailCompact';
 import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate, requestSenseClusters } from '../../../lib/aiEnrich';
@@ -39,14 +40,14 @@ const CONTEXT_COLUMN_DEFS: Array<{ key: ContextColumnKey; defaultPct: number; mi
   { key: 'translation', defaultPct: 25, minPct: 10 },
   { key: 'actions', defaultPct: 14, minPct: 10 },
 ];
-const CONTEXT_COLUMN_WIDTH_STORAGE_KEY = 'wordDetail.contextColumnWidths';
+const CONTEXT_COLUMN_WIDTH_STORAGE_KEY = 'wordbase_wordDetail_contextColumnWidths';
 
 function loadContextColumnWidths(): Record<ContextColumnKey, number> {
   const defaults = Object.fromEntries(
     CONTEXT_COLUMN_DEFS.map((col) => [col.key, col.defaultPct])
   ) as Record<ContextColumnKey, number>;
   try {
-    const raw = localStorage.getItem(CONTEXT_COLUMN_WIDTH_STORAGE_KEY);
+    const raw = getPlatform().kv.getSync(CONTEXT_COLUMN_WIDTH_STORAGE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<Record<ContextColumnKey, number>>;
     CONTEXT_COLUMN_DEFS.forEach((col) => {
@@ -237,7 +238,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
       document.body.style.userSelect = '';
       setContextColumnWidths((current) => {
         try {
-          localStorage.setItem(CONTEXT_COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(current));
+          void getPlatform().kv.set(CONTEXT_COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(current));
         } catch {
           // ignore persistence failure
         }

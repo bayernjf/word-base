@@ -10,7 +10,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 const STORAGE_KEY = 'wordbase-log-level';
 
 function getMinLevel(): LogLevel {
-  if (typeof window === 'undefined') return 'debug';
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return 'debug';
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && saved in LEVEL_PRIORITY) return saved as LogLevel;

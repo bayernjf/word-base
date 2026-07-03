@@ -2,45 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Volume2 } from 'lucide-react';
 import { AppLanguage } from '../../../types';
 import { createTranslator } from '../../../i18n';
+import { getPlatform } from '../../../platform';
 
 interface DictPhonetics {
   uk?: string;
   us?: string;
   ukAudio?: string;
   usAudio?: string;
-}
-
-function selectBestEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  const englishVoices = voices.filter(
-    (v) => v.lang.toLowerCase().startsWith('en') || v.lang.toLowerCase().startsWith('en-')
-  );
-  if (englishVoices.length === 0) return undefined;
-  // 优先级排序：Google > Apple > Microsoft > 其他
-  const priorityList = [
-    'Google US English',
-    'Google UK English',
-    'Samantha',
-    'Daniel',
-    'Alex',
-    'Karen',
-    'Victoria',
-    'Microsoft David',
-    'Microsoft Zira',
-    'Microsoft Mark',
-    'Microsoft Jenny',
-    'Google UK English Male',
-    'Google UK English Female',
-    'Google US English Male',
-    'Google US English Female',
-  ];
-  for (const name of priorityList) {
-    const found = englishVoices.find((v) => v.name === name);
-    if (found) return found;
-  }
-  // fallback：优先本地（非远程）语音
-  const local = englishVoices.find((v) => v.localService);
-  if (local) return local;
-  return englishVoices[0];
 }
 
 interface WordPhoneticsProps {
@@ -115,17 +83,13 @@ export const WordPhonetics: React.FC<WordPhoneticsProps> = ({ word, fallbackPhon
   }, [word]);
 
   const speakWithTTS = () => {
-    const utterance = new SpeechSynthesisUtterance(word);
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = selectBestEnglishVoice(voices);
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
-    utterance.rate = 0.9;
-    utterance.pitch = 1.05;
-    utterance.onend = () => setPlayingType(null);
-    utterance.onerror = () => setPlayingType(null);
-    window.speechSynthesis.speak(utterance);
+    getPlatform().speak(word, {
+      lang: 'en-US',
+      rate: 0.9,
+      pitch: 1.05,
+      onEnd: () => setPlayingType(null),
+      onError: () => setPlayingType(null),
+    });
   };
 
   const handleSpeech = (type: 'uk' | 'us' | 'tts', audioUrl?: string) => {

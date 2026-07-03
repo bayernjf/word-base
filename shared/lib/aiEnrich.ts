@@ -1,5 +1,6 @@
 import type { Word, WordContext } from '../types';
 import type { SenseGroups, Story, ChatMessage } from '../types';
+import { apiUrl } from './apiBase';
 
 export interface AiEnrichmentRequest {
   word: string;
@@ -60,7 +61,7 @@ export function parseAiEnrichmentResponse(raw: string): AiEnrichment {
 
 export async function requestAiEnrichment(input: AiEnrichmentRequest, accessToken: string): Promise<AiEnrichment> {
   console.debug('[aiEnrich] requestAiEnrichment', { word: input.word, wordId: input.wordId });
-  const response = await fetch('/api/v1/ai/enrich', {
+  const response = await fetch(apiUrl('/api/v1/ai/enrich'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -103,7 +104,7 @@ export async function requestDeepExplanation(
   accessToken: string
 ): Promise<DeepExplanation> {
   console.debug('[aiEnrich] requestDeepExplanation', { word: input.word, wordId: input.wordId });
-  const response = await fetch('/api/v1/ai/explain', {
+  const response = await fetch(apiUrl('/api/v1/ai/explain'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -181,7 +182,7 @@ export async function requestSenseClusters(
   accessToken: string
 ): Promise<SenseGroups> {
   console.debug('[aiEnrich] requestSenseClusters', { word: input.word, wordId: input.wordId });
-  const response = await fetch('/api/v1/ai/sense-cluster', {
+  const response = await fetch(apiUrl('/api/v1/ai/sense-cluster'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -234,7 +235,7 @@ export async function requestAiTranslate(
   providerId?: string
 ): Promise<string> {
   console.debug('[aiEnrich] requestAiTranslate', { textLength: text.length, targetLanguage, providerId });
-  const response = await fetch('/api/v1/ai/translate', {
+  const response = await fetch(apiUrl('/api/v1/ai/translate'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -334,7 +335,7 @@ export async function requestStoryGenerate(
   accessToken: string
 ): Promise<{ story: GeneratedStory; remaining: number }> {
   console.debug('[aiEnrich] requestStoryGenerate', { topic: input.topic, words: input.words?.length });
-  const response = await fetch('/api/v1/ai/story-generate', {
+  const response = await fetch(apiUrl('/api/v1/ai/story-generate'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -355,7 +356,7 @@ export async function requestTutorChat(
   accessToken: string
 ): Promise<string> {
   console.debug('[aiEnrich] requestTutorChat', { messageLength: input.message.length });
-  const response = await fetch('/api/v1/ai/tutor-chat', {
+  const response = await fetch(apiUrl('/api/v1/ai/tutor-chat'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -3,6 +3,7 @@ import { ArrowLeft, Volume2, Mic, Square, RefreshCw } from 'lucide-react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+import { getPlatform } from '../../../platform';
 
 interface SpeakingPracticeProps {
   themeStyles: ThemeClasses;
@@ -61,9 +62,7 @@ export const SpeakingPracticeView: React.FC<SpeakingPracticeProps> = ({ themeSty
   };
 
   const speakTextRef = () => {
-    const speech = new SpeechSynthesisUtterance(practiceItems[activeTab].prompt);
-    speech.lang = 'en-US';
-    window.speechSynthesis.speak(speech);
+    getPlatform().speak(practiceItems[activeTab].prompt, { lang: 'en-US' });
   };
 
   return (

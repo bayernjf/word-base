@@ -6,6 +6,7 @@ import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
 import { createLogger } from '../../../lib/logger';
 import { useSupabase } from '../../../context/SupabaseContext';
+import { getPlatform } from '../../../platform';
 import {
   BATCH_AI_LIMIT,
   startBatchAi,
@@ -49,14 +50,14 @@ const COLUMN_DEFS: Array<{ key: ColumnKey; defaultWidth: number; minWidth: numbe
   { key: 'timeAdded', defaultWidth: 170, minWidth: 120 },
   { key: 'action', defaultWidth: 100, minWidth: 80 },
 ];
-const COLUMN_WIDTH_STORAGE_KEY = 'vocab.columnWidths';
+const COLUMN_WIDTH_STORAGE_KEY = 'wordbase_vocab_columnWidths';
 
 function loadColumnWidths(): Record<ColumnKey, number> {
   const defaults = Object.fromEntries(
     COLUMN_DEFS.map((col) => [col.key, col.defaultWidth])
   ) as Record<ColumnKey, number>;
   try {
-    const raw = localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
+    const raw = getPlatform().kv.getSync(COLUMN_WIDTH_STORAGE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<Record<ColumnKey, number>>;
     COLUMN_DEFS.forEach((col) => {
@@ -204,7 +205,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
       document.body.style.userSelect = '';
       setColumnWidths((current) => {
         try {
-          localStorage.setItem(COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(current));
+          void getPlatform().kv.set(COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(current));
         } catch {
           // ignore persistence failure
         }

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react';
 import { createLogger } from './lib/logger';
 import { AppLanguage, ThemeType, Word } from './types';
+import { getPlatform } from './platform';
 
 const logger = createLogger('AppSupabase');
 import { listeningQuizzes } from './mockData';
@@ -84,15 +85,11 @@ function selectPreferredSyncBook(books: Array<{ id: string; name: string; isSync
 }
 
 function persistSelectedBookId(bookId: string) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('wordbase-selected-book', bookId);
-  }
+  void getPlatform().kv.set('wordbase-selected-book', bookId);
 }
 
 function clearPersistedSelectedBookId() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('wordbase-selected-book');
-  }
+  void getPlatform().kv.remove('wordbase-selected-book');
 }
 
 export default function AppSupabase() {
@@ -104,33 +101,24 @@ export default function AppSupabase() {
   const { stories, isGenerating: isGeneratingStory, generateStory, deleteStory } = useStories();
 
   const [theme, setTheme] = useState<ThemeType>(() => {
-    if (typeof window === 'undefined') {
-      return 'glass';
-    }
-
     try {
-      const savedTheme = localStorage.getItem('wordbase_theme');
+      const savedTheme = getPlatform().kv.getSync('wordbase_theme');
       return savedTheme === 'natural' ? 'natural' : 'glass';
     } catch {
       return 'glass';
     }
   });
   const [language, setLanguage] = useState<AppLanguage>(() => {
-    if (typeof window === 'undefined') {
-      return 'zh';
-    }
-
     try {
-      const savedLanguage = localStorage.getItem('wordbase_language');
+      const savedLanguage = getPlatform().kv.getSync('wordbase_language');
       return savedLanguage === 'en' ? 'en' : 'zh';
     } catch {
       return 'zh';
     }
   });
   const [activeView, setActiveView] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'welcome';
     try {
-      const saved = localStorage.getItem('wordbase_activeView');
+      const saved = getPlatform().kv.getSync('wordbase_activeView');
       return saved || 'welcome';
     } catch {
       return 'welcome';
@@ -144,31 +132,30 @@ export default function AppSupabase() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [autoEnrich, setAutoEnrich] = useState<boolean>(false);
   const [autoExplain, setAutoExplain] = useState<boolean>(false);
-  const syncServerBaseUrl =
-    import.meta.env.VITE_SYNC_SERVER_URL ||
-    (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001');
+  const syncServerBaseUrl = (() => {
+    if (import.meta.env.VITE_SYNC_SERVER_URL) {
+      return import.meta.env.VITE_SYNC_SERVER_URL as string;
+    }
+    if (typeof window === 'undefined') {
+      return 'http://localhost:3001';
+    }
+    // 非标准 web 协议（tauri: / capacitor: / file:）时 window.location 不能直接用，
+    // 回退到 localhost；生产环境应通过 VITE_SYNC_SERVER_URL 显式注入。
+    const { protocol, hostname } = window.location;
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return 'http://localhost:3001';
+    }
+    return `${protocol}//${hostname}:3001`;
+  })();
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      localStorage.setItem('wordbase_language', language);
-    } catch {
-      // ignore
-    }
+    void getPlatform().kv.set('wordbase_language', language);
   }, [language]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('wordbase_activeView', activeView);
-    } catch {
-      // ignore
-    }
+    void getPlatform().kv.set('wordbase_activeView', activeView);
   }, [activeView]);
 
   useEffect(() => {
@@ -178,12 +165,7 @@ export default function AppSupabase() {
   }, [theme]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('wordbase_theme', theme);
-    } catch {
-      // ignore
-    }
+    void getPlatform().kv.set('wordbase_theme', theme);
   }, [theme]);
 
   useEffect(() => {
@@ -247,7 +229,7 @@ export default function AppSupabase() {
     if (!prevId && currId) {
       logger.info('user signed in', { userId: currId });
       const saved = (() => {
-        try { return localStorage.getItem('wordbase_activeView'); } catch { return null; }
+        try { return getPlatform().kv.getSync('wordbase_activeView'); } catch { return null; }
       })();
       if (saved && saved !== 'welcome') {
         setActiveView(saved);
@@ -288,7 +270,7 @@ export default function AppSupabase() {
       return;
     }
 
-    const savedBookId = typeof window !== 'undefined' ? localStorage.getItem('wordbase-selected-book') : null;
+    const savedBookId = getPlatform().kv.getSync('wordbase-selected-book');
     const rememberedBook = savedBookId ? books.find((book) => book.id === savedBookId) : null;
     const syncBook = selectPreferredSyncBook(books);
     const nextBookId = rememberedBook?.id || syncBook?.id || books[0].id;
@@ -678,9 +660,7 @@ export default function AppSupabase() {
     const created = await createBook(bookData);
     if (created) {
       setSelectedBookId(created.id);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('wordbase-selected-book', created.id);
-      }
+      void getPlatform().kv.set('wordbase-selected-book', created.id);
     }
   };
 

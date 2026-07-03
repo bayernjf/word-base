@@ -1,13 +1,54 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createLogger } from './logger'
+import { getPlatform, hasPlatform } from '../platform'
 
 const logger = createLogger('supabase')
 
-// Supabase 配置
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+let _client: SupabaseClient | null = null
+
+function buildClient(): SupabaseClient {
+  // setPlatform() 之后才会调用 buildClient；
+  // 若意外在平台注入前调用（如单测、SSR），则回退到默认 localStorage。
+  const kv = hasPlatform() ? getPlatform().kv : null
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: kv
+        ? {
+            async getItem(key: string) {
+              return (await kv.get(key))
+            },
+            async setItem(key: string, value: string) {
+              await kv.set(key, value)
+            },
+            async removeItem(key: string) {
+              await kv.remove(key)
+            },
+          }
+        : undefined,
+    },
+  })
+}
+
+export function getSupabase(): SupabaseClient {
+  if (!_client) {
+    _client = buildClient()
+  }
+  return _client
+}
+
+/** 兼容旧的 `import { supabase }` 用法：通过 getter 惰性创建。 */
+export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getSupabase(), prop, receiver)
+  },
+})
 
 // =============================================
 // 用户资料相关 API
@@ -15,7 +56,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const profileApi = {
   async getProfile(userId: string) {
     logger.debug('profileApi.getProfile', { userId })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -28,7 +69,7 @@ export const profileApi = {
 
   async updateProfile(userId: string, updates: any) {
     logger.debug('profileApi.updateProfile', { userId, fields: Object.keys(updates) })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('profiles')
       .update(updates)
       .eq('id', userId)
@@ -46,7 +87,7 @@ export const profileApi = {
 export const bookApi = {
   async getBooks(userId: string) {
     logger.debug('bookApi.getBooks', { userId })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('vocabulary_books')
       .select('*')
       .eq('user_id', userId)
@@ -61,7 +102,7 @@ export const bookApi = {
 
   async createBook(book: any) {
     logger.debug('bookApi.createBook', { name: book.name })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('vocabulary_books')
       .insert(book)
       .select()
@@ -73,7 +114,7 @@ export const bookApi = {
 
   async updateBook(bookId: string, updates: any) {
     logger.debug('bookApi.updateBook', { bookId })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('vocabulary_books')
       .update(updates)
       .eq('id', bookId)
@@ -86,7 +127,7 @@ export const bookApi = {
 
   async deleteBook(bookId: string) {
     logger.debug('bookApi.deleteBook', { bookId })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('vocabulary_books')
       .update({ is_deleted: true })
       .eq('id', bookId)
@@ -104,7 +145,7 @@ export const bookApi = {
 export const wordApi = {
   async getWords(userId: string, bookId?: string) {
     logger.debug('wordApi.getWords', { userId, bookId })
-    let query = supabase
+    let query = getSupabase()
       .from('words')
       .select('*')
       .eq('user_id', userId)
@@ -123,7 +164,7 @@ export const wordApi = {
 
   async createWord(word: any) {
     logger.debug('wordApi.createWord', { word: word.word })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('words')
       .insert(word)
       .select()
@@ -135,7 +176,7 @@ export const wordApi = {
 
   async updateWord(wordId: string, updates: any) {
     logger.debug('wordApi.updateWord', { wordId })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('words')
       .update(updates)
       .eq('id', wordId)
@@ -148,7 +189,7 @@ export const wordApi = {
 
   async deleteWord(wordId: string) {
     logger.debug('wordApi.deleteWord', { wordId })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('words')
       .update({ is_deleted: true })
       .eq('id', wordId)
@@ -166,7 +207,7 @@ export const wordApi = {
 export const syncApi = {
   async getChangelogs(userId: string, sinceVersion: number) {
     logger.debug('syncApi.getChangelogs', { userId, sinceVersion })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('sync_changelogs')
       .select('*')
       .eq('user_id', userId)
@@ -180,7 +221,7 @@ export const syncApi = {
 
   async getLatestVersion(userId: string) {
     logger.debug('syncApi.getLatestVersion', { userId })
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('sync_changelogs')
       .select('sync_version')
       .eq('user_id', userId)
@@ -189,7 +230,7 @@ export const syncApi = {
 
     if (error) throw error
     logger.info('syncApi.getLatestVersion success', { version: data?.[0]?.sync_version })
-    return data[0]?.sync_version || 0
+    return data?.[0]?.sync_version || 0
   }
 }
 

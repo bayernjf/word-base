@@ -3,6 +3,8 @@ import { Upload, Database } from 'lucide-react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+import { getPlatform } from '../../../platform';
+import { apiUrl } from '../../../lib/apiBase';
 
 interface SyncStorageProps {
   themeStyles: ThemeClasses;
@@ -20,7 +22,7 @@ export const SyncStorageView: React.FC<SyncStorageProps> = ({ themeStyles, langu
 
   const getToken = () => {
     try {
-      return localStorage.getItem('wordbase_token') || '';
+      return getPlatform().kv.getSync('wordbase_token') || '';
     } catch {
       return '';
     }
@@ -30,12 +32,12 @@ export const SyncStorageView: React.FC<SyncStorageProps> = ({ themeStyles, langu
     let token = getToken();
     if (!token) {
       try {
-        const res = await fetch('/api/v1/session/bootstrap', { method: 'POST' });
+        const res = await fetch(apiUrl('/api/v1/session/bootstrap'), { method: 'POST' });
         if (res.ok) {
           const data = await res.json();
           const next = typeof data?.token === 'string' ? data.token : '';
           if (next) {
-            localStorage.setItem('wordbase_token', next);
+            await getPlatform().kv.set('wordbase_token', next);
             token = next;
           }
         }
@@ -49,7 +51,7 @@ export const SyncStorageView: React.FC<SyncStorageProps> = ({ themeStyles, langu
     }
     try {
       setPairingError('');
-      const res = await fetch(forceNew ? '/api/v1/pairing/new' : '/api/v1/pairing/code', {
+      const res = await fetch(apiUrl(forceNew ? '/api/v1/pairing/new' : '/api/v1/pairing/code'), {
         method: forceNew ? 'POST' : 'GET',
         headers: {
           Authorization: `Bearer ${token}`
@@ -73,7 +75,7 @@ export const SyncStorageView: React.FC<SyncStorageProps> = ({ themeStyles, langu
     if (!pairingCode) {
       return;
     }
-    navigator.clipboard.writeText(pairingCode);
+    getPlatform().writeClipboard(pairingCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
