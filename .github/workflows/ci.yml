@@ -210,13 +210,13 @@ jobs:
         run: pod install
 
       - name: Build iOS simulator app
-        working-directory: apps/mobile/ios
+        working-directory: apps/mobile/ios/App
         run: |
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Debug \
             -sdk iphonesimulator \
-            -derivedDataPath build \
+            -derivedDataPath ../build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
