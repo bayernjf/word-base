@@ -1,0 +1,46 @@
+PODS:
+  - Capacitor (7.6.7):
+    - CapacitorCordova
+  - CapacitorClipboard (7.0.4):
+    - Capacitor
+  - CapacitorCommunityTextToSpeech (6.1.0):
+    - Capacitor
+  - CapacitorCordova (7.6.7)
+  - CapacitorLocalNotifications (7.0.6):
+    - Capacitor
+  - CapacitorPreferences (7.0.4):
+    - Capacitor
+
+DEPENDENCIES:
+  - "Capacitor (from `../../../../node_modules/@capacitor/ios`)"
+  - "CapacitorClipboard (from `../../../../node_modules/@capacitor/clipboard`)"
+  - "CapacitorCommunityTextToSpeech (from `../../../../node_modules/@capacitor-community/text-to-speech`)"
+  - "CapacitorCordova (from `../../../../node_modules/@capacitor/ios`)"
+  - "CapacitorLocalNotifications (from `../../../../node_modules/@capacitor/local-notifications`)"
+  - "CapacitorPreferences (from `../../../../node_modules/@capacitor/preferences`)"
+
+EXTERNAL SOURCES:
+  Capacitor:
+    :path: "../../../../node_modules/@capacitor/ios"
+  CapacitorClipboard:
+    :path: "../../../../node_modules/@capacitor/clipboard"
+  CapacitorCommunityTextToSpeech:
+    :path: "../../../../node_modules/@capacitor-community/text-to-speech"
+  CapacitorCordova:
+    :path: "../../../../node_modules/@capacitor/ios"
+  CapacitorLocalNotifications:
+    :path: "../../../../node_modules/@capacitor/local-notifications"
+  CapacitorPreferences:
+    :path: "../../../../node_modules/@capacitor/preferences"
+
+SPEC CHECKSUMS:
+  Capacitor: 8ef25ba872436d2c5ac2a4791f7255529bdcd93b
+  CapacitorClipboard: d1f123674cf413125db816a45e8f70e8770972fc
+  CapacitorCommunityTextToSpeech: 28e4eaf26995ce7ab710480267841c57ef5eded2
+  CapacitorCordova: 139e2ed3d91c54b5aeae7941135c9f9aefc6da1d
+  CapacitorLocalNotifications: 2e3f5b717ec9cd2bd64d93c99a9470941e1c80be
+  CapacitorPreferences: 69d9991307507aeab8ef8019c10b9babfda0e9ca
+
+PODFILE CHECKSUM: 9681b778f81b9f3439563e3631a88f88e513f8bd
+
+COCOAPODS: 1.16.2

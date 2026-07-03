@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Network Security Config
+=============================================
+放到：apps/mobile/android/app/src/main/res/xml/network_security_config.xml
+
+允许开发时 10.0.2.2（Android 模拟器访问宿主机的专用地址）
+和 192.168.* 内网地址使用 http（非 https）连同步服务。
+
+发布前建议改成：
+  <base-config cleartextTrafficPermitted="false">
+把 http 域名逐个白名单加进 <domain-config>。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Android 模拟器专用回环地址 -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- 常见内网段（用真机调试时改成你实际网段） -->
+        <domain includeSubdomains="false">192.168.1.10</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
