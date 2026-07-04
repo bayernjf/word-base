@@ -111,7 +111,7 @@ async function getTauriStore() {
         const out: Record<string, string> = {};
         const keys = await store.keys();
         for (const k of keys) {
-          if (k.startsWith('wordbase_')) {
+          if (k.startsWith('wordbase_') || k.startsWith('sb-')) {
             const v = await store.get<string>(k);
             if (v != null) out[k] = v;
           }
