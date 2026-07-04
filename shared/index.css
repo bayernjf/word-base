@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@source "./**/*.{ts,tsx}";
+@source "../apps/web/**/*.{ts,tsx,html}";
+@source "../apps/desktop/**/*.{ts,tsx,html}";
+@source "../apps/mobile/**/*.{ts,tsx,html}";
+
 :root {
   color-scheme: dark;
 }
