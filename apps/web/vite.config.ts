@@ -17,7 +17,12 @@ const manualChunks: ManualChunksOption = (id) => {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss({
+      content: [
+        path.resolve(__dirname, '../../shared/**/*.{ts,tsx}'),
+        path.resolve(__dirname, './**/*.{ts,tsx,html}'),
+      ],
+    })],
     envDir: path.resolve(__dirname, '../..'),
     resolve: {
       alias: {
