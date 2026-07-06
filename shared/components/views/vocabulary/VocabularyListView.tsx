@@ -840,143 +840,202 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 
         {/* 分页控件 */}
         {filteredWords.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 dark:border-white/10">
-            {/* 显示统计信息 */}
-            <div className="text-xs text-neutral-500">
-              {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
-            </div>
-
-            <div className="flex items-center gap-4">
-              {/* 每页显示条数选择 */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-neutral-500">{t('vocab.show')}</span>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setPerPageDropdownOpen((prev) => !prev)}
-                    className={`flex items-center gap-1.5 px-2 py-1 border rounded-lg text-xs cursor-pointer ${dropdownSelectClass}`}
-                  >
-                    <span>{itemsPerPage}</span>
-                    <ChevronDown className={`w-3 h-3 transition-transform ${perPageDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
-                  </button>
-                  {perPageDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setPerPageDropdownOpen(false)} />
-                      <div className={`absolute right-0 bottom-full mb-2 w-20 rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
-                        {[10, 20, 50, 100].map((size) => (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => { setItemsPerPage(size); setPerPageDropdownOpen(false); }}
-                            className={`w-full px-3 py-1.5 rounded-lg text-xs text-left transition-colors ${size === itemsPerPage ? dropdownOptionSelected : dropdownOptionIdle}`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+          <div className={`border-t border-neutral-200 dark:border-white/10 ${isMobile ? 'px-3 py-3 space-y-3' : 'px-4 py-3'}`}>
+            {isMobile ? (
+              <>
+                {/* 移动端第一行：统计 + 每页条数 */}
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-neutral-500">
+                    {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-neutral-500">{t('vocab.show')}</span>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setPerPageDropdownOpen((prev) => !prev)}
+                        className={`flex items-center gap-1 px-2 py-1 border rounded-lg text-xs cursor-pointer ${dropdownSelectClass}`}
+                      >
+                        <span>{itemsPerPage}</span>
+                        <ChevronDown className={`w-3 h-3 transition-transform ${perPageDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
+                      </button>
+                      {perPageDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setPerPageDropdownOpen(false)} />
+                          <div className={`absolute right-0 bottom-full mb-2 w-20 rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
+                            {[10, 20, 50, 100].map((size) => (
+                              <button
+                                key={size}
+                                type="button"
+                                onClick={() => { setItemsPerPage(size); setPerPageDropdownOpen(false); }}
+                                className={`w-full px-3 py-1.5 rounded-lg text-xs text-left transition-colors ${size === itemsPerPage ? dropdownOptionSelected : dropdownOptionIdle}`}
+                              >
+                                {size}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <span className="text-xs text-neutral-500">{t('vocab.items')}</span>
+                {/* 移动端第二行：页码导航 */}
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {t('vocab.previous')}
+                  </button>
+                  <span className="text-xs text-neutral-500 font-mono">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {t('vocab.next')}
+                  </button>
+                </div>
+              </>
+            ) : (
+            <div className="flex items-center justify-between">
+              {/* 显示统计信息 */}
+              <div className="text-xs text-neutral-500">
+                {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
               </div>
 
-              {/* 页码导航 */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {t('vocab.previous')}
-                </button>
-                
+              <div className="flex items-center gap-4">
+                {/* 每页显示条数选择 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-500">{t('vocab.show')}</span>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setPerPageDropdownOpen((prev) => !prev)}
+                      className={`flex items-center gap-1.5 px-2 py-1 border rounded-lg text-xs cursor-pointer ${dropdownSelectClass}`}
+                    >
+                      <span>{itemsPerPage}</span>
+                      <ChevronDown className={`w-3 h-3 transition-transform ${perPageDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
+                    </button>
+                    {perPageDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setPerPageDropdownOpen(false)} />
+                        <div className={`absolute right-0 bottom-full mb-2 w-20 rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
+                          {[10, 20, 50, 100].map((size) => (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => { setItemsPerPage(size); setPerPageDropdownOpen(false); }}
+                              className={`w-full px-3 py-1.5 rounded-lg text-xs text-left transition-colors ${size === itemsPerPage ? dropdownOptionSelected : dropdownOptionIdle}`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <span className="text-xs text-neutral-500">{t('vocab.items')}</span>
+                </div>
+
+                {/* 页码导航 */}
                 <div className="flex items-center gap-1">
-                  {/* 第1页 */}
                   <button
-                    key={1}
-                    onClick={() => setCurrentPage(1)}
-                    className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
-                      currentPage === 1 ? pageNumActiveClass : pageNumIdleClass
-                    }`}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {1}
+                    {t('vocab.previous')}
                   </button>
                   
-                  {/* 左边省略号 */}
-                  {totalPages > 7 && currentPage > 4 && (
-                    <span className="text-xs text-neutral-400 px-1">...</span>
-                  )}
-
-                  {/* 中间页码 */}
-                  {(() => {
-                    // 计算要显示的中间页码
-                    const pages = [];
+                  <div className="flex items-center gap-1">
+                    {/* 第1页 */}
+                    <button
+                      key={1}
+                      onClick={() => setCurrentPage(1)}
+                      className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
+                        currentPage === 1 ? pageNumActiveClass : pageNumIdleClass
+                      }`}
+                    >
+                      {1}
+                    </button>
                     
-                    if (totalPages <= 7) {
-                      // 页数少，直接显示所有
-                      for (let i = 2; i < totalPages; i++) {
-                        pages.push(i);
-                      }
-                    } else {
-                      // 页数多，显示中间5个
-                      let start = Math.max(2, currentPage - 2);
-                      let end = Math.min(totalPages - 1, currentPage + 2);
+                    {/* 左边省略号 */}
+                    {totalPages > 7 && currentPage > 4 && (
+                      <span className="text-xs text-neutral-400 px-1">...</span>
+                    )}
+
+                    {/* 中间页码 */}
+                    {(() => {
+                      const pages = [];
                       
-                      // 确保始终有5个中间页码
-                      if (end - start + 1 < 5) {
-                        if (currentPage <= 4) {
-                          end = Math.min(totalPages - 1, 6);
-                        } else if (currentPage >= totalPages - 3) {
-                          start = Math.max(2, totalPages - 5);
+                      if (totalPages <= 7) {
+                        for (let i = 2; i < totalPages; i++) {
+                          pages.push(i);
+                        }
+                      } else {
+                        let start = Math.max(2, currentPage - 2);
+                        let end = Math.min(totalPages - 1, currentPage + 2);
+                        
+                        if (end - start + 1 < 5) {
+                          if (currentPage <= 4) {
+                            end = Math.min(totalPages - 1, 6);
+                          } else if (currentPage >= totalPages - 3) {
+                            start = Math.max(2, totalPages - 5);
+                          }
+                        }
+                        
+                        for (let i = start; i <= end; i++) {
+                          pages.push(i);
                         }
                       }
                       
-                      for (let i = start; i <= end; i++) {
-                        pages.push(i);
-                      }
-                    }
+                      return pages.map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
+                            currentPage === page ? pageNumActiveClass : pageNumIdleClass
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
                     
-                    return pages.map(page => (
+                    {/* 右边省略号 */}
+                    {totalPages > 7 && currentPage < totalPages - 3 && (
+                      <span className="text-xs text-neutral-400 px-1">...</span>
+                    )}
+                    
+                    {/* 最后一页 */}
+                    {totalPages > 1 && (
                       <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
+                        key={totalPages}
+                        onClick={() => setCurrentPage(totalPages)}
                         className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
-                          currentPage === page ? pageNumActiveClass : pageNumIdleClass
+                          currentPage === totalPages ? pageNumActiveClass : pageNumIdleClass
                         }`}
                       >
-                        {page}
+                        {totalPages}
                       </button>
-                    ));
-                  })()}
-                  
-                  {/* 右边省略号 */}
-                  {totalPages > 7 && currentPage < totalPages - 3 && (
-                    <span className="text-xs text-neutral-400 px-1">...</span>
-                  )}
-                  
-                  {/* 最后一页 */}
-                  {totalPages > 1 && (
-                    <button
-                      key={totalPages}
-                      onClick={() => setCurrentPage(totalPages)}
-                      className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${
-                        currentPage === totalPages ? pageNumActiveClass : pageNumIdleClass
-                      }`}
-                    >
-                      {totalPages}
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
 
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {t('vocab.next')}
-                </button>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`px-2 py-1 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {t('vocab.next')}
+                  </button>
+                </div>
               </div>
             </div>
+            )}
           </div>
         )}
       </div>
