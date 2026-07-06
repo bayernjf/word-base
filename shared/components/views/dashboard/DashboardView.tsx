@@ -4,6 +4,7 @@ import { AppLanguage, Word, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getDueWords } from '../../../lib/srs';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 
 interface DashboardProps {
   themeStyles: ThemeClasses;
@@ -15,6 +16,7 @@ interface DashboardProps {
 
 export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language, onNavigate, books, words, user }) => {
   const t = createTranslator(language);
+  const isMobile = useIsMobile();
   const displayName = user?.nickname || user?.email?.split('@')[0] || t('dashboard.learner');
   const dueCount = getDueWords(words).length;
   const reviewTitle = language === 'en' ? 'Due today' : '今日待复习';
@@ -22,11 +24,11 @@ export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language,
   const quickStartView = dueCount > 0 ? 'practice-review' : 'vocabulary';
   
   return (
-    <div className="space-y-6">
+    <div className={isMobile ? 'space-y-4' : 'space-y-6'}>
       {/* Top Welcome Title Grid */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-linear-to-r from-indigo-500/10 to-purple-500/5 p-6 rounded-2xl border border-indigo-500/20">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 bg-linear-to-r from-indigo-500/10 to-purple-500/5 ${isMobile ? 'p-4' : 'p-6'} rounded-2xl border border-indigo-500/20`}>
         <div>
-          <h2 className={`text-2xl font-bold tracking-tight ${themeStyles.textPrimary}`}>
+          <h2 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold tracking-tight ${themeStyles.textPrimary}`}>
             {t('dashboard.welcome')}，{displayName}！✨
           </h2>
           {/* Streak info - Hidden */}
@@ -65,7 +67,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language,
       {/* Grid: My Word lists */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className={`text-lg font-bold tracking-tight ${themeStyles.textPrimary}`}>
+          <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold tracking-tight ${themeStyles.textPrimary}`}>
             {t('dashboard.booksTitle')}
           </h3>
           <button 

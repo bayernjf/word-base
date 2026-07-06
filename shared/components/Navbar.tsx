@@ -59,7 +59,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   ] as const;
 
   return (
-    <nav className={`${themeStyles.navClass} sticky top-0 z-40 backdrop-blur-md bg-opacity-95 ${isMobile ? 'px-0' : ''}`}>
+    <nav className={`${themeStyles.navClass} sticky top-0 z-40 backdrop-blur-md bg-opacity-95 ${isMobile ? 'px-0' : ''}`}
+    style={isMobile ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}
+    >
       <div className={`${isMobile ? 'px-4' : 'max-w-7xl mx-auto'} flex items-center justify-between h-14`}>
         {/* App Title & Brand Logo */}
         <div 
