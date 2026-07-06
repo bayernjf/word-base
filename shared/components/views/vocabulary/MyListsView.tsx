@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, BookOpen, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, BookOpen, CheckCircle2, X } from 'lucide-react';
 import { AppLanguage, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 
 interface MyListsProps {
   themeStyles: ThemeClasses;
@@ -26,6 +27,8 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, language, onN
   const [editingName, setEditingName] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const t = createTranslator(language);
+  const isMobile = useIsMobile();
+  const isGlass = themeStyles.name === 'glass';
 
   // 检查单词本名称是否已存在（忽略大小写）
   const isNameExists = name.trim().length > 0 && 
@@ -193,27 +196,54 @@ export const MyListsView: React.FC<MyListsProps> = ({ themeStyles, language, onN
 
       <div className="flex justify-between items-center">
         <div>
-          <h2 className={`text-xl font-bold tracking-tight ${themeStyles.textPrimary}`}>{t('myLists.title')}</h2>
+          <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold tracking-tight ${themeStyles.textPrimary}`}>{t('myLists.title')}</h2>
           <p className="text-xs text-neutral-400">{t('myLists.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           {!deleteMode && (
             <button 
               onClick={() => setShowCreate(!showCreate)} 
-              className={`${themeStyles.btnPrimary} flex items-center space-x-1.5 py-2 text-xs font-semibold`}
+              className={`${isMobile 
+                ? `w-10 h-10 flex items-center justify-center rounded-full ${isGlass
+                    ? 'bg-white text-slate-900 shadow-lg hover:bg-white/90 active:scale-95'
+                    : 'bg-[#56a978] hover:bg-[#4a9669] text-white shadow-sm shadow-[#56a978]/30 hover:shadow-md hover:shadow-[#56a978]/35 active:scale-[0.99]'
+                  }`
+                : themeStyles.btnPrimary + ' flex items-center space-x-1.5 py-2 text-xs font-semibold'
+              } transition-all cursor-pointer`}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{t('myLists.newWordbook')}</span>
+              <Plus className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
+              {!isMobile && <span>{t('myLists.newWordbook')}</span>}
+            </button>
+          )}
+          {deleteMode && isMobile && (
+            <button 
+              onClick={handleCancelDelete} 
+              className={`w-10 h-10 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
+                isGlass
+                  ? 'bg-white/10 border-white/10 text-white hover:bg-white/20 active:scale-95'
+                  : 'bg-[#fffdf7] border-[#adcfa9] text-[#2a4d3a] hover:bg-[#e1f0db] active:scale-[0.99] shadow-xs shadow-[#8fb998]/10'
+              }`}
+            >
+              <X className="w-5 h-5" />
             </button>
           )}
           <button 
             onClick={handleDeleteClick} 
-            className={`${deleteMode ? 'bg-red-600 hover:bg-red-700 text-white' : themeStyles.btnSecondary} flex items-center space-x-1.5 py-2 text-xs font-semibold px-4 rounded-xl`}
+            className={`${isMobile
+              ? `w-10 h-10 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
+                  deleteMode 
+                    ? 'bg-red-600 border-red-600 text-white active:scale-95'
+                    : isGlass
+                      ? 'bg-white/10 border-white/10 text-white hover:bg-white/20 active:scale-95'
+                      : 'bg-[#fffdf7] border-[#adcfa9] text-[#2a4d3a] hover:bg-[#e1f0db] active:scale-[0.99] shadow-xs shadow-[#8fb998]/10'
+                }`
+              : `${deleteMode ? 'bg-red-600 hover:bg-red-700 text-white' : themeStyles.btnSecondary} flex items-center space-x-1.5 py-2 text-xs font-semibold px-4 rounded-xl`
+            }`}
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{deleteMode ? t('myLists.confirmDelete') : t('myLists.deleteWordbook')}</span>
+            <Trash2 className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
+            {!isMobile && <span>{deleteMode ? t('myLists.confirmDelete') : t('myLists.deleteWordbook')}</span>}
           </button>
-          {deleteMode && (
+          {deleteMode && !isMobile && (
             <button 
               onClick={handleCancelDelete} 
               className={`${themeStyles.btnSecondary} py-2 text-xs font-semibold`}
