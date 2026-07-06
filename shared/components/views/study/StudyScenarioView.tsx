@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Award, Sparkles, Send, Plus, Trash2, Loader2, Check } from 'lucide-react';
+import { Award, Sparkles, Send, Plus, Trash2, Loader2, Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Word, Story, ChatMessage, AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getDueWords } from '../../../lib/srs';
 import { requestTutorChat, type StoryGenerateRequest } from '../../../lib/aiEnrich';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 
 const MAX_SELECTED_WORDS = 8;
 
@@ -23,6 +24,8 @@ interface StudyScenarioProps {
 export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, language, stories, words, isGenerating = false, hasActiveModel = false, accessToken, onGenerateStory, onDeleteStory }) => {
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
+  const isMobile = useIsMobile();
+  const storyScrollRef = useRef<HTMLDivElement>(null);
   const accentSolid = isGlass
     ? 'bg-indigo-500/25 hover:bg-indigo-500/40 text-white border border-indigo-300/30 backdrop-blur-md'
     : 'bg-[#56a978] hover:bg-[#4a9669] text-white shadow-sm shadow-[#56a978]/30';
@@ -224,38 +227,113 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
   return (
     <div className="space-y-6">
       {/* Toolbar: story library + generate */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          {stories.map(s => (
+      {isMobile ? (
+        <div className="relative">
+          <div
+            ref={storyScrollRef}
+            className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {stories.map(s => {
+              const active = activeStory?.id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveStoryId(s.id)}
+                  className={`flex-shrink-0 w-[70%] max-w-[260px] text-left p-3 rounded-2xl border transition-all cursor-pointer active:scale-[0.98] ${
+                    active
+                      ? isGlass
+                        ? 'bg-white/10 border-indigo-400/40 shadow-lg shadow-indigo-500/10'
+                        : 'bg-[#cceac8] border-[#84c796] shadow-md shadow-[#88bd90]/25'
+                      : isGlass
+                        ? 'bg-white/5 border-white/10 hover:bg-white/[0.08]'
+                        : 'bg-[#fffdf7] border-[#bad8b7] hover:bg-[#f4f9ef]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <span className={`text-xs font-bold truncate ${active ? (isGlass ? 'text-white' : 'text-[#173f2b]') : themeStyles.textPrimary}`}>
+                      {s.title || t('stories.untitled')}
+                    </span>
+                    {onDeleteStory && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDeleteStory(s.id); }}
+                        className={`flex-shrink-0 p-1 rounded-lg transition-colors ${isGlass ? 'text-white/30 hover:text-red-400 hover:bg-red-500/10' : 'text-neutral-400 hover:text-red-500 hover:bg-red-50'}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+                    <span className="truncate">{s.category}</span>
+                    <span>•</span>
+                    <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${isGlass ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-500/15 text-emerald-600'}`}>
+                      {s.difficulty}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
             <button
-              key={s.id}
-              onClick={() => setActiveStoryId(s.id)}
-              className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
-                activeStory?.id === s.id
-                  ? accentSelected
-                  : `${themeStyles.textSecondary} border-neutral-300/50 ${accentHover}`
+              onClick={() => setShowGenerate(v => !v)}
+              disabled={!hasActiveModel}
+              title={!hasActiveModel ? t('stories.noModel') : ''}
+              className={`flex-shrink-0 w-[70%] max-w-[260px] p-3 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[72px] ${
+                isGlass
+                  ? 'border-white/15 text-white/40 hover:border-indigo-400/40 hover:text-indigo-300 hover:bg-white/5'
+                  : 'border-[#bad8b7] text-[#556a5b] hover:border-[#56a978] hover:text-[#2f805d] hover:bg-[#f4f9ef]'
               }`}
             >
-              <span className="max-w-[160px] truncate">{s.title || t('stories.untitled')}</span>
-              {onDeleteStory && (
-                <Trash2
-                  className="w-3 h-3 opacity-0 group-hover:opacity-70 hover:opacity-100"
-                  onClick={(e) => { e.stopPropagation(); onDeleteStory(s.id); }}
-                />
-              )}
+              <Plus className="w-5 h-5" />
+              <span className="text-xs font-semibold">{t('stories.generate')}</span>
             </button>
-          ))}
+          </div>
+          {stories.length > 2 && (
+            <>
+              <button
+                onClick={() => storyScrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' })}
+                className={`absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center shadow-md z-10 ${isGlass ? 'bg-white/10 backdrop-blur text-white/70 hover:bg-white/20' : 'bg-white border border-[#bad8b7] text-[#556a5b] hover:bg-[#f4f9ef]'}`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => storyScrollRef.current?.scrollBy({ left: 200, behavior: 'smooth' })}
+                className={`absolute right-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center shadow-md z-10 ${isGlass ? 'bg-white/10 backdrop-blur text-white/70 hover:bg-white/20' : 'bg-white border border-[#bad8b7] text-[#556a5b] hover:bg-[#f4f9ef]'}`}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
-        <button
-          onClick={() => setShowGenerate(v => !v)}
-          disabled={!hasActiveModel}
-          title={!hasActiveModel ? t('stories.noModel') : ''}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${accentSolid} text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>{t('stories.generate')}</span>
-        </button>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            {stories.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setActiveStoryId(s.id)}
+                className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${activeStory?.id === s.id ? accentSelected : `${themeStyles.textSecondary} border-neutral-300/50 ${accentHover}`}`}
+              >
+                <span className="max-w-[160px] truncate">{s.title || t('stories.untitled')}</span>
+                {onDeleteStory && (
+                  <Trash2
+                    className="w-3 h-3 opacity-0 group-hover:opacity-70 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); onDeleteStory(s.id); }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowGenerate(v => !v)}
+            disabled={!hasActiveModel}
+            title={!hasActiveModel ? t('stories.noModel') : ''}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${accentSolid} text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{t('stories.generate')}</span>
+          </button>
+        </div>
+      )}
 
       {/* Generate panel */}
       {showGenerate && (
@@ -403,11 +481,18 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
               {activeStory.contentEn.split(' ').map((word, i) => {
                 const norm = word.replace(/[,.()]/g, '').toLowerCase();
                 const isHighlight = activeStory.highlightedWords.includes(norm);
+                const isSelected = selectedWord && selectedWord.word.toLowerCase() === norm;
                 return (
                   <span 
                     key={i} 
                     onClick={() => handleWordClick(word)}
-                    className={`${isHighlight ? `${isGlass ? 'text-indigo-300' : 'text-[#2f805d]'} cursor-pointer font-semibold bg-indigo-500/10 px-1 py-0.5 rounded-sm inline-block mx-0.5` : 'hover:bg-slate-200/50 dark:hover:bg-white/5 cursor-pointer rounded-xs px-0.5 inline-block'}`}
+                    className={`cursor-pointer inline-block transition-all ${
+                      isSelected
+                        ? `${isGlass ? 'bg-indigo-500/30 text-indigo-200' : 'bg-[#56a978]/30 text-[#1f422f]'} font-bold px-1.5 py-0.5 rounded-md mx-0.5 ring-2 ${isGlass ? 'ring-indigo-400/50' : 'ring-[#56a978]/50'}`
+                        : isHighlight
+                          ? `${isGlass ? 'text-indigo-300' : 'text-[#2f805d]'} font-semibold bg-indigo-500/10 px-1 py-0.5 rounded-sm mx-0.5 hover:bg-indigo-500/20`
+                          : 'hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-xs px-0.5'
+                    }`}
                   >
                     {word}{' '}
                   </span>
@@ -438,8 +523,8 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
           </div>
         </div>
 
-        {/* Selected Dictionary Glossary Popups */}
-        {selectedWord && (
+        {/* Selected Dictionary Glossary - 桌面端右侧卡片 */}
+        {selectedWord && !isMobile && (
           <div className={`${themeStyles.card} border-l-4 ${accentBorderColor} transition-transform`}>
             <div className="flex justify-between items-start mb-2">
               <div>
@@ -533,6 +618,68 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
         </form>
       </div>
       </div>
+      )}
+
+      {/* Mobile word detail bottom sheet */}
+      {selectedWord && isMobile && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in" onClick={() => setSelectedWord(null)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className={`relative w-full max-w-lg ${themeStyles.card} rounded-t-3xl p-5 pb-8 mx-0 animate-slide-up`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+          >
+            <div className="w-10 h-1 bg-white/20 dark:bg-white/10 rounded-full mx-auto mb-4" />
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <h3 className="text-xl font-bold flex items-center space-x-2">
+                  <span>{selectedWord.word}</span>
+                  <span className={`px-2 py-0.5 text-[10px] rounded uppercase font-bold ${isGlass ? 'bg-white/10 text-white/70' : 'bg-[#d9efd2] text-[#336f4e]'}`}>
+                    {selectedWord.partOfSpeech}
+                  </span>
+                </h3>
+                <p className="text-sm text-neutral-400 font-mono mt-1">{selectedWord.phonetic}</p>
+              </div>
+              <button
+                onClick={() => setSelectedWord(null)}
+                className={`p-2 rounded-xl transition-colors ${isGlass ? 'bg-white/10 hover:bg-white/20 text-white/70' : 'bg-[#e8f2e1] hover:bg-[#d9e6d4] text-[#556a5b]'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <span className={`text-[10px] font-mono uppercase tracking-widest block mb-1 ${isGlass ? 'text-white/40' : 'text-neutral-500'}`}>
+                  Definition
+                </span>
+                <p className="text-sm">{selectedWord.definition}</p>
+              </div>
+              <div>
+                <span className={`text-[10px] font-mono uppercase tracking-widest block mb-1 ${isGlass ? 'text-white/40' : 'text-neutral-500'}`}>
+                  Translation
+                </span>
+                <p className={`text-sm font-semibold ${accentTextColor}`}>{selectedWord.chineseTranslation}</p>
+              </div>
+              {selectedWord.synonyms.length > 0 && (
+                <div>
+                  <span className={`text-[10px] font-mono uppercase tracking-widest block mb-1 ${isGlass ? 'text-white/40' : 'text-neutral-500'}`}>
+                    Synonyms
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedWord.synonyms.map((s, i) => (
+                      <span
+                        key={i}
+                        className={`px-2 py-0.5 rounded-full text-xs ${isGlass ? 'bg-white/10 text-white/70' : 'bg-[#e8f2e1] text-[#336f4e]'}`}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
