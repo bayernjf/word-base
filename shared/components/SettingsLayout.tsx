@@ -1,8 +1,9 @@
 import React from 'react';
-import { User, Sliders, Sparkles, Database, Wand2 } from 'lucide-react';
+import { User, Sliders, Sparkles, Database, Wand2, ChevronRight } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
 import { AppLanguage } from '../types';
 import { createTranslator } from '../i18n';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface SettingsLayoutProps {
   themeStyles: ThemeClasses;
@@ -16,6 +17,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   themeStyles, language, activeSettingsTab, onNavigateSettings, children 
 }) => {
   const t = createTranslator(language);
+  const isMobile = useIsMobile();
   const copy = {
     account: t('settingsLayout.account'),
     appearance: t('settingsLayout.appearance'),
@@ -39,6 +41,50 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     ? 'bg-white/5 border-white/10 backdrop-blur-xl'
     : 'bg-[#e3f0dd] border-[#bad8b7] shadow-sm shadow-[#8fb998]/20';
   const settingsNavLabelClass = isGlass ? 'text-white/40' : 'text-[#556a5b]';
+
+  // 移动端：顶部分段控件 + 内容
+  if (isMobile) {
+    const visibleMenus = settingsMenus.filter(m => !m.hidden);
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className={`text-lg font-bold tracking-tight ${themeStyles.textPrimary}`}>{copy.title}</h2>
+          <p className={`text-xs ${themeStyles.textSecondary}`}>{copy.subtitle}</p>
+        </div>
+
+        {/* 移动端设置菜单：水平滚动分段控件 */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+          {visibleMenus.map(m => {
+            const isSelected = activeSettingsTab === m.id;
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.id}
+                onClick={() => onNavigateSettings(m.id)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  isSelected
+                    ? isGlass
+                      ? 'bg-white/15 text-white border border-white/10 shadow-md'
+                      : 'bg-[#cceac8] text-[#173f2b] border border-[#84c796] shadow-md shadow-[#88bd90]/25'
+                    : isGlass
+                      ? 'text-white/50 bg-white/5 border border-white/10 hover:bg-white/10'
+                      : 'text-[#5d7564] bg-[#f4f9ef] border border-[#bad8b7] hover:bg-[#e8f2e1]'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{m.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 设置内容区 */}
+        <div className={`${themeStyles.card} min-h-[400px]`}>
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
