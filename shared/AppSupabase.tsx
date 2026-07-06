@@ -9,6 +9,7 @@ import { listeningQuizzes } from './mockData';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
+import { MobileTabBar } from './components/MobileTabBar';
 import { SettingsLayout } from './components/SettingsLayout';
 import {
   WelcomeLoginView,
@@ -33,6 +34,7 @@ import {
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
 import { useStories } from './hooks/useStories';
+import { useIsMobile } from './hooks/useIsMobile';
 import { profileApi, supabase } from './lib/supabase';
 import { createTranslator } from './i18n';
 import { enqueueAutoAi, type BatchAiType } from './lib/batchAiStore';
@@ -149,6 +151,7 @@ export default function AppSupabase() {
   })();
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     void getPlatform().kv.set('wordbase_language', language);
@@ -967,9 +970,10 @@ export default function AppSupabase() {
         onLogout={handleSignOut}
         activeView={activeView}
         user={currentUser}
+        isMobile={isMobile}
       />
 
-      <main className={`flex-grow w-full max-w-7xl mx-auto ${isCompactMode ? 'p-3 my-4' : 'px-6 py-8 my-6'}`}>
+      <main className={`flex-grow w-full ${isMobile ? 'px-4 py-4 pb-24' : 'max-w-7xl mx-auto ' + (isCompactMode ? 'p-3 my-4' : 'px-6 py-8 my-6')}`}>
         {!user ? (
           <AnimatePresence mode="wait">
             <motion.div
@@ -988,6 +992,19 @@ export default function AppSupabase() {
                 authError={authError}
                 setAuthError={setAuthError}
               />
+            </motion.div>
+          </AnimatePresence>
+        ) : isMobile ? (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeView}
+              initial={{ opacity: 0, scale: 0.99, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              {renderMainView()}
             </motion.div>
           </AnimatePresence>
         ) : (
@@ -1018,6 +1035,15 @@ export default function AppSupabase() {
           </div>
         )}
       </main>
+
+      {user && isMobile && (
+        <MobileTabBar
+          activeView={activeView}
+          onNavigate={setActiveView}
+          themeStyles={themeStyles}
+          language={language}
+        />
+      )}
     </div>
   );
 }
