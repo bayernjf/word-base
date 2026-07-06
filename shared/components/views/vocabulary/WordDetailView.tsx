@@ -18,6 +18,7 @@ import {
 } from '../../../lib/batchAiStore';
 import { useSupabase } from '../../../context/SupabaseContext';
 import { AiProviderConfig } from '../../../lib/aiProviderConfigs';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 
 interface WordDetailProps {
   themeStyles: ThemeClasses;
@@ -132,7 +133,8 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  const isCompact = forceCompact ?? (windowHeight < 800);
+  const isMobile = useIsMobile();
+  const isCompact = forceCompact ?? isMobile ?? (windowHeight < 800);
   const isGlass = themeStyles.name === 'glass';
   const contextColDivider = isGlass ? 'border-r border-white/10' : 'border-r border-[#c7dfbd]';
   const dropdownBtnHover = isGlass ? 'hover:bg-indigo-500/10' : 'hover:bg-[#e1f0db]';
@@ -543,6 +545,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>{t('wordDetail.backToWordbook')}</span>
         </button>
+        {!isMobile && (
         <button
           onClick={() => setForceCompact(prev => prev === null ? true : prev === true ? false : null)}
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-colors cursor-pointer ${
@@ -555,6 +558,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
           {isCompact ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
           <span>{isCompact ? (language === 'zh' ? '完整' : 'Full') : (language === 'zh' ? '紧凑' : 'Compact')}</span>
         </button>
+        )}
       </div>
 
       {isCompact && (
