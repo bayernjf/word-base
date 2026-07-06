@@ -146,6 +146,7 @@ export const zh: LocaleDict = {
     confirmMoveDescSuffix: '吗？',
     back: '返回',
     confirmMove: '确认移动',
+    noTranslation: '暂无翻译',
   },
   wordDetail: {
     noWord: '当前没有激活的单词卡片。',

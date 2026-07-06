@@ -144,6 +144,7 @@ export const en = {
     confirmMoveDescSuffix: '?',
     back: 'Back',
     confirmMove: 'Confirm Move',
+    noTranslation: 'No translation',
   },
   wordDetail: {
     noWord: 'No word card active.',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
-import { Search, ChevronRight, ChevronDown, CheckCircle2, ArrowUp, ArrowDown, ChevronsUpDown, Sparkles, BrainCircuit, Loader2 } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, CheckCircle2, ArrowUp, ArrowDown, ChevronsUpDown, Sparkles, BrainCircuit, Loader2, Play } from 'lucide-react';
 import { AppLanguage, MoveWordsResult, Word, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
@@ -7,6 +7,7 @@ import { getFrequency, formatDateTime } from '../shared/helpers';
 import { createLogger } from '../../../lib/logger';
 import { useSupabase } from '../../../context/SupabaseContext';
 import { getPlatform } from '../../../platform';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import {
   BATCH_AI_LIMIT,
   startBatchAi,
@@ -112,8 +113,8 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(loadColumnWidths);
   const batchState = useSyncExternalStore(subscribeBatchAi, getBatchAiSnapshot);
   const batchAiLoading = batchState.runningType;
-  // 自动分析进行中时也要禁用批量按钮，避免与自动队列冲突
   const aiBusy = !!batchAiLoading || batchState.autoRunning;
+  const isMobile = useIsMobile();
   const resizeStateRef = useRef<{ key: ColumnKey; startX: number; startWidth: number } | null>(null);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = createTranslator(language);
@@ -630,7 +631,97 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
         </div>
       )}
 
-      {/* Table Card */}
+      {/* Mobile Card List */}
+      {isMobile && (
+        <div className="space-y-3">
+          {paginatedWords.length > 0 ? (
+            paginatedWords.map((w) => {
+              const freq = getFrequency(w);
+              const progressPct = getProgressPercent(w);
+              const progressColor = getProgressColor(progressPct);
+              return (
+                <div
+                  key={w.id}
+                  className={`${themeStyles.card} p-4 cursor-pointer active:scale-[0.99] transition-transform`}
+                  onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="pt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedWordIds.includes(w.id)}
+                        onChange={(e) => { e.stopPropagation(); toggleSelectWord(w.id); }}
+                        className="w-4 h-4"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className={`font-bold text-base ${wordLinkClass} truncate`}>
+                            {w.word}
+                          </h3>
+                          {w.phonetic && (
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                              {w.phonetic}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className={`w-12 h-1.5 rounded-full overflow-hidden ${progressTrackClass}`}>
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${progressPct}%`, backgroundColor: progressColor }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 w-4 text-right">
+                            {freq}
+                          </span>
+                        </div>
+                      </div>
+                      <p className={`text-sm mt-2 line-clamp-2 ${themeStyles.textSecondary}`}>
+                        {w.translation || w.chineseTranslation || t('vocab.noTranslation')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className={`${themeStyles.card} p-8 text-center`}>
+              <p className="text-sm text-neutral-400">{t('vocab.empty')}</p>
+            </div>
+          )}
+
+          {/* Mobile Pagination */}
+          {filteredWords.length > 0 && (
+            <div className="flex items-center justify-between pt-2">
+              <div className="text-xs text-neutral-500">
+                {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm rounded-xl border ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {t('vocab.previous')}
+                </button>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm rounded-xl border ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {t('vocab.next')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Desktop Table Card */}
+      {!isMobile && (
       <div className={`${themeStyles.card} overflow-hidden`}>
         {/* 单张表 + sticky 表头：保证表头表体列宽对齐、只有一套滚动条 */}
         <div className="overflow-x-auto overflow-y-auto max-h-[540px]">
@@ -889,6 +980,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* 删除确认弹窗 */}
       {showDeleteModal && (
