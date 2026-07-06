@@ -11,8 +11,8 @@ jobs:
     name: Web lint + build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -28,7 +28,7 @@ jobs:
         run: npm -w @wordbase/desktop run build
       - name: Build mobile frontend
         run: npm -w @wordbase/mobile run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: web-dist
           path: apps/web/dist
