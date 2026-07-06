@@ -57,7 +57,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeView, onNaviga
             <button
               key={tab.id}
               onClick={() => handleNavigate(tab.id)}
-              className={`flex flex-col items-center justify-center flex-1 h-full space-y-0.5 transition-colors cursor-pointer ${
+              className={`relative flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200 cursor-pointer active:scale-90 ${
                 active
                   ? isGlass
                     ? 'text-indigo-400'
@@ -67,8 +67,13 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeView, onNaviga
                     : 'text-[#8a9c89]'
               }`}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-semibold">{tab.label}</span>
+              <Icon className="w-6 h-6" />
+              <span className="text-xs font-medium">{tab.label}</span>
+              {active && (
+                <span className={`absolute -top-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${
+                  isGlass ? 'bg-indigo-400' : 'bg-[#2f7051]'
+                }`} />
+              )}
             </button>
           );
         })}
