@@ -28,14 +28,14 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeView, onNaviga
 
   const isActive = (tabId: string) => {
     if (tabId === 'profile') {
-      return parentView === 'settings' || activeView === 'profile';
+      return activeView.startsWith('settings') || activeView === 'profile';
     }
     return parentView === tabId;
   };
 
   const handleNavigate = (tabId: string) => {
     if (tabId === 'profile') {
-      onNavigate('profile');
+      onNavigate('settings-list');
     } else {
       onNavigate(tabId);
     }

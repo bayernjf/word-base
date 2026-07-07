@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, CheckCircle2, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
@@ -212,7 +212,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
   };
 
   return (
-    <div className="space-y-6 max-w-xl relative">
+    <div className="space-y-6 max-w-xl relative px-4 py-3 md:px-0 md:py-0">
       {/* 页面内容区顶部局部 toast */}
       <div className="pointer-events-none absolute top-0 left-0 right-0 z-30 flex justify-center">
         <AnimatePresence>
@@ -236,18 +236,21 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
         </AnimatePresence>
       </div>
 
-      <div className="flex items-center space-x-2 border-b border-neutral-200 dark:border-white/10 pb-4">
+      <div className="space-y-1">
         <button
           onClick={() => onNavigate('settings-aimodels')}
-          className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-neutral-400 cursor-pointer"
+          className={`flex items-center gap-0.5 text-sm font-semibold transition-colors cursor-pointer ${
+            isGlass ? 'text-indigo-300 hover:text-indigo-200' : 'text-[#2f805d] hover:text-[#1f5e3f]'
+          }`}
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ChevronLeft className="w-5 h-5" />
+          <span>{language === 'zh' ? 'AI模型' : 'AI Models'}</span>
         </button>
         <div>
-          <h3 className={`text-lg font-bold ${themeStyles.textPrimary}`}>
+          <h2 className={`text-xl font-bold tracking-tight ${themeStyles.textPrimary}`}>
             {isEditing ? (language === 'zh' ? '编辑 AI 模型' : 'Edit AI Provider') : t('addModel.title')}
-          </h3>
-          <p className="text-xs text-neutral-400">
+          </h2>
+          <p className="text-xs text-neutral-400 mt-0.5">
             {isEditing
               ? (language === 'zh' ? '更新模型、接口地址或重新保存新的 API Key。' : 'Update the model, endpoint, or replace the saved API key.')
               : t('addModel.subtitle')}
@@ -269,7 +272,7 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2 md:gap-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1">{t('addModel.provider')}</label>
             <div
@@ -285,11 +288,11 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
                 aria-haspopup="listbox"
                 aria-expanded={isProviderMenuOpen}
                 onClick={() => setIsProviderMenuOpen((open) => !open)}
-                className={`flex w-full items-center justify-between px-3 py-2 border rounded-xl text-xs outline-hidden transition-all ${providerButtonClass}`}
+                className={`flex w-full items-center justify-between gap-2 px-2.5 py-2 border rounded-xl text-[11px] outline-hidden transition-all whitespace-nowrap overflow-hidden ${providerButtonClass}`}
               >
-                <span>{providerLabel}</span>
+                <span className="truncate min-w-0">{providerLabel}</span>
                 <ChevronDown
-                  className={`h-3.5 w-3.5 transition-transform ${
+                  className={`h-3 w-3 flex-shrink-0 transition-transform ${
                     isProviderMenuOpen ? 'rotate-180' : ''
                   } ${isGlass ? 'text-white/65 drop-shadow-[0_1px_4px_rgba(255,255,255,0.18)]' : 'text-[#525f54]'}`}
                 />
@@ -354,11 +357,11 @@ export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, langu
               aria-haspopup="listbox"
               aria-expanded={isModelMenuOpen}
               onClick={() => setIsModelMenuOpen((open) => !open)}
-              className={`flex w-full items-center justify-between px-3 py-2 border rounded-xl text-xs outline-hidden transition-all ${providerButtonClass}`}
+              className={`flex w-full items-center justify-between gap-2 px-2.5 py-2 border rounded-xl text-[11px] outline-hidden transition-all whitespace-nowrap overflow-hidden ${providerButtonClass}`}
             >
-              <span>{modelLabel}</span>
+              <span className="truncate min-w-0">{modelLabel}</span>
               <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${
+                className={`h-3 w-3 flex-shrink-0 transition-transform ${
                   isModelMenuOpen ? 'rotate-180' : ''
                 } ${isGlass ? 'text-white/65 drop-shadow-[0_1px_4px_rgba(255,255,255,0.18)]' : 'text-[#525f54]'}`}
               />

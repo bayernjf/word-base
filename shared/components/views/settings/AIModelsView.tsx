@@ -3,6 +3,7 @@ import { AlertTriangle, Pencil, Trash2, X } from 'lucide-react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 
 type ModelCard = {
   id: string;
@@ -36,6 +37,7 @@ export const AIModelsView: React.FC<AIModelsProps> = ({
   onDeleteModel,
 }) => {
   const t = createTranslator(language);
+  const isMobile = useIsMobile();
   const [deleteTarget, setDeleteTarget] = useState<ModelCard | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -75,14 +77,17 @@ export const AIModelsView: React.FC<AIModelsProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center border-b border-neutral-200 dark:border-white/10 pb-4">
-        <div>
-          <h3 className={`text-lg font-bold ${themeStyles.textPrimary}`}>{t('aiModels.title')}</h3>
-          <p className="text-xs text-neutral-400">{t('aiModels.subtitle')}</p>
-        </div>
+      <div className={`flex justify-between items-center ${isMobile ? 'pb-2' : 'border-b border-neutral-200 dark:border-white/10 pb-4'}`}>
+        {!isMobile && (
+          <div>
+            <h3 className={`text-lg font-bold ${themeStyles.textPrimary}`}>{t('aiModels.title')}</h3>
+            <p className="text-xs text-neutral-400">{t('aiModels.subtitle')}</p>
+          </div>
+        )}
+        {isMobile && <div />}
         <button
           onClick={() => onNavigate('settings-addmodel')}
-          className={`${themeStyles.btnPrimary} text-xs font-semibold py-1.5 px-3`}
+          className={`${themeStyles.btnPrimary} text-[11px] font-semibold py-1.5 px-2.5 md:text-xs md:px-3`}
         >
           {t('aiModels.add')}
         </button>

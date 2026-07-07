@@ -772,6 +772,7 @@ export default function AppSupabase() {
           themeStyles={themeStyles}
           language={language}
           activeSettingsTab="settings-aimodels"
+          activeView={activeView}
           onNavigateSettings={setActiveView}
         >
           <AddNewModelView
@@ -859,6 +860,16 @@ export default function AppSupabase() {
             onDeleteAccount={handleDeleteAccount}
           />
         );
+      case 'settings-list':
+        return (
+          <SettingsLayout
+            themeStyles={themeStyles}
+            language={language}
+            activeSettingsTab="settings-list"
+            activeView={activeView}
+            onNavigateSettings={setActiveView}
+          />
+        );
       case 'settings-account':
       case 'settings-appearance':
       case 'settings-aimodels':
@@ -870,6 +881,7 @@ export default function AppSupabase() {
             themeStyles={themeStyles}
             language={language}
             activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
+            activeView={activeView}
             onNavigateSettings={setActiveView}
           >
             {activeView === 'settings-account' && (
