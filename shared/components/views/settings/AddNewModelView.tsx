@@ -1,0 +1,496 @@
+import React, { useEffect, useState } from 'react';
+import { Check, ChevronDown, ChevronLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { AppLanguage } from '../../../types';
+import { ThemeClasses } from '../../ThemeStyles';
+import { createTranslator } from '../../../i18n';
+import type { AiProvider, AiProviderInput } from '../../../lib/aiProviderConfigs';
+
+type EditableModel = {
+  id?: string;
+  name?: string;
+  provider?: string;
+  model?: string;
+  endpoint?: string;
+};
+
+type SelectableProvider = 'openai' | 'anthropic' | 'gemini' | 'openai-compatible';
+type ModelOption = {
+  value: string;
+  label: string;
+};
+
+const providerOptions: Array<{ value: SelectableProvider; label: string }> = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'gemini', label: 'Google Gemini' },
+  { value: 'openai-compatible', label: 'OpenAI Compatible / Custom' },
+];
+
+const modelOptionsByProvider: Record<SelectableProvider, ModelOption[]> = {
+  openai: [
+    { value: 'gpt-5.5', label: 'GPT-5.5' },
+    { value: 'gpt-5.4', label: 'GPT-5.4' },
+    { value: 'gpt-5.4-mini', label: 'GPT-5.4 mini' },
+    { value: 'gpt-5.4-nano', label: 'GPT-5.4 nano' },
+  ],
+  anthropic: [
+    { value: 'claude-fable-5', label: 'Claude Fable 5' },
+    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+  ],
+  gemini: [
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  ],
+  'openai-compatible': [],
+};
+
+const CUSTOM_MODEL_VALUE = '__custom_model__';
+
+interface AddNewModelProps {
+  themeStyles: ThemeClasses;
+  language: AppLanguage;
+  onNavigate: (view: string) => void;
+  onSaveModel: (model: AiProviderInput) => void | Promise<void>;
+  onTestConnection?: (input: { provider: AiProvider; model: string; endpoint?: string; apiKey?: string; id?: string }) => Promise<boolean>;
+  initialModel?: EditableModel | null;
+}
+
+export const AddNewModelView: React.FC<AddNewModelProps> = ({ themeStyles, language, onNavigate, onSaveModel, onTestConnection, initialModel }) => {
+  const isEditing = Boolean(initialModel?.id);
+  const initialProvider = normalizeProvider(initialModel?.provider);
+  const initialModelValue = initialModel?.model || defaultModelForProvider(initialProvider);
+  const [name, setName] = useState(initialModel?.name || '');
+  const [provider, setProvider] = useState<AiProvider>(initialProvider);
+  const [model, setModel] = useState(initialModelValue);
+  const [apiKey, setApiKey] = useState('');
+  const [endpoint, setEndpoint] = useState(initialModel?.endpoint || defaultEndpointForProvider(initialProvider));
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isProviderMenuOpen, setIsProviderMenuOpen] = useState(false);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [isCustomModel, setIsCustomModel] = useState(!isKnownProviderModel(initialProvider, initialModelValue));
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const t = createTranslator(language);
+
+  // 局部 toast：在页面内容区顶部弹出，自动消失
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ type, message });
+    window.setTimeout(() => setToast(null), 3200);
+  };
+  const providerLabel = providerOptions.find((option) => option.value === provider)?.label || 'OpenAI';
+  const modelOptions = modelOptionsByProvider[provider as SelectableProvider] || modelOptionsByProvider.openai;
+  const selectedModelOption = modelOptions.find((option) => option.value === model);
+  const modelLabel = isCustomModel
+    ? (language === 'zh' ? '自定义模型 ID' : 'Custom model ID')
+    : selectedModelOption?.label || model;
+  const isGlass = themeStyles.borderClass === 'border-white/10';
+  const fieldClass = isGlass
+    ? 'bg-white/10 border-white/10 text-white placeholder:text-white/35 focus:border-white/30 focus:bg-white/[0.14]'
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] placeholder:text-[#8a9c89] focus:border-[#56a978]';
+  const providerButtonClass = isGlass
+    ? 'bg-white/10 border-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_32px_rgba(15,23,42,0.18)] backdrop-blur-xl hover:bg-white/[0.14] focus:border-white/30 focus:bg-white/[0.16] focus:ring-2 focus:ring-white/15 [color-scheme:dark]'
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] shadow-xs shadow-[#8fb998]/10 hover:bg-[#f2faee] focus:border-[#56a978] focus:ring-2 focus:ring-[#56a978]/15 [color-scheme:light]';
+  const providerMenuClass = isGlass
+    ? 'bg-slate-950/80 border-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_28px_72px_rgba(2,6,23,0.62)] backdrop-blur-3xl'
+    : 'bg-[#fffdf7] border-[#9fc89f] text-[#1d3a2b] shadow-xl shadow-[#8fb998]/20';
+  const cancelBtnClass = isGlass
+    ? 'bg-white/5 hover:bg-white/10 border border-white/10 text-white/60'
+    : 'bg-[#fffdf7] hover:bg-[#f2faee] border border-[#9fc89f] text-[#5d7564]';
+  const testBtnClass = isGlass
+    ? 'bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-400/30 text-indigo-300'
+    : 'bg-[#eaf5e6] hover:bg-[#dceed5] border border-[#84c796] text-[#2f805d]';
+
+  useEffect(() => {
+    setName(initialModel?.name || '');
+    const nextProvider = normalizeProvider(initialModel?.provider);
+    const nextModel = initialModel?.model || defaultModelForProvider(nextProvider);
+    setProvider(nextProvider);
+    setModel(nextModel);
+    setEndpoint(initialModel?.endpoint || defaultEndpointForProvider(nextProvider));
+    setIsCustomModel(!isKnownProviderModel(nextProvider, nextModel));
+    setIsProviderMenuOpen(false);
+    setIsModelMenuOpen(false);
+    setApiKey('');
+    setSaveError(null);
+  }, [initialModel]);
+
+  const handleProviderChange = (nextProvider: AiProvider) => {
+    setProvider(nextProvider);
+    setModel(defaultModelForProvider(nextProvider));
+    setEndpoint(defaultEndpointForProvider(nextProvider));
+    setIsCustomModel(nextProvider === 'openai-compatible');
+    setIsProviderMenuOpen(false);
+    setIsModelMenuOpen(false);
+  };
+
+  const selectProvider = (nextProvider: AiProvider) => {
+    handleProviderChange(nextProvider);
+    setIsProviderMenuOpen(false);
+  };
+
+  const selectModel = (nextModel: string) => {
+    if (nextModel === CUSTOM_MODEL_VALUE) {
+      setIsCustomModel(true);
+      if (isKnownProviderModel(provider, model)) {
+        setModel('');
+      }
+    } else {
+      setIsCustomModel(false);
+      setModel(nextModel);
+    }
+    setIsModelMenuOpen(false);
+  };
+
+  const handleTest = async () => {
+    if (!onTestConnection || isTesting) return;
+    setSaveError(null);
+    const trimmedApiKey = apiKey.trim();
+    if (!trimmedApiKey && !isEditing) {
+      showToast(language === 'zh' ? '请填写 API Key' : 'API Key is required', 'error');
+      return;
+    }
+    if (!model.trim()) {
+      showToast(language === 'zh' ? '请填写模型 ID' : 'Model ID is required', 'error');
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const ok = await onTestConnection({
+        provider,
+        model: model.trim(),
+        endpoint: endpoint.trim() || undefined,
+        ...(trimmedApiKey ? { apiKey: trimmedApiKey } : {}),
+        ...(isEditing && initialModel?.id ? { id: initialModel.id } : {}),
+      });
+      if (ok) {
+        showToast(language === 'zh' ? '连接成功，模型可用。' : 'Connection successful — the model is reachable.', 'success');
+      } else {
+        showToast(language === 'zh' ? '连接失败，请检查配置。' : 'Connection failed — please check your configuration.', 'error');
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'connection_test_failed';
+      showToast(language === 'zh' ? `连接失败：${msg}` : `Connection failed: ${msg}`, 'error');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const submitForm = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const trimmedApiKey = apiKey.trim();
+      if (!isEditing && !trimmedApiKey) {
+        throw new Error(language === 'zh' ? '请填写 API Key' : 'API Key is required');
+      }
+
+      if (!model.trim()) {
+        throw new Error(language === 'zh' ? '请填写模型 ID' : 'Model ID is required');
+      }
+
+      await onSaveModel({
+        name: name.trim(),
+        provider,
+        model: model.trim(),
+        endpoint: endpoint.trim() || undefined,
+        ...(trimmedApiKey ? { apiKey: trimmedApiKey } : {}),
+      });
+      onNavigate('settings-aimodels');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'save_failed';
+      setSaveError(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-xl relative px-4 py-3 md:px-0 md:py-0">
+      {/* 页面内容区顶部局部 toast */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 z-30 flex justify-center">
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              key={toast.message}
+              initial={{ opacity: 0, y: -16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className={`pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-medium max-w-sm ${
+                toast.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-red-500/10 border-red-500/30 text-red-500'
+              }`}
+            >
+              {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+              <span className="leading-relaxed">{toast.message}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="space-y-1">
+        <button
+          onClick={() => onNavigate('settings-aimodels')}
+          className={`flex items-center gap-0.5 text-sm font-semibold transition-colors cursor-pointer ${
+            isGlass ? 'text-indigo-300 hover:text-indigo-200' : 'text-[#2f805d] hover:text-[#1f5e3f]'
+          }`}
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span>{language === 'zh' ? 'AI模型' : 'AI Models'}</span>
+        </button>
+        <div>
+          <h2 className={`text-xl font-bold tracking-tight ${themeStyles.textPrimary}`}>
+            {isEditing ? (language === 'zh' ? '编辑 AI 模型' : 'Edit AI Provider') : t('addModel.title')}
+          </h2>
+          <p className="text-xs text-neutral-400 mt-0.5">
+            {isEditing
+              ? (language === 'zh' ? '更新模型、接口地址或重新保存新的 API Key。' : 'Update the model, endpoint, or replace the saved API key.')
+              : t('addModel.subtitle')}
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={submitForm} className="space-y-4 text-xs" autoComplete="off">
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider mb-1">{t('addModel.name')}</label>
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={t('addModel.namePlaceholder')}
+            autoComplete="off"
+            className={`w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 md:gap-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">{t('addModel.provider')}</label>
+            <div
+              className="relative"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setIsProviderMenuOpen(false);
+                }
+              }}
+            >
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isProviderMenuOpen}
+                onClick={() => setIsProviderMenuOpen((open) => !open)}
+                className={`flex w-full items-center justify-between gap-2 px-2.5 py-2 border rounded-xl text-[11px] outline-hidden transition-all whitespace-nowrap overflow-hidden ${providerButtonClass}`}
+              >
+                <span className="truncate min-w-0">{providerLabel}</span>
+                <ChevronDown
+                  className={`h-3 w-3 flex-shrink-0 transition-transform ${
+                    isProviderMenuOpen ? 'rotate-180' : ''
+                  } ${isGlass ? 'text-white/65 drop-shadow-[0_1px_4px_rgba(255,255,255,0.18)]' : 'text-[#525f54]'}`}
+                />
+              </button>
+
+              {isProviderMenuOpen && (
+                <div
+                  role="listbox"
+                  className={`absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border p-1 ${providerMenuClass}`}
+                >
+                  {providerOptions.map((option) => {
+                    const isSelected = option.value === provider;
+                    const optionClass = isGlass
+                      ? `${isSelected ? 'bg-white/24 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]' : 'text-white/82 hover:bg-white/16 hover:text-white'}`
+                      : `${isSelected ? 'bg-[#56a978] text-white' : 'text-[#1d3a2b] hover:bg-[#e1f0db]'}`;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectProvider(option.value)}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors ${optionClass}`}
+                      >
+                        <span>{option.label}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">{t('addModel.endpoint')}</label>
+            <input
+              type="text"
+              value={endpoint}
+              onChange={(event) => setEndpoint(event.target.value)}
+              placeholder={defaultEndpointForProvider(provider) || t('addModel.endpointPlaceholder')}
+              autoComplete="off"
+              className={`w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider mb-1">Model *</label>
+          <div
+            className="relative"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                setIsModelMenuOpen(false);
+              }
+            }}
+          >
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={isModelMenuOpen}
+              onClick={() => setIsModelMenuOpen((open) => !open)}
+              className={`flex w-full items-center justify-between gap-2 px-2.5 py-2 border rounded-xl text-[11px] outline-hidden transition-all whitespace-nowrap overflow-hidden ${providerButtonClass}`}
+            >
+              <span className="truncate min-w-0">{modelLabel}</span>
+              <ChevronDown
+                className={`h-3 w-3 flex-shrink-0 transition-transform ${
+                  isModelMenuOpen ? 'rotate-180' : ''
+                } ${isGlass ? 'text-white/65 drop-shadow-[0_1px_4px_rgba(255,255,255,0.18)]' : 'text-[#525f54]'}`}
+              />
+            </button>
+
+            {isModelMenuOpen && (
+              <div
+                role="listbox"
+                className={`absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border p-1 ${providerMenuClass}`}
+              >
+                {[...modelOptions, { value: CUSTOM_MODEL_VALUE, label: language === 'zh' ? '自定义模型 ID' : 'Custom model ID' }].map((option) => {
+                  const isSelected = option.value === CUSTOM_MODEL_VALUE ? isCustomModel : option.value === model && !isCustomModel;
+                  const optionClass = isGlass
+                    ? `${isSelected ? 'bg-white/24 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]' : 'text-white/82 hover:bg-white/16 hover:text-white'}`
+                    : `${isSelected ? 'bg-[#56a978] text-white' : 'text-[#1d3a2b] hover:bg-[#e1f0db]'}`;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectModel(option.value)}
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors ${optionClass}`}
+                    >
+                      <span>{option.label}</span>
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {isCustomModel && (
+            <input
+              type="text"
+              required
+              value={model}
+              onChange={(event) => setModel(event.target.value)}
+              placeholder={language === 'zh' ? '输入自定义模型 ID' : 'Enter custom model ID'}
+              autoComplete="off"
+              className={`mt-2 w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
+            />
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider mb-1">{t('addModel.apiKey')}</label>
+          <input
+            type="text"
+            required={!isEditing}
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder={isEditing ? (language === 'zh' ? '留空则继续使用已保存的 Key' : 'Leave blank to keep the saved key') : t('addModel.apiPlaceholder')}
+            name="ai-provider-secret"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-lpignore="true"
+            data-1p-ignore="true"
+            data-form-type="other"
+            style={{ WebkitTextSecurity: 'disc' } as React.CSSProperties}
+            className={`w-full px-3 py-2 border rounded-xl text-xs outline-hidden transition-colors ${fieldClass}`}
+          />
+          <p className="mt-2 text-[11px] text-neutral-400">
+            {isEditing
+              ? 'Leave this blank unless you want to replace the encrypted key stored on the server.'
+              : 'The key is sent to the server once, encrypted, and never shown again.'}
+          </p>
+        </div>
+
+        {saveError && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+            {saveError}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-4">
+          <button
+            type="button"
+            onClick={() => void handleTest()}
+            disabled={isTesting || isSaving}
+            className={`py-2 rounded-xl font-bold flex-1 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${testBtnClass}`}
+          >
+            {isTesting
+              ? (language === 'zh' ? '测试中...' : 'Testing...')
+              : (language === 'zh' ? '测试连接' : 'Test Connection')}
+          </button>
+          <button type="submit" disabled={isSaving} className={`${themeStyles.btnPrimary} py-2 font-bold flex-1 disabled:opacity-60`}>
+            {isSaving ? 'Saving...' : (isEditing ? (language === 'zh' ? '保存修改' : 'Save Changes') : t('addModel.save'))}
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('settings-aimodels')}
+            className={`py-2 rounded-xl font-bold flex-1 cursor-pointer transition-colors ${cancelBtnClass}`}
+          >
+            {t('addModel.cancel')}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+function normalizeProvider(provider?: string): AiProvider {
+  if (provider === 'anthropic') return 'anthropic';
+  if (provider === 'gemini') return 'gemini';
+  if (provider === 'openai-compatible') return 'openai-compatible';
+  return 'openai';
+}
+
+function defaultModelForProvider(provider: AiProvider): string {
+  if (provider === 'anthropic') return 'claude-fable-5';
+  if (provider === 'gemini') return 'gemini-2.5-pro';
+  if (provider === 'openai-compatible') return '';
+  return 'gpt-5.5';
+}
+
+function defaultEndpointForProvider(provider: AiProvider): string {
+  if (provider === 'anthropic') return 'https://api.anthropic.com/v1';
+  if (provider === 'gemini') return 'https://generativelanguage.googleapis.com/v1beta';
+  if (provider === 'openai-compatible') return '';
+  return 'https://api.openai.com/v1';
+}
+
+function isKnownProviderModel(provider: AiProvider, value: string): boolean {
+  const options = modelOptionsByProvider[provider as SelectableProvider] || modelOptionsByProvider.openai;
+  return options.some((option) => option.value === value);
+}

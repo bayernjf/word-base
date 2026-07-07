@@ -16,16 +16,16 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": [
-        "./*"
+      "@wordbase/shared/*": [
+        "./shared/*"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
   "include": [
-    "src/**/*",
-    "vite-env.d.ts"
+    "shared/**/*",
+    "apps/**/*"
   ],
   "references": [
     { "path": "./tsconfig.node.json" }

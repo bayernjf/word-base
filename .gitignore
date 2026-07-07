@@ -6,3 +6,18 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Tauri
+apps/desktop/src-tauri/target/
+
+# Capacitor (前端资源同步产物，会由 cap sync 自动再生成)
+apps/mobile/ios/App/App/public/
+apps/mobile/android/app/src/main/assets/public/
+apps/mobile/ios/capacitor.config.json
+apps/mobile/android/app/src/main/assets/capacitor.config.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.xcuserstate

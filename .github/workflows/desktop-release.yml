@@ -1,0 +1,104 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. 0.1.0)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: Build Desktop (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            os: macos-14
+          - platform: windows
+            os: windows-latest
+          - platform: linux
+            os: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - run: npm ci
+
+      - name: Generate src-tauri via tauri init (idempotent)
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          if [ ! -d src-tauri ]; then
+            # Non-interactive init: answer questions via env
+            export CI=true
+            npx tauri init --ci \
+              --app-name wordbase-desktop \
+              --window-title WordBase \
+              --frontend-dist ../dist \
+              --dev-url http://localhost:3002 \
+              --before-dev-command "npm run dev" \
+              --before-build-command "npm run build"
+          fi
+          # 应用模板覆盖
+          cp native-templates/tauri.conf.json src-tauri/tauri.conf.json
+          mkdir -p src-tauri/capabilities
+          cp native-templates/capabilities/default.json src-tauri/capabilities/default.json
+
+      - name: Patch Cargo.toml (add plugins)
+        working-directory: apps/desktop/src-tauri
+        shell: bash
+        run: |
+          if ! grep -q tauri-plugin-store Cargo.toml; then
+            cat >> Cargo.toml <<'EOF'
+          tauri-plugin-clipboard-manager = "2"
+          tauri-plugin-notification = "2"
+          tauri-plugin-shell = "2"
+          tauri-plugin-store = "2"
+          EOF
+          fi
+
+      - name: Patch lib.rs (register plugins)
+        working-directory: apps/desktop/src-tauri/src
+        shell: bash
+        run: |
+          cp ../../native-templates/lib.rs lib.rs
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS 签名（可选，发布正式版时设置）
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          args: --verbose

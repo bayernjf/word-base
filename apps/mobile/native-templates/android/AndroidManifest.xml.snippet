@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+=============================================
+Android AndroidManifest.xml 权限片段
+=============================================
+cap add android 之后，Capacitor 会在
+apps/mobile/android/app/src/main/AndroidManifest.xml
+里生成基础 manifest。把下面这些 <uses-permission> 合并到 <manifest> 根节点下，
+把 <uses-feature> 也一并加进去。
+
+覆盖的原生能力：
+  - INTERNET：Supabase / 同步服务网络请求（Capacitor 默认已有）
+  - RECORD_AUDIO：口语练习录音
+  - POST_NOTIFICATIONS：Android 13+ 弹通知必需
+  - VIBRATE：LocalNotifications 震动
+  - WAKE_LOCK：LocalNotifications 唤醒屏幕
+  - RECEIVE_BOOT_COMPLETED：重启后恢复定时通知
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 网络 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 麦克风：口语练习 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <!-- 通知（LocalNotifications 插件必需，Android 13+ 强制申请） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- 使 App 支持精确闹钟（Android 12+） -->
+    <uses-permission
+        android:name="com.google.android.c2dm.permission.RECEIVE"
+        android:protectionLevel="signature" />
+
+    <!--
+    ==================================================
+    <application> 节点内的调整建议：
+    ==================================================
+    在 <application> 打开明文流量 & 允许 cleartext 调试后端时加：
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true"
+
+    对应资源文件放在：
+        apps/mobile/android/app/src/main/res/xml/network_security_config.xml
+    模板见 native-templates/android/network_security_config.xml
+    -->
+
+</manifest>
