@@ -16,6 +16,10 @@ interface WordPhoneticsProps {
   /** 已有音标，API 无结果时作为 fallback 展示 */
   fallbackPhonetic?: string;
   language: AppLanguage;
+  /** 紧凑模式：小字号、自动换行 */
+  compact?: boolean;
+  /** 是否显示发音喇叭按钮（默认 compact 模式不显示，非 compact 模式显示） */
+  showSpeaker?: boolean;
 }
 
 /**
@@ -23,22 +27,28 @@ interface WordPhoneticsProps {
  * 提供发音播放（音频失败时回退到浏览器 TTS）。供单词详情页与复习卡片共用，
  * 保证音标与发音表现一致。
  */
-export const WordPhonetics: React.FC<WordPhoneticsProps> = ({ word, fallbackPhonetic, language }) => {
+export const WordPhonetics: React.FC<WordPhoneticsProps> = ({ word, fallbackPhonetic, language, compact = false, showSpeaker }) => {
+  // 默认：非 compact 模式显示喇叭，compact 模式不显示
+  const shouldShowSpeaker = showSpeaker !== undefined ? showSpeaker : !compact;
   const t = createTranslator(language);
-  const [dictPhonetics, setDictPhonetics] = useState<DictPhonetics | null>(null);
+  const [dictPhonetics, setDictPhonetics] = useState<DictPhonetics>({});
   const [playingType, setPlayingType] = useState<'uk' | 'us' | 'tts' | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!word) {
-      setDictPhonetics({});
+      setLoaded(true);
       return;
     }
     let cancelled = false;
+    setLoaded(false);
     fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (cancelled || !Array.isArray(data) || !data[0]) {
-          if (!cancelled) setDictPhonetics({});
+        if (cancelled) return;
+        if (!Array.isArray(data) || !data[0]) {
+          setDictPhonetics({});
+          setLoaded(true);
           return;
         }
         const entry = data[0];
@@ -64,18 +74,32 @@ export const WordPhonetics: React.FC<WordPhoneticsProps> = ({ word, fallbackPhon
         if (!uk || !us) {
           const texts = phonetics.filter((p) => p.text).map((p) => p.text as string);
           if (texts.length >= 2) {
-            uk = texts[0];
-            us = texts[1];
+            if (!uk) uk = texts[0];
+            if (!us) us = texts[1];
           } else if (texts.length === 1) {
-            uk = texts[0];
+            if (!uk && !us) {
+              uk = texts[0];
+            } else if (!uk) {
+              uk = texts[0];
+            } else if (!us) {
+              us = texts[0];
+            }
           }
+        }
+        // 最后 fallback：用顶层 phonetic 字段
+        if (!uk && !us && entry.phonetic) {
+          uk = entry.phonetic;
         }
         // 将 IPA 反转 R (ɹ) 替换为常见印刷体 r，提升可读性
         const normalizeR = (s: string) => s.replace(/\u0279/g, 'r');
-        if (!cancelled) setDictPhonetics({ uk: normalizeR(uk), us: normalizeR(us), ukAudio, usAudio });
+        setDictPhonetics({ uk: normalizeR(uk), us: normalizeR(us), ukAudio, usAudio });
+        setLoaded(true);
       })
       .catch(() => {
-        if (!cancelled) setDictPhonetics({});
+        if (!cancelled) {
+          setDictPhonetics({});
+          setLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -106,50 +130,57 @@ export const WordPhonetics: React.FC<WordPhoneticsProps> = ({ word, fallbackPhon
     }
   };
 
-  // 音标：API 加载完成后再展示，避免从单音标闪现到双音标
-  if (dictPhonetics === null) return null;
-
   return (
-    <div className="flex items-center gap-3 mt-1">
+    <div className={`${compact ? 'flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5' : 'flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mt-1'}`}>
       {dictPhonetics.uk && (
-        <p className="text-sm text-neutral-400 font-mono flex items-center space-x-1">
-          <span className="text-[10px] text-neutral-300 dark:text-white/30 uppercase">{t('wordDetail.ukPronunciation')}</span>
-          <span>{dictPhonetics.uk}</span>
-          <button
-            onClick={() => handleSpeech('uk', dictPhonetics.ukAudio)}
-            disabled={playingType !== null}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-            title={language === 'zh' ? '英音发音' : 'UK Pronunciation'}
-          >
-            <Volume2 className={`w-4 h-4 ${playingType === 'uk' ? 'animate-bounce' : ''}`} />
-          </button>
+        <p className={`${compact ? 'text-[11px] text-neutral-500 dark:text-neutral-400' : 'text-sm text-neutral-400'} font-mono flex items-center space-x-1.5 whitespace-nowrap`}>
+          <span className={`${compact ? 'text-[9px] text-neutral-400 dark:text-white/40' : 'text-[10px] text-neutral-300 dark:text-white/30'} uppercase mr-0.5`}>
+            {compact ? '英' : t('wordDetail.ukPronunciation')}
+          </span>
+          <span className={compact ? '' : 'truncate'}>{dictPhonetics.uk}</span>
+          {shouldShowSpeaker && (
+            <button
+              onClick={() => handleSpeech('uk', dictPhonetics.ukAudio)}
+              disabled={playingType !== null}
+              className={`${compact ? 'p-0.5 ml-0.5' : 'p-1 ml-1'} hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer flex-shrink-0`}
+              title={language === 'zh' ? '英音发音' : 'UK Pronunciation'}
+            >
+              <Volume2 className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} ${playingType === 'uk' ? 'animate-bounce' : ''}`} />
+            </button>
+          )}
         </p>
       )}
       {dictPhonetics.us && (
-        <p className="text-sm text-neutral-400 font-mono flex items-center space-x-1">
-          <span className="text-[10px] text-neutral-300 dark:text-white/30 uppercase">{t('wordDetail.usPronunciation')}</span>
-          <span>{dictPhonetics.us}</span>
-          <button
-            onClick={() => handleSpeech('us', dictPhonetics.usAudio)}
-            disabled={playingType !== null}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-            title={language === 'zh' ? '美音发音' : 'US Pronunciation'}
-          >
-            <Volume2 className={`w-4 h-4 ${playingType === 'us' ? 'animate-bounce' : ''}`} />
-          </button>
+        <p className={`${compact ? 'text-[11px] text-neutral-500 dark:text-neutral-400' : 'text-sm text-neutral-400'} font-mono flex items-center space-x-1.5 whitespace-nowrap`}>
+          <span className={`${compact ? 'text-[9px] text-neutral-400 dark:text-white/40' : 'text-[10px] text-neutral-300 dark:text-white/30'} uppercase mr-0.5`}>
+            {compact ? '美' : t('wordDetail.usPronunciation')}
+          </span>
+          <span className={compact ? '' : 'truncate'}>{dictPhonetics.us}</span>
+          {shouldShowSpeaker && (
+            <button
+              onClick={() => handleSpeech('us', dictPhonetics.usAudio)}
+              disabled={playingType !== null}
+              className={`${compact ? 'p-0.5 ml-0.5' : 'p-1 ml-1'} hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer flex-shrink-0`}
+              title={language === 'zh' ? '美音发音' : 'US Pronunciation'}
+            >
+              <Volume2 className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} ${playingType === 'us' ? 'animate-bounce' : ''}`} />
+            </button>
+          )}
         </p>
       )}
       {/* API 无结果时 fallback 到已有 phonetic */}
       {!dictPhonetics.uk && !dictPhonetics.us && fallbackPhonetic && (
-        <p className="text-sm text-neutral-400 font-mono flex items-center space-x-2">
-          <span>/{fallbackPhonetic}/</span>
-          <button
-            onClick={() => handleSpeech('tts')}
-            disabled={playingType !== null}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
-          >
-            <Volume2 className={`w-4 h-4 ${playingType === 'tts' ? 'animate-bounce' : ''}`} />
-          </button>
+        <p className={`${compact ? 'text-[11px] text-neutral-500 dark:text-neutral-400' : 'text-sm text-neutral-400'} font-mono flex items-center space-x-1.5 whitespace-nowrap`}>
+          <span>{fallbackPhonetic.startsWith('/') ? fallbackPhonetic : `/${fallbackPhonetic}/`}</span>
+          {shouldShowSpeaker && (
+            <button
+              onClick={() => handleSpeech('tts')}
+              disabled={playingType !== null}
+              className={`${compact ? 'p-0.5 ml-0.5' : 'p-1 ml-1'} hover:bg-slate-100 dark:hover:bg-white/5 rounded-full text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer flex-shrink-0`}
+            >
+              <Volume2 className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} ${playingType === 'tts' ? 'animate-bounce' : ''}`} />
+            </button>
+          )}
         </p>
       )}
     </div>
