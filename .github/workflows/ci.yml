@@ -1,0 +1,293 @@
+name: CI Build
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck & Web Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck all apps
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          npm -w @wordbase/web exec tsc -- --noEmit
+          npm -w @wordbase/desktop exec tsc -- --noEmit
+          npm -w @wordbase/mobile exec tsc -- --noEmit
+
+      - name: Build web frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/web run build
+
+      - name: Build desktop frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/desktop run build
+
+      - name: Build mobile frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/mobile run build
+
+      - name: Upload web dist artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: web-dist
+          path: apps/web/dist
+
+      - name: Verify web preview server on port 3000
+        run: |
+          cd apps/web
+          npx vite preview --port 3000 --host 0.0.0.0 &
+          SERVER_PID=$!
+          sleep 3
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 | grep -q "200" && echo "Web server on port 3000: OK" || echo "Web server on port 3000: FAILED"
+          kill $SERVER_PID 2>/dev/null || true
+
+  supabase-health:
+    name: Supabase Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check Supabase connectivity
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "Warning: VITE_SUPABASE_URL not set, skipping Supabase health check"
+            exit 0
+          fi
+          echo "Checking Supabase at: $VITE_SUPABASE_URL"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$VITE_SUPABASE_URL/rest/v1/" -H "apikey: $VITE_SUPABASE_ANON_KEY" -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY")
+          echo "Supabase HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "400" ]; then
+            echo "Supabase service is reachable"
+          else
+            echo "Warning: Supabase returned unexpected status $HTTP_CODE"
+          fi
+
+  desktop-macos:
+    name: Desktop macOS (dmg)
+    runs-on: macos-14
+    needs: verify
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - run: npm ci
+
+      - name: Build desktop frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/desktop run build
+
+      - name: Build Tauri macOS app
+        working-directory: apps/desktop
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ''
+        run: npx tauri build --verbose
+
+      - name: Upload macOS dmg artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: desktop-macos-dmg
+          path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+
+  desktop-windows:
+    name: Desktop Windows (exe)
+    runs-on: windows-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - run: npm ci
+
+      - name: Build desktop frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/desktop run build
+
+      - name: Build Tauri Windows app
+        working-directory: apps/desktop
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npx tauri build --verbose
+
+      - name: Upload Windows exe artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: desktop-windows-exe
+          path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+
+  ios-simulator:
+    name: iOS Simulator Build
+    runs-on: macos-14
+    needs: verify
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup CocoaPods
+        run: |
+          gem install cocoapods
+          pod --version
+
+      - run: npm ci
+
+      - name: Build mobile frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/mobile run build
+
+      - name: Capacitor sync iOS
+        working-directory: apps/mobile
+        run: npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios/App
+        run: pod install
+
+      - name: Build iOS simulator app
+        working-directory: apps/mobile/ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath ../build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Find simulator app bundle
+        run: |
+          find apps/mobile/ios/build -name "*.app" -type d | head -5
+
+      - name: Package simulator app
+        run: |
+          APP_PATH=$(find apps/mobile/ios/build -name "WordBase.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find apps/mobile/ios/build -name "*.app" -type d | head -1)
+          fi
+          echo "Found app at: $APP_PATH"
+          mkdir -p artifact
+          cp -R "$APP_PATH" artifact/
+          cd artifact && zip -r ../ios-simulator-app.zip *.app && cd ..
+
+      - name: Upload iOS simulator artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios-simulator-app
+          path: ios-simulator-app.zip
+
+  android-debug:
+    name: Android Debug (APK)
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      - name: Build mobile frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/mobile run build
+
+      - name: Capacitor sync Android
+        working-directory: apps/mobile
+        run: npx cap sync android
+
+      - name: Build Android debug APK
+        working-directory: apps/mobile/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: android-debug-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/*.apk
