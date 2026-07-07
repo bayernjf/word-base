@@ -4,6 +4,7 @@ import { AppLanguage, MoveWordsResult, Word, VocabularyBook } from '../../../typ
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
+import { WordPhonetics } from '../shared/WordPhonetics';
 import { createLogger } from '../../../lib/logger';
 import { useSupabase } from '../../../context/SupabaseContext';
 import { getPlatform } from '../../../platform';
@@ -117,6 +118,15 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const isMobile = useIsMobile();
   const resizeStateRef = useRef<{ key: ColumnKey; startX: number; startWidth: number } | null>(null);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeActiveRef = useRef(false);
+  const swipeAnchorIdRef = useRef<string | null>(null);
+  const swipeAnchorWasSelectedRef = useRef(false);
+  const swipeVisitedRef = useRef<Set<string>>(new Set());
+  const justSwipedRef = useRef(false);
+  const swipeMoveHandlerRef = useRef<((e: PointerEvent) => void) | null>(null);
+  const swipeUpHandlerRef = useRef<(() => void) | null>(null);
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
   const searchPanelClass = isGlass
@@ -219,6 +229,22 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cancelLongPress();
+      endSwipeSelection();
+      const moveHandler = swipeMoveHandlerRef.current;
+      const upHandler = swipeUpHandlerRef.current;
+      if (moveHandler) window.removeEventListener('pointermove', moveHandler);
+      if (upHandler) {
+        window.removeEventListener('pointerup', upHandler);
+        window.removeEventListener('pointercancel', upHandler);
+      }
+      swipeMoveHandlerRef.current = null;
+      swipeUpHandlerRef.current = null;
     };
   }, []);
 
@@ -375,6 +401,121 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   // 取消选择
   const clearSelection = () => {
     updateSelection([]);
+  };
+
+  const LONG_PRESS_MS = 280;
+  const MOVE_CANCEL_THRESHOLD = 8;
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const findWordIdFromPoint = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const card = (el as HTMLElement).closest('[data-word-card]') as HTMLElement | null;
+    return card?.dataset.wordId ?? null;
+  };
+
+  const endSwipeSelection = () => {
+    swipeActiveRef.current = false;
+    swipeAnchorIdRef.current = null;
+    swipeVisitedRef.current.clear();
+    document.body.style.touchAction = '';
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+  };
+
+  const handleSwipePointerMove = (e: PointerEvent) => {
+    if (!swipeActiveRef.current) return;
+    const wordId = findWordIdFromPoint(e.clientX, e.clientY);
+    if (!wordId || swipeVisitedRef.current.has(wordId)) return;
+    swipeVisitedRef.current.add(wordId);
+    const shouldSelect = !swipeAnchorWasSelectedRef.current;
+    updateSelection((prev) => {
+      const isSelected = prev.includes(wordId);
+      if (shouldSelect && !isSelected) return [...prev, wordId];
+      if (!shouldSelect && isSelected) return prev.filter((id) => id !== wordId);
+      return prev;
+    });
+  };
+
+  const handleSwipePointerUp = () => {
+    if (swipeActiveRef.current) {
+      justSwipedRef.current = true;
+      setTimeout(() => { justSwipedRef.current = false; }, 50);
+    }
+    cancelLongPress();
+    endSwipeSelection();
+    const moveHandler = swipeMoveHandlerRef.current;
+    const upHandler = swipeUpHandlerRef.current;
+    if (moveHandler) window.removeEventListener('pointermove', moveHandler);
+    if (upHandler) {
+      window.removeEventListener('pointerup', upHandler);
+      window.removeEventListener('pointercancel', upHandler);
+    }
+    swipeMoveHandlerRef.current = null;
+    swipeUpHandlerRef.current = null;
+  };
+
+  const startLongPress = (wordId: string, clientX: number, clientY: number) => {
+    swipeStartPosRef.current = { x: clientX, y: clientY };
+    cancelLongPress();
+    longPressTimerRef.current = setTimeout(() => {
+      const anchorSelected = selectedWordIds.includes(wordId);
+      swipeAnchorIdRef.current = wordId;
+      swipeAnchorWasSelectedRef.current = anchorSelected;
+      swipeVisitedRef.current = new Set([wordId]);
+      swipeActiveRef.current = true;
+      justSwipedRef.current = false;
+      if (!anchorSelected) {
+        updateSelection((prev) => (prev.includes(wordId) ? prev : [...prev, wordId]));
+      } else {
+        updateSelection((prev) => prev.filter((id) => id !== wordId));
+      }
+      document.body.style.touchAction = 'none';
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      if (navigator.vibrate) {
+        try { navigator.vibrate(12); } catch { /* ignore */ }
+      }
+      const moveHandler = handleSwipePointerMove;
+      const upHandler = handleSwipePointerUp;
+      swipeMoveHandlerRef.current = moveHandler;
+      swipeUpHandlerRef.current = upHandler;
+      window.addEventListener('pointermove', moveHandler, { passive: true });
+      window.addEventListener('pointerup', upHandler);
+      window.addEventListener('pointercancel', upHandler);
+    }, LONG_PRESS_MS);
+  };
+
+  const handleCardPointerDown = (wordId: string) => (e: React.PointerEvent) => {
+    if (!isMobile) return;
+    startLongPress(wordId, e.clientX, e.clientY);
+  };
+
+  const handleCardPointerMove = (e: React.PointerEvent) => {
+    if (!isMobile || swipeActiveRef.current) return;
+    const start = swipeStartPosRef.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) > MOVE_CANCEL_THRESHOLD || Math.abs(dy) > MOVE_CANCEL_THRESHOLD) {
+      cancelLongPress();
+    }
+  };
+
+  const handleCardClick = (w: Word) => (e: React.MouseEvent) => {
+    if (justSwipedRef.current || swipeActiveRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onSelectWord(w.id);
+    onNavigate('worddetail');
   };
 
   // 显示临时通知
@@ -633,39 +774,61 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 
       {/* Mobile Card List */}
       {isMobile && (
-        <div className="space-y-3">
+        <div className="space-y-3 select-none" style={{ touchAction: 'pan-y' }}>
           {paginatedWords.length > 0 ? (
             paginatedWords.map((w) => {
               const freq = getFrequency(w);
               const progressPct = getProgressPercent(w);
               const progressColor = getProgressColor(progressPct);
+              const isSelected = selectedWordIds.includes(w.id);
+              const cardSelectedClass = isSelected
+                ? (isGlass
+                    ? 'ring-2 ring-indigo-400/70 bg-indigo-500/10'
+                    : 'ring-2 ring-[#5aa167] bg-[#e8f5e3]')
+                : '';
               return (
                 <div
                   key={w.id}
-                  className={`${themeStyles.card} p-4 cursor-pointer active:scale-[0.99] transition-transform`}
-                  onClick={() => { onSelectWord(w.id); onNavigate('worddetail'); }}
+                  data-word-card
+                  data-word-id={w.id}
+                  className={`${themeStyles.card} p-4 cursor-pointer active:scale-[0.99] transition-all duration-100 ${cardSelectedClass}`}
+                  onClick={handleCardClick(w)}
+                  onPointerDown={handleCardPointerDown(w.id)}
+                  onPointerMove={handleCardPointerMove}
+                  onPointerUp={cancelLongPress}
+                  onPointerCancel={cancelLongPress}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="pt-0.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedWordIds.includes(w.id)}
-                        onChange={(e) => { e.stopPropagation(); toggleSelectWord(w.id); }}
-                        className="w-4 h-4"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      className={`pt-0.5 flex-shrink-0 cursor-pointer focus:outline-none`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (justSwipedRef.current || swipeActiveRef.current) return;
+                        toggleSelectWord(w.id);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        isSelected
+                          ? (isGlass ? 'bg-indigo-400 border-indigo-400' : 'bg-[#5aa167] border-[#5aa167]')
+                          : (isGlass ? 'border-white/30 hover:border-white/50' : 'border-[#9fc89f] hover:border-[#5aa167]')
+                      }`}>
+                        {isSelected && (
+                          <svg viewBox="0 0 12 12" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="2.5,6.5 5,9 9.5,3.5" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                    <div className="flex-1 min-w-0 pointer-events-none">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h3 className={`font-bold text-base ${wordLinkClass} truncate`}>
+                          <h3 className={`font-bold text-base ${isSelected ? (isGlass ? 'text-indigo-200' : 'text-[#2f805d]') : wordLinkClass} truncate`}>
                             {w.word}
                           </h3>
-                          {w.phonetic && (
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                              {w.phonetic}
-                            </p>
-                          )}
+                          <WordPhonetics word={w.word} fallbackPhonetic={w.phonetic} language={language} compact />
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <div className={`w-12 h-1.5 rounded-full overflow-hidden ${progressTrackClass}`}>
@@ -695,22 +858,59 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 
           {/* Mobile Pagination */}
           {filteredWords.length > 0 && (
-            <div className="flex items-center justify-between pt-2">
-              <div className="text-xs text-neutral-500">
-                {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
+            <div className="space-y-3 pt-2">
+              {/* 第一行：统计 + 每页条数 */}
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-neutral-500">
+                  {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-neutral-500">{t('vocab.show')}</span>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setPerPageDropdownOpen((prev) => !prev)}
+                      className={`flex items-center gap-1 px-2 py-1 border rounded-lg text-xs cursor-pointer ${dropdownSelectClass}`}
+                    >
+                      <span>{itemsPerPage}</span>
+                      <ChevronDown className={`w-3 h-3 transition-transform ${perPageDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
+                    </button>
+                    {perPageDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setPerPageDropdownOpen(false)} />
+                        <div className={`absolute right-0 bottom-full mb-2 w-20 rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
+                          {[10, 20, 50, 100].map((size) => (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => { setItemsPerPage(size); setPerPageDropdownOpen(false); }}
+                              className={`w-full px-3 py-1.5 rounded-lg text-xs text-left transition-colors ${size === itemsPerPage ? dropdownOptionSelected : dropdownOptionIdle}`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              {/* 第二行：页码导航 */}
+              <div className="flex items-center justify-center gap-2">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm rounded-xl border ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {t('vocab.previous')}
                 </button>
+                <span className="text-xs text-neutral-500 font-mono">
+                  {currentPage} / {totalPages}
+                </span>
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm rounded-xl border ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {t('vocab.next')}
                 </button>
@@ -840,68 +1040,66 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
 
         {/* 分页控件 */}
         {filteredWords.length > 0 && (
-          <div className={`border-t border-neutral-200 dark:border-white/10 ${isMobile ? 'px-3 py-3 space-y-3' : 'px-4 py-3'}`}>
-            {isMobile ? (
-              <>
-                {/* 移动端第一行：统计 + 每页条数 */}
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-neutral-500">
-                    {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-neutral-500">{t('vocab.show')}</span>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setPerPageDropdownOpen((prev) => !prev)}
-                        className={`flex items-center gap-1 px-2 py-1 border rounded-lg text-xs cursor-pointer ${dropdownSelectClass}`}
-                      >
-                        <span>{itemsPerPage}</span>
-                        <ChevronDown className={`w-3 h-3 transition-transform ${perPageDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
-                      </button>
-                      {perPageDropdownOpen && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setPerPageDropdownOpen(false)} />
-                          <div className={`absolute right-0 bottom-full mb-2 w-20 rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
-                            {[10, 20, 50, 100].map((size) => (
-                              <button
-                                key={size}
-                                type="button"
-                                onClick={() => { setItemsPerPage(size); setPerPageDropdownOpen(false); }}
-                                className={`w-full px-3 py-1.5 rounded-lg text-xs text-left transition-colors ${size === itemsPerPage ? dropdownOptionSelected : dropdownOptionIdle}`}
-                              >
-                                {size}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {/* 移动端第二行：页码导航 */}
-                <div className="flex items-center justify-center gap-2">
+          <div className="border-t border-neutral-200 dark:border-white/10 px-3 py-3 md:px-4 md:py-3">
+            {/* 移动端第一行：统计 + 每页条数（大屏隐藏） */}
+            <div className="flex items-center justify-between md:hidden mb-3">
+              <div className="text-xs text-neutral-500">
+                {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-neutral-500">{t('vocab.show')}</span>
+                <div className="relative">
                   <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    type="button"
+                    onClick={() => setPerPageDropdownOpen((prev) => !prev)}
+                    className={`flex items-center gap-1 px-2 py-1 border rounded-lg text-xs cursor-pointer ${dropdownSelectClass}`}
                   >
-                    {t('vocab.previous')}
+                    <span>{itemsPerPage}</span>
+                    <ChevronDown className={`w-3 h-3 transition-transform ${perPageDropdownOpen ? 'rotate-180' : ''} ${dropdownChevronClass}`} />
                   </button>
-                  <span className="text-xs text-neutral-500 font-mono">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {t('vocab.next')}
-                  </button>
+                  {perPageDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setPerPageDropdownOpen(false)} />
+                      <div className={`absolute right-0 bottom-full mb-2 w-20 rounded-xl shadow-xl border z-50 p-1.5 flex flex-col gap-1 ${dropdownPanelClass}`}>
+                        {[10, 20, 50, 100].map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => { setItemsPerPage(size); setPerPageDropdownOpen(false); }}
+                            className={`w-full px-3 py-1.5 rounded-lg text-xs text-left transition-colors ${size === itemsPerPage ? dropdownOptionSelected : dropdownOptionIdle}`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
-              </>
-            ) : (
-            <div className="flex items-center justify-between">
+              </div>
+            </div>
+            {/* 移动端第二行：页码导航居中（大屏隐藏） */}
+            <div className="flex items-center justify-center gap-2 md:hidden">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {t('vocab.previous')}
+              </button>
+              <span className="text-xs text-neutral-500 font-mono">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${pageNavBtnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {t('vocab.next')}
+              </button>
+            </div>
+
+            {/* 桌面端：一行布局（小屏隐藏） */}
+            <div className="hidden md:flex items-center justify-between">
               {/* 显示统计信息 */}
               <div className="text-xs text-neutral-500">
                 {t('vocab.showing', { start: startIndex + 1, end: Math.min(endIndex, filteredWords.length), total: filteredWords.length })}
@@ -1035,7 +1233,6 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                 </div>
               </div>
             </div>
-            )}
           </div>
         )}
       </div>
