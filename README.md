@@ -148,6 +148,12 @@ npm run server:supabase
 3. **给他人测试** — 发给测试同学或朋友，无需装开发环境
 4. **性能测试** — dev 模式含调试代码，性能数据不准
 
+## Web 端部署
+
+Web 端支持同时部署到 Vercel 和 Cloudflare Pages，由 GitHub Actions 自动完成。
+
+详细步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
+
 ## 可用脚本
 
 | 命令 | 说明 |
