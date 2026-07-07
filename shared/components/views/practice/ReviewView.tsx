@@ -22,6 +22,7 @@ const copy = {
     emptyTitle: '今天没有到期词',
     emptyDesc: '新的复习会在间隔到期后自动出现。',
     context: '语境',
+    example: '例句',
     clozeHint: '根据语境填出空缺的单词',
     recallHint: '根据释义回忆这个单词',
     showAnswer: '显示答案',
@@ -39,6 +40,7 @@ const copy = {
     emptyTitle: 'No due words today',
     emptyDesc: 'New reviews appear here when their interval expires.',
     context: 'Context',
+    example: 'Example',
     clozeHint: 'Recall the missing word from the context',
     recallHint: 'Recall the word from its meaning',
     showAnswer: 'Show answer',
@@ -61,6 +63,22 @@ const CLOZE_BLANK = '\u0000CLOZE\u0000';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 判断一个语境句子是否"有效"——不能只是单词本身或太短，
+ * 必须包含足够的上下文信息才有做完形填空的价值。
+ */
+function isValidContext(sentence: string, word: string): boolean {
+  const s = sentence.trim();
+  const w = word.trim().toLowerCase();
+  if (!s || !w) return false;
+  // 句子长度至少是单词的 3 倍以上，且包含空格（即至少两个词）
+  if (s.length < w.length * 3) return false;
+  if (!/\s/.test(s)) return false;
+  // 去掉目标词后剩余内容不能太少
+  const remaining = s.replace(new RegExp(`\\b${escapeRegExp(w)}\\b`, 'gi'), '').trim();
+  return remaining.length >= w.length * 2;
 }
 
 /**
@@ -98,21 +116,48 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
     [pendingWordIds, words]
   );
   const activeWord = dueWords[0];
-  const contexts = activeWord?.contexts?.filter((c) => c?.context) ?? [];
-  const [contextIndex, setContextIndex] = useState(0);
 
-  // 切换到下一个待复习词时，语境索引归零
+  // 统一的可用句子列表：优先用户有效语境 → examples 例句
+  // 每个条目：{ text: 英文句子, source: 'user' | 'example', translation?: 中文翻译 }
+  const availableSentences = useMemo<
+    Array<{ text: string; source: 'user' | 'example'; translation?: string }>
+  >(() => {
+    if (!activeWord) return [];
+    const result: Array<{ text: string; source: 'user' | 'example'; translation?: string }> = [];
+
+    // 1. 用户语境（过滤掉无效的）
+    const userContexts = activeWord.contexts?.filter((c) => c?.context) ?? [];
+    for (const c of userContexts) {
+      if (isValidContext(c.context, activeWord.word)) {
+        result.push({ text: c.context, source: 'user', translation: c.translation });
+      }
+    }
+
+    // 2. AI 生成的 examples 例句
+    const examples = activeWord.examples ?? [];
+    for (const ex of examples) {
+      if (ex?.en && isValidContext(ex.en, activeWord.word)) {
+        result.push({ text: ex.en, source: 'example', translation: ex.zh });
+      }
+    }
+
+    return result;
+  }, [activeWord]);
+
+  const [sentenceIndex, setSentenceIndex] = useState(0);
+
+  // 切换到下一个待复习词时，句子索引归零
   useEffect(() => {
-    setContextIndex(0);
+    setSentenceIndex(0);
   }, [activeWord?.id]);
 
-  const safeContextIndex = Math.min(contextIndex, Math.max(0, contexts.length - 1));
-  const currentContext = contexts[safeContextIndex];
+  const safeSentenceIndex = Math.min(sentenceIndex, Math.max(0, availableSentences.length - 1));
+  const currentSentence = availableSentences[safeSentenceIndex];
 
-  // 语境化复习：把当前语境句中的目标词挖空做完形填空；句中找不到该词则回退到纯释义回忆
+  // 语境化复习：把当前句子中的目标词挖空做完形填空；句中找不到该词则回退到纯释义回忆
   const cloze = useMemo(
-    () => (currentContext?.context && activeWord ? buildCloze(currentContext.context, activeWord.word) : null),
-    [currentContext?.context, activeWord]
+    () => (currentSentence?.text && activeWord ? buildCloze(currentSentence.text, activeWord.word) : null),
+    [currentSentence?.text, activeWord]
   );
   const isCloze = !showAnswer && !!cloze?.matched;
 
@@ -164,7 +209,12 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
             <div>
               <p className={`text-sm ${themeStyles.textSecondary}`}>{activeWord.partOfSpeech || activeWord.level || ''}</p>
               {isCloze ? (
-                <h3 className={`text-2xl font-bold mt-2 ${themeStyles.textSecondary}`}>{t.clozeHint}</h3>
+                <div className="mt-2">
+                  <p className={`text-sm ${themeStyles.textSecondary}`}>{t.clozeHint}</p>
+                  <div className="mt-1">
+                    <WordPhonetics word={activeWord.word} fallbackPhonetic={activeWord.phonetic} language={language} />
+                  </div>
+                </div>
               ) : (
                 <>
                   <h3 className={`text-4xl font-bold mt-2 ${themeStyles.textPrimary}`}>{activeWord.word}</h3>
@@ -175,26 +225,26 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
             <RotateCcw className="w-5 h-5 text-indigo-400" />
           </div>
 
-          {currentContext?.context && (
+          {currentSentence?.text && (
             <div className={`rounded-2xl border ${themeStyles.borderClass} p-4 ${themeStyles.secondaryBg}`}>
               <div className="flex items-center justify-between mb-2">
                 <p className={`text-xs font-semibold uppercase ${themeStyles.textSecondary}`}>
-                  {isCloze ? '' : t.context}
+                  {isCloze ? '' : currentSentence.source === 'user' ? t.context : t.example}
                 </p>
-                {contexts.length > 1 && (
+                {availableSentences.length > 1 && (
                   <div className={`flex items-center gap-1.5 text-xs ${themeStyles.textSecondary}`}>
                     <button
-                      onClick={() => setContextIndex((i) => (i - 1 + contexts.length) % contexts.length)}
+                      onClick={() => setSentenceIndex((i) => (i - 1 + availableSentences.length) % availableSentences.length)}
                       className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                      aria-label="previous context"
+                      aria-label="previous sentence"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="font-mono tabular-nums">{safeContextIndex + 1}/{contexts.length}</span>
+                    <span className="font-mono tabular-nums">{safeSentenceIndex + 1}/{availableSentences.length}</span>
                     <button
-                      onClick={() => setContextIndex((i) => (i + 1) % contexts.length)}
+                      onClick={() => setSentenceIndex((i) => (i + 1) % availableSentences.length)}
                       className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                      aria-label="next context"
+                      aria-label="next sentence"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -211,13 +261,16 @@ export const ReviewView: React.FC<ReviewViewProps> = ({ themeStyles, language, w
                         )}
                       </React.Fragment>
                     ))
-                  : currentContext.context}
+                  : currentSentence.text}
               </p>
+              {showAnswer && currentSentence.translation && (
+                <p className={`text-sm mt-2 ${themeStyles.textSecondary}`}>{currentSentence.translation}</p>
+              )}
             </div>
           )}
 
-          {/* 无可用语境时，提示用释义回忆 */}
-          {!currentContext?.context && !showAnswer && (
+          {/* 无可用句子时，提示用释义回忆 */}
+          {!currentSentence?.text && !showAnswer && (
             <p className={`text-sm ${themeStyles.textSecondary}`}>{t.recallHint}</p>
           )}
 
