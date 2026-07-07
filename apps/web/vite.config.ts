@@ -17,12 +17,34 @@ const manualChunks: ManualChunksOption = (id) => {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss({
-      content: [
-        path.resolve(__dirname, '../../shared/**/*.{ts,tsx}'),
-        path.resolve(__dirname, './**/*.{ts,tsx,html}'),
-      ],
-    })],
+    plugins: [
+      react(),
+      tailwindcss({
+        content: [
+          path.resolve(__dirname, '../../shared/**/*.{ts,tsx}'),
+          path.resolve(__dirname, './**/*.{ts,tsx,html}'),
+        ],
+      }),
+      {
+        name: 'landing-redirect',
+        configureServer(server) {
+          server.middlewares.use((req, _res, next) => {
+            if (req.url === '/app' || req.url === '/app/') {
+              req.url = '/app.html';
+            }
+            next();
+          });
+        },
+        configurePreviewServer(server) {
+          server.middlewares.use((req, _res, next) => {
+            if (req.url === '/app' || req.url === '/app/') {
+              req.url = '/app.html';
+            }
+            next();
+          });
+        },
+      },
+    ],
     envDir: path.resolve(__dirname, '../..'),
     resolve: {
       alias: {
@@ -31,9 +53,14 @@ export default defineConfig(() => {
     },
     build: {
       rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          app: path.resolve(__dirname, 'app.html'),
+        },
         output: { manualChunks },
       },
       chunkSizeWarningLimit: 600,
+      assetsInlineLimit: 4096,
     },
     server: {
       port: 3000,
