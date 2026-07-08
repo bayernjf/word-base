@@ -2,7 +2,7 @@ name: CI Build
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, 'feature/*']
   pull_request:
     branches: [main, dev]
   workflow_dispatch:
@@ -102,6 +102,7 @@ jobs:
     name: Desktop macOS (dmg)
     runs-on: macos-14
     needs: verify
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     steps:
       - uses: actions/checkout@v5
 
@@ -144,6 +145,7 @@ jobs:
     name: Desktop Windows (exe)
     runs-on: windows-latest
     needs: verify
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     steps:
       - uses: actions/checkout@v5
 
@@ -185,6 +187,7 @@ jobs:
     name: iOS Simulator Build
     runs-on: macos-14
     needs: verify
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     steps:
       - uses: actions/checkout@v5
 
@@ -251,6 +254,7 @@ jobs:
     name: Android Debug (APK)
     runs-on: ubuntu-latest
     needs: verify
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     steps:
       - uses: actions/checkout@v5
 
