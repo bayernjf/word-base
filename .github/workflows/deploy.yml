@@ -74,11 +74,24 @@ jobs:
           path: apps/web/dist
 
       - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v20
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: apps/web
-          vercel-args: '--build-command "" --output-directory dist'
-          vercel-production-deploy: ${{ github.ref == 'refs/heads/main' }}
+        working-directory: apps/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          # Setup Vercel project config
+          mkdir -p .vercel
+          echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
+          
+          # Setup prebuilt output structure
+          mkdir -p .vercel/output/static
+          cp -r dist/* .vercel/output/static/
+          echo '{"version":3,"routes":[{"handle":"filesystem"},{"src":"/.*","dest":"/index.html"}]}' > .vercel/output/config.json
+          
+          # Deploy
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            npx vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes
+          else
+            npx vercel deploy --prebuilt --token=$VERCEL_TOKEN --yes
+          fi
