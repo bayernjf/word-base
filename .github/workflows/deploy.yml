@@ -56,7 +56,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: wordbase
+          projectName: word-base
           directory: apps/web/dist
           workingDirectory: apps/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
