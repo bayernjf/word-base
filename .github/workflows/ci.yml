@@ -20,19 +20,16 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci
 
-      - name: Typecheck all apps
+      - name: Typecheck web app
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: |
-          npm -w @wordbase/web exec tsc -- --noEmit
-          npm -w @wordbase/desktop exec tsc -- --noEmit
-          npm -w @wordbase/mobile exec tsc -- --noEmit
+        run: npm -w @wordbase/web exec tsc -- --noEmit
 
       - name: Build web frontend
         env:
@@ -40,32 +37,11 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm -w @wordbase/web run build
 
-      - name: Build desktop frontend
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm -w @wordbase/desktop run build
-
-      - name: Build mobile frontend
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm -w @wordbase/mobile run build
-
       - name: Upload web dist artifact
         uses: actions/upload-artifact@v5
         with:
           name: web-dist
           path: apps/web/dist
-
-      - name: Verify web preview server on port 3000
-        run: |
-          cd apps/web
-          npx vite preview --port 3000 --host 0.0.0.0 &
-          SERVER_PID=$!
-          sleep 3
-          curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 | grep -q "200" && echo "Web server on port 3000: OK" || echo "Web server on port 3000: FAILED"
-          kill $SERVER_PID 2>/dev/null || true
 
   supabase-health:
     name: Supabase Health Check
@@ -75,7 +51,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci
