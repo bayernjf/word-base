@@ -51,30 +51,16 @@ jobs:
           name: web-dist
           path: apps/web/dist
 
-      - name: Debug list CF Pages projects
-        env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          echo "Account ID from secret: $CF_ACCOUNT_ID"
-          echo "--- List projects response ---"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects" \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" | head -300
-          echo ""
-          echo "--- Verify token permissions ---"
-          curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-            -H "Authorization: Bearer $CF_API_TOKEN" | head -100
-
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: word-base
-          directory: apps/web/dist
-          workingDirectory: apps/web
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm install -g wrangler
+          wrangler pages deploy dist \
+            --project-name=word-base \
+            --branch=main
 
   deploy-vercel:
     name: Deploy to Vercel
