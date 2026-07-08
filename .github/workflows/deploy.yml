@@ -59,7 +59,6 @@ jobs:
           projectName: word-base
           directory: apps/web/dist
           workingDirectory: apps/web
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
   deploy-vercel:
     name: Deploy to Vercel
