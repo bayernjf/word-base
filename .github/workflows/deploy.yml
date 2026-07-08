@@ -89,6 +89,9 @@ jobs:
           npm install -g vercel
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
+          mkdir -p .vercel/output/static
+          cp -r dist/* .vercel/output/static/
+          echo '{"version": 3, "routes": [{"handle": "filesystem"}, {"src": "/.*", "dest": "/index.html"}]}' > .vercel/output/config.json
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes
           else
