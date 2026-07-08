@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import type { ManualChunksOption } from 'rollup';
+import fs from 'fs';
 import path from 'path';
 import { defineConfig } from 'vite';
 
@@ -42,6 +43,18 @@ export default defineConfig(() => {
             }
             next();
           });
+        },
+        closeBundle() {
+          const distDir = path.resolve(__dirname, 'dist');
+          const appHtml = path.join(distDir, 'app.html');
+          const appIndexDir = path.join(distDir, 'app');
+          const appIndexHtml = path.join(appIndexDir, 'index.html');
+          
+          if (fs.existsSync(appHtml)) {
+            fs.mkdirSync(appIndexDir, { recursive: true });
+            fs.copyFileSync(appHtml, appIndexHtml);
+            console.log('\n  Created app/index.html for /app path support');
+          }
         },
       },
     ],
