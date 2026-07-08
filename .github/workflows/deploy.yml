@@ -57,7 +57,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: word-base
-          directory: apps/web/dist
+          directory: dist
           workingDirectory: apps/web
 
   deploy-vercel:
