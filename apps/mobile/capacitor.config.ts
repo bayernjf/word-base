@@ -20,8 +20,8 @@ const config: CapacitorConfig = {
     : {}),
   plugins: {
     LocalNotifications: {
-      smallIcon: 'ic_stat_icon_config_sample',
-      iconColor: '#4F46E5',
+      smallIcon: 'ic_stat_wordbase',
+      iconColor: '#6366f1',
     },
   },
 };
