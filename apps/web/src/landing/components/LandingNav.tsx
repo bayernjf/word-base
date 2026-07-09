@@ -50,9 +50,7 @@ export function LandingNav({ theme, toggleTheme }: Props) {
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 via-purple-400 to-fuchsia-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
-            <WordBaseLogo className="w-6 h-6 text-white" />
-          </div>
+          <WordBaseLogo className="w-8 h-8" />
           <span className={cn('text-lg font-bold tracking-tight', t.text)}>WordBase</span>
         </a>
 

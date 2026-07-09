@@ -138,7 +138,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
       <div className={`w-full max-w-md ${themeStyles.card}`}>
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 bg-indigo-500/10 rounded-2xl mb-3 text-indigo-600">
+          <div className="inline-flex items-center justify-center p-3 rounded-2xl mb-3">
             <WordBaseLogo className="w-12 h-12" />
           </div>
           <h2 className={`text-2xl font-bold ${themeStyles.textPrimary}`}>

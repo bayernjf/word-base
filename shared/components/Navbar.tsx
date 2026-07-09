@@ -91,14 +91,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => onNavigate(isLoggedIn ? 'dashboard' : 'welcome')}
           className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition-opacity"
         >
-          <div className={`p-1.5 rounded-xl flex items-center justify-center transition-all ${
-            isGlass 
-              ? 'w-8 h-8 bg-gradient-to-tr from-indigo-500 to-fuchsia-500 text-white shadow-lg shadow-indigo-500/10' 
-              : theme === 'natural'
-                ? 'bg-[#cceac8] border border-[#84c796] text-[#2f7051] shadow-sm shadow-[#8fb998]/20'
-                : 'bg-indigo-650/15 text-indigo-600'
-          }`}>
-            <WordBaseLogo className={`w-6 h-6 ${isGlass ? '' : theme === 'natural' ? '' : ''}`} />
+          <div className="p-1.5 rounded-xl flex items-center justify-center transition-all w-8 h-8">
+            <WordBaseLogo className="w-6 h-6" />
           </div>
           {!isMobile && (
             <div className="flex flex-col">
