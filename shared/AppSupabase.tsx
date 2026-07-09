@@ -990,9 +990,9 @@ export default function AppSupabase() {
           <AnimatePresence mode="wait">
             <motion.div
               key="auth"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.35 }}
             >
               <WelcomeLoginView
