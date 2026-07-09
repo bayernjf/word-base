@@ -99,9 +99,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => onNavigate(isLoggedIn ? 'dashboard' : 'welcome')}
           className="flex items-center cursor-pointer hover:opacity-90 transition-opacity overflow-visible"
         >
-          <WordBaseFullLogo className="h-20 w-auto -mt-3" />
+          <WordBaseFullLogo className="h-16 w-auto" />
           {!isMobile && (
-            <div className="flex flex-col ml-3">
+            <div className="flex flex-col justify-center ml-3">
               <span className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/10 text-[10px] text-white/60 font-mono whitespace-nowrap">
                 collect and learn
               </span>
