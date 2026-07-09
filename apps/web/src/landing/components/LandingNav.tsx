@@ -91,7 +91,7 @@ export function LandingNav({ theme, toggleTheme }: Props) {
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <a
-            href="https://github.com"
+            href="https://github.com/bayernjf/word-base"
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
