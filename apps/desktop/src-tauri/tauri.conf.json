@@ -25,6 +25,12 @@
     ],
     "security": {
       "csp": "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data: https:; media-src 'self' https: blob:;"
+    },
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/tray-icon.png",
+      "iconAsTemplate": true,
+      "tooltip": "WordBase"
     }
   },
   "bundle": {
