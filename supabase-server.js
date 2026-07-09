@@ -781,6 +781,7 @@ app.post('/api/v1/auth/login', async (req, res) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase()
     const password = String(req.body?.password || '')
+    const remember = Boolean(req.body?.remember)
 
     if (!email || !password) {
       return res.status(400).json({ error: 'email_and_password_required' })
@@ -792,6 +793,18 @@ app.post('/api/v1/auth/login', async (req, res) => {
     }
     if (!data?.session) {
       return res.status(401).json({ error: 'session_not_created' })
+    }
+
+    if (remember && supabaseAdmin) {
+      const expiresInSeconds = 7 * 24 * 60 * 60
+      const { data: refreshData, error: refreshError } = await supabaseAdmin.auth.admin.createSession({
+        user_id: data.session.user.id,
+        expires_in: expiresInSeconds,
+      })
+      if (refreshData?.session) {
+        res.json(buildAuthResponse(refreshData.session))
+        return
+      }
     }
 
     res.json(buildAuthResponse(data.session))

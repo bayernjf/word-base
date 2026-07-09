@@ -10,7 +10,7 @@ interface SupabaseContextType {
   session: Session | null;
   isLoading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string, remember?: boolean) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
 }
@@ -63,12 +63,36 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const signIn = async (email: string, password: string) => {
-    logger.debug('signIn', { email });
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const signIn = async (email: string, password: string, remember?: boolean) => {
+    logger.debug('signIn', { email, remember });
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    if (apiBaseUrl) {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, remember }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          const error = new Error(result.error || 'Login failed');
+          logger.error('signIn failed via API', { error: error.message });
+          return { error };
+        }
+        if (result.accessToken) {
+          await supabase.auth.setSession({
+            access_token: result.accessToken,
+            refresh_token: result.refreshToken,
+          });
+        }
+        logger.info('signIn success via API');
+        return { error: null };
+      } catch (apiError: any) {
+        logger.error('signIn API error', { error: apiError.message });
+        return { error: apiError };
+      }
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) logger.error('signIn failed', { error: error.message });
     else logger.info('signIn success');
     return { error };
