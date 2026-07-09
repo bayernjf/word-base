@@ -333,6 +333,11 @@ export default function AppSupabase() {
       setAuthError(error.message);
       return false;
     }
+    if (remember) {
+      await getPlatform().kv.set('wordbase_remember_email', email);
+    } else {
+      await getPlatform().kv.remove('wordbase_remember_email');
+    }
     return true;
   };
 
