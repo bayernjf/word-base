@@ -95,24 +95,20 @@ export const Navbar: React.FC<NavbarProps> = ({
     >
       <div className={`${isMobile ? 'px-4' : 'max-w-7xl mx-auto'} flex items-center justify-between h-14`}>
         {/* App Title & Brand Logo */}
-        <div 
+        <div
           onClick={() => onNavigate(isLoggedIn ? 'dashboard' : 'welcome')}
-          className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition-opacity"
+          className="flex items-center cursor-pointer hover:opacity-90 transition-opacity"
         >
-          <WordBaseFullLogo className="h-8 w-auto" />
-          {!isMobile && (
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                {isGlass && (
-                  <div className="ml-1 px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] text-white/60 font-mono">
-                    collect and learn
-                  </div>
-                )}
-              </div>
-              <span className={`text-[9px] font-mono tracking-widest block uppercase -mt-0.5 ${isGlass ? 'text-white/45' : theme === 'natural' ? 'text-[#556a5b]' : 'text-neutral-400'}`}>
-                {copy.subtitle}
-              </span>
+          <WordBaseFullLogo className="h-10 w-auto" />
+          {!isMobile && isGlass && (
+            <div className="ml-3 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/10 text-[10px] text-white/60 font-mono whitespace-nowrap self-center">
+              collect and learn
             </div>
+          )}
+          {!isMobile && !isGlass && (
+            <span className={`ml-2 text-[9px] font-mono tracking-widest uppercase self-end mb-1.5 ${theme === 'natural' ? 'text-[#556a5b]' : 'text-neutral-400'}`}>
+              {copy.subtitle}
+            </span>
           )}
         </div>
 
