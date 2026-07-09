@@ -55,14 +55,70 @@ export function Hero({ theme }: Props) {
           WordBase 结合浏览器划词扩展 WordPicker 与 AI 词汇学习工作台。在英文网页阅读时按住 <kbd className={cn('px-1.5 py-0.5 rounded text-xs font-mono border', theme === 'dark' ? 'bg-slate-800/60 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600')}>Ctrl/Cmd</kbd> 悬停即查词，一键收藏同步云端，在全平台通过 AI 故事、语境练习真正掌握词汇。
         </p>
 
-        <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <a
-            href="#cta"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
-          >
-            安装 Chrome 扩展
-            <ArrowRight className="w-4 h-4" />
-          </a>
+        <div className="mt-9 flex flex-col items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <a
+              href="https://github.com/bayernjf/word-picker/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
+            >
+              安装浏览器插件
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href="https://github.com/bayernjf/word-base/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+              )}
+            >
+              安装 Mac
+            </a>
+            <a
+              href="https://github.com/bayernjf/word-base/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+              )}
+            >
+              安装 Win
+            </a>
+            <a
+              href="https://github.com/bayernjf/word-base/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+              )}
+            >
+              安装 iOS
+            </a>
+            <a
+              href="https://github.com/bayernjf/word-base/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+              )}
+            >
+              安装 Android
+            </a>
+          </div>
           <a
             href="/app"
             className={cn(
