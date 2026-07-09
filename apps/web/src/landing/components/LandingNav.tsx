@@ -4,9 +4,23 @@ import { cn, themeVars } from '../theme';
 
 const WordBaseLogo = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <rect x="36" y="14" width="16" height="40" rx="3" fill="currentColor" opacity="0.2"/>
-    <rect x="10" y="10" width="16" height="44" rx="3" fill="currentColor" opacity="0.4"/>
-    <rect x="22" y="16" width="20" height="28" rx="3.5" fill="#f59e0b"/>
+    <defs>
+      <linearGradient id="bookLeft" x1="10" y1="10" x2="26" y2="54" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#818cf8"/>
+        <stop offset="100%" stopColor="#6366f1"/>
+      </linearGradient>
+      <linearGradient id="bookRight" x1="36" y1="14" x2="52" y2="54" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#a5b4fc"/>
+        <stop offset="100%" stopColor="#818cf8"/>
+      </linearGradient>
+      <linearGradient id="card" x1="22" y1="16" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#fbbf24"/>
+        <stop offset="100%" stopColor="#f59e0b"/>
+      </linearGradient>
+    </defs>
+    <rect x="36" y="14" width="16" height="40" rx="3" fill="url(#bookRight)"/>
+    <rect x="10" y="10" width="16" height="44" rx="3" fill="url(#bookLeft)"/>
+    <rect x="22" y="16" width="20" height="28" rx="3.5" fill="url(#card)"/>
     <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" opacity="0.8"/>
   </svg>
 );
