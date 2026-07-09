@@ -36,7 +36,7 @@ export function FinalCTA({ theme }: Props) {
             <p className={cn('text-base sm:text-lg mb-10 max-w-xl mx-auto', t.textMuted)}>
               现在安装浏览器扩展，让每一次英文阅读都成为词汇积累的机会。
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex flex-col items-center justify-center gap-3">
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <a
                   href="https://github.com/bayernjf/word-picker/releases"
@@ -52,10 +52,10 @@ export function FinalCTA({ theme }: Props) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cn(
-                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
                   )}
                 >
                   安装 Mac
@@ -65,32 +65,36 @@ export function FinalCTA({ theme }: Props) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cn(
-                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
                   )}
                 >
                   安装 Win
                 </a>
                 <a
-                  href="#"
+                  href="https://github.com/bayernjf/word-base/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className={cn(
-                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
                   )}
                 >
                   安装 iOS
                 </a>
                 <a
-                  href="#"
+                  href="https://github.com/bayernjf/word-base/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className={cn(
-                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
                   )}
                 >
                   安装 Android
