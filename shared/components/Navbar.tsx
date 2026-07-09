@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown, Languages } from 'lucide-react';
 
-const WordBaseLogo: React.FC<{ className?: string }> = ({ className }) => (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+const WordBaseFullLogo: React.FC<{ className?: string }> = ({ className }) => (
+  <svg viewBox="0 0 340 128" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <defs>
       <linearGradient id="bookLeft" x1="10" y1="10" x2="26" y2="54" gradientUnits="userSpaceOnUse">
         <stop offset="0%" stopColor="#818cf8"/>
@@ -16,11 +16,19 @@ const WordBaseLogo: React.FC<{ className?: string }> = ({ className }) => (
         <stop offset="0%" stopColor="#fbbf24"/>
         <stop offset="100%" stopColor="#f59e0b"/>
       </linearGradient>
+      <linearGradient id="textGrad" x1="72" y1="36" x2="240" y2="92" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#6366f1"/>
+        <stop offset="50%" stopColor="#818cf8"/>
+        <stop offset="100%" stopColor="#f59e0b"/>
+      </linearGradient>
     </defs>
-    <rect x="36" y="14" width="16" height="40" rx="3" fill="url(#bookRight)"/>
-    <rect x="10" y="10" width="16" height="44" rx="3" fill="url(#bookLeft)"/>
-    <rect x="22" y="16" width="20" height="28" rx="3.5" fill="url(#card)"/>
-    <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" opacity="0.8"/>
+    <g transform="translate(4, 24) scale(1.2)">
+      <rect x="36" y="14" width="16" height="40" rx="3" fill="url(#bookRight)"/>
+      <rect x="10" y="10" width="16" height="44" rx="3" fill="url(#bookLeft)"/>
+      <rect x="22" y="16" width="20" height="28" rx="3.5" fill="url(#card)"/>
+      <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" opacity="0.8"/>
+    </g>
+    <text x="78" y="78" fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" fontSize="50" fontWeight="800" fill="url(#textGrad)" letterSpacing="-1.5">WordBase</text>
   </svg>
 );
 import { AppLanguage, ThemeType } from '../types';
@@ -91,15 +99,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => onNavigate(isLoggedIn ? 'dashboard' : 'welcome')}
           className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition-opacity"
         >
-          <div className="p-1.5 rounded-xl flex items-center justify-center transition-all w-8 h-8">
-            <WordBaseLogo className="w-6 h-6" />
-          </div>
+          <WordBaseFullLogo className="h-8 w-auto" />
           {!isMobile && (
             <div className="flex flex-col">
               <div className="flex items-center">
-                <h1 className={`text-lg font-bold tracking-tight ${theme === 'natural' ? 'text-[#1d3a2b]' : 'text-slate-900 dark:text-white'}`}>WordBase</h1>
                 {isGlass && (
-                  <div className="ml-3 px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] text-white/60 font-mono">
+                  <div className="ml-1 px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[9px] text-white/60 font-mono">
                     collect and learn
                   </div>
                 )}
@@ -108,9 +113,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {copy.subtitle}
               </span>
             </div>
-          )}
-          {isMobile && (
-            <h1 className={`text-base font-bold tracking-tight ${theme === 'natural' ? 'text-[#1d3a2b]' : 'text-slate-900 dark:text-white'}`}>WordBase</h1>
           )}
         </div>
 
