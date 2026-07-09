@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle2, RefreshCw, ChevronRight } from 'lucide-react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+import { getPlatform } from '../../../platform';
 
 const WordBaseFullLogo = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 340 128" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -72,6 +73,14 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    const savedEmail = getPlatform().kv.getSync('wordbase_remember_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
   const t = createTranslator(language);
   const isGlass = themeStyles.name === 'glass';
   const inputClass = isGlass
