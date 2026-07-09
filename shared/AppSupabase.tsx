@@ -326,9 +326,9 @@ export default function AppSupabase() {
     void loadAiProviders();
   }, [loadAiProviders]);
 
-  const handleSignIn = async (email: string, password: string, _remember: boolean) => {
+  const handleSignIn = async (email: string, password: string, remember: boolean) => {
     setAuthError(null);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(email, password, remember);
     if (error) {
       setAuthError(error.message);
       return false;
