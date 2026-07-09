@@ -93,13 +93,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     <nav className={`${themeStyles.navClass} sticky top-0 z-40 backdrop-blur-md bg-opacity-95 ${isMobile ? 'px-0' : ''}`}
     style={isMobile ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}
     >
-      <div className={`${isMobile ? 'px-4' : 'max-w-7xl mx-auto'} flex items-center justify-between h-14`}>
+      <div className={`${isMobile ? 'px-4' : 'max-w-7xl mx-auto'} flex items-center justify-between h-24`}>
         {/* App Title & Brand Logo */}
         <div
           onClick={() => onNavigate(isLoggedIn ? 'dashboard' : 'welcome')}
           className="flex items-center cursor-pointer hover:opacity-90 transition-opacity"
         >
-          <WordBaseFullLogo className="h-10 w-auto" />
+          <WordBaseFullLogo className="h-20 w-auto" />
           {!isMobile && isGlass && (
             <div className="ml-3 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/10 text-[10px] text-white/60 font-mono whitespace-nowrap self-center">
               collect and learn

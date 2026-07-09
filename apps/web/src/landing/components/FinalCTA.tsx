@@ -65,7 +65,7 @@ export function FinalCTA({ theme }: Props) {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <WordBaseFullLogo className="h-8 w-auto" />
+              <WordBaseFullLogo className="h-16 w-auto" />
               <span className={cn('text-xs ml-1', t.textSubtle)}>添忆：添加记忆；浏览即学习</span>
             </div>
             <div className="flex items-center gap-5">
