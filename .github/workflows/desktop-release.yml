@@ -61,46 +61,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Generate src-tauri via tauri init (idempotent)
-        working-directory: apps/desktop
-        shell: bash
-        run: |
-          if [ ! -d src-tauri ]; then
-            export CI=true
-            npx tauri init --ci \
-              --app-name wordbase-desktop \
-              --window-title WordBase \
-              --frontend-dist ../dist \
-              --dev-url http://localhost:3002 \
-              --before-dev-command "npm run dev" \
-              --before-build-command "npm run build"
-          fi
-          cp native-templates/tauri.conf.json src-tauri/tauri.conf.json
-          mkdir -p src-tauri/capabilities
-          cp native-templates/capabilities/default.json src-tauri/capabilities/default.json
-
-      - name: Patch Cargo.toml (add plugins)
-        working-directory: apps/desktop/src-tauri
-        shell: bash
-        run: |
-          if ! grep -q tauri-plugin-store Cargo.toml; then
-            cat >> Cargo.toml <<'EOF'
-          tauri-plugin-clipboard-manager = "2"
-          tauri-plugin-notification = "2"
-          tauri-plugin-shell = "2"
-          tauri-plugin-store = "2"
-          EOF
-          fi
-
-      - name: Patch lib.rs (register plugins)
-        working-directory: apps/desktop/src-tauri/src
-        shell: bash
-        run: |
-          cp ../../native-templates/lib.rs lib.rs
-
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         with:
           projectPath: apps/desktop
           args: --verbose
@@ -123,60 +88,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  build-ios:
-    name: Build iOS
-    runs-on: macos-14
-    timeout-minutes: 90
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Build mobile frontend
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm -w @wordbase/mobile run build
-
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
-
-      - name: Add iOS platform
-        working-directory: apps/mobile
-        run: npx cap add ios || npx cap sync ios
-
-      - name: Build iOS IPA
-        working-directory: apps/mobile/ios/App
-        run: |
-          xcodebuild build \
-            -scheme WordBase \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/WordBase.xcarchive \
-            archive
-          xcodebuild -exportArchive \
-            -archivePath build/WordBase.xcarchive \
-            -exportPath build \
-            -exportOptionsPlist /tmp/ExportOptions.plist \
-            -allowProvisioningUpdates
-        env:
-          DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
-
-      - name: Upload iOS IPA
-        uses: actions/upload-artifact@v5
-        with:
-          name: dist-ios
-          path: apps/mobile/ios/App/build/*.ipa
-          if-no-files-found: warn
-          retention-days: 30
-
   build-android:
-    name: Build Android
+    name: Build Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -202,9 +115,9 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm -w @wordbase/mobile run build
 
-      - name: Add Android platform
+      - name: Sync Capacitor
         working-directory: apps/mobile
-        run: npx cap add android || npx cap sync android
+        run: npx cap sync android
 
       - name: Build Android APK
         working-directory: apps/mobile/android
@@ -220,7 +133,8 @@ jobs:
 
   publish:
     name: Publish GitHub Release
-    needs: [build-desktop, build-ios, build-android]
+    needs: [build-desktop, build-android]
+    if: always() && (needs.build-desktop.result == 'success' || needs.build-android.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -233,10 +147,11 @@ jobs:
       - name: Flatten artifact tree
         run: |
           mkdir -p release-flat
-          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.ipa" -o -name "*.apk" \) -exec cp -v {} release-flat/ \;
+          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.apk" \) -exec cp -v {} release-flat/ \;
           ls -la release-flat
 
       - name: Create GitHub Release
+        if: hashFiles('release-flat/*') != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'snapshot' }}
