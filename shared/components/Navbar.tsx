@@ -101,11 +101,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <WordBaseFullLogo className="h-16 w-auto" />
           {!isMobile && (
-            <div className="flex flex-col justify-center ml-3">
-              <span className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/10 text-[10px] text-white/60 font-mono whitespace-nowrap">
+            <div className="flex flex-col justify-center ml-3 gap-0.5">
+              <span className="text-[10px] font-medium text-indigo-200/60 tracking-wide">
                 collect and learn
               </span>
-              <span className={`text-[9px] font-mono tracking-widest uppercase mt-0.5 ${theme === 'natural' ? 'text-[#556a5b]' : 'text-neutral-400'}`}>
+              <span className={`text-[9px] text-white/25 ${theme === 'natural' ? 'text-[#6b8a6e]' : ''}`}>
                 {copy.subtitle}
               </span>
             </div>
