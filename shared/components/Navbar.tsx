@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Sparkles, LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown, Languages } from 'lucide-react';
+import { LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown, Languages } from 'lucide-react';
+
+const WordBaseLogo: React.FC<{ className?: string }> = ({ className }) => (
+  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect x="36" y="14" width="16" height="40" rx="3" fill="currentColor" opacity="0.2"/>
+    <rect x="10" y="10" width="16" height="44" rx="3" fill="currentColor" opacity="0.4"/>
+    <rect x="22" y="16" width="20" height="28" rx="3.5" fill="currentColor"/>
+    <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity="0.9"/>
+  </svg>
+);
 import { AppLanguage, ThemeType } from '../types';
 import { ThemeClasses } from './ThemeStyles';
 import { AVATARS } from '../avatars';
@@ -75,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ? 'bg-[#cceac8] border border-[#84c796] text-[#2f7051] shadow-sm shadow-[#8fb998]/20'
                 : 'bg-indigo-650/15 text-indigo-600'
           }`}>
-            <Sparkles className={`w-4 h-4 ${isGlass ? 'fill-white/10' : theme === 'natural' ? 'fill-[#2f7051]/15' : 'fill-indigo-600/10'}`} />
+            <WordBaseLogo className={`w-6 h-6 ${isGlass ? '' : theme === 'natural' ? '' : ''}`} />
           </div>
           {!isMobile && (
             <div className="flex flex-col">

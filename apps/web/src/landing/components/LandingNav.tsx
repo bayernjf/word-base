@@ -1,6 +1,15 @@
-import { Moon, Sun, Github, ArrowRight, BookOpen } from 'lucide-react';
+import { Moon, Sun, Github, ArrowRight } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
+
+const WordBaseLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect x="36" y="14" width="16" height="40" rx="3" fill="currentColor" opacity="0.2"/>
+    <rect x="10" y="10" width="16" height="44" rx="3" fill="currentColor" opacity="0.4"/>
+    <rect x="22" y="16" width="20" height="28" rx="3.5" fill="currentColor"/>
+    <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity="0.9"/>
+  </svg>
+);
 
 interface Props {
   theme: LandingTheme;
@@ -28,7 +37,7 @@ export function LandingNav({ theme, toggleTheme }: Props) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2.5 group">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 via-purple-400 to-fuchsia-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
-            <BookOpen className="w-4 h-4 text-white" />
+            <WordBaseLogo className="w-6 h-6 text-white" />
           </div>
           <span className={cn('text-lg font-bold tracking-tight', t.text)}>WordBase</span>
         </a>

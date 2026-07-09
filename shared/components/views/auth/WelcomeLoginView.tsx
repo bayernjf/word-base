@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { Sparkles, AlertCircle, CheckCircle2, RefreshCw, ChevronRight } from 'lucide-react';
+import { AlertCircle, CheckCircle2, RefreshCw, ChevronRight } from 'lucide-react';
 import { AppLanguage } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
+
+const WordBaseLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect x="36" y="14" width="16" height="40" rx="3" fill="currentColor" opacity="0.2"/>
+    <rect x="10" y="10" width="16" height="44" rx="3" fill="currentColor" opacity="0.4"/>
+    <rect x="22" y="16" width="20" height="28" rx="3.5" fill="currentColor"/>
+    <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity="0.9"/>
+  </svg>
+);
 
 interface LoginProps {
   themeStyles: ThemeClasses;
@@ -116,7 +125,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
       <div className={`w-full max-w-md ${themeStyles.card}`}>
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 bg-indigo-500/10 rounded-2xl mb-3 text-indigo-600">
-            <Sparkles className="w-8 h-8" />
+            <WordBaseLogo className="w-12 h-12" />
           </div>
           <h2 className={`text-2xl font-bold ${themeStyles.textPrimary}`}>
             WordBase
