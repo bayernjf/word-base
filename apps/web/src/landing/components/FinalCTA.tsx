@@ -38,7 +38,9 @@ export function FinalCTA({ theme }: Props) {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <a
-                href="#"
+                href="https://github.com/bayernjf/word-picker/releases"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
               >
                 <Download className="w-4 h-4" />
@@ -70,7 +72,9 @@ export function FinalCTA({ theme }: Props) {
             </div>
             <div className="flex items-center gap-5">
               <a
-                href="#"
+                href="https://github.com/bayernjf/word-base"
+                target="_blank"
+                rel="noopener noreferrer"
                 className={cn(
                   'text-xs transition-colors',
                   t.textSubtle,
@@ -80,7 +84,9 @@ export function FinalCTA({ theme }: Props) {
                 GitHub
               </a>
               <a
-                href="#"
+                href="https://github.com/bayernjf/word-picker/releases"
+                target="_blank"
+                rel="noopener noreferrer"
                 className={cn(
                   'text-xs transition-colors',
                   t.textSubtle,

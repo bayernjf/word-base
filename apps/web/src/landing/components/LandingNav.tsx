@@ -56,9 +56,9 @@ export function LandingNav({ theme, toggleTheme }: Props) {
         t.border,
       )}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
-        <a href="/" className="flex items-center group">
-          <WordBaseFullLogo className="h-16 w-auto" />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between overflow-visible">
+        <a href="/" className="flex items-center group overflow-visible">
+          <WordBaseFullLogo className="h-16 w-auto -mt-1" />
         </a>
 
         <nav className="hidden md:flex items-center gap-7">
@@ -91,7 +91,7 @@ export function LandingNav({ theme, toggleTheme }: Props) {
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <a
-            href="https://github.com"
+            href="https://github.com/bayernjf/word-base"
             target="_blank"
             rel="noopener noreferrer"
             className={cn(

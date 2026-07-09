@@ -326,9 +326,9 @@ export default function AppSupabase() {
     void loadAiProviders();
   }, [loadAiProviders]);
 
-  const handleSignIn = async (email: string, password: string, _remember: boolean) => {
+  const handleSignIn = async (email: string, password: string, remember: boolean) => {
     setAuthError(null);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(email, password, remember);
     if (error) {
       setAuthError(error.message);
       return false;
@@ -990,9 +990,9 @@ export default function AppSupabase() {
           <AnimatePresence mode="wait">
             <motion.div
               key="auth"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.35 }}
             >
               <WelcomeLoginView
