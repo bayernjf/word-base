@@ -56,13 +56,65 @@ export function Hero({ theme }: Props) {
         </p>
 
         <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <a
-            href="#cta"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
-          >
-            安装 Chrome 扩展
-            <ArrowRight className="w-4 h-4" />
-          </a>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <a
+              href="https://github.com/bayernjf/word-picker/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
+            >
+              安装浏览器插件
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href="https://github.com/bayernjf/word-base/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+              )}
+            >
+              安装 Mac
+            </a>
+            <a
+              href="https://github.com/bayernjf/word-base/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+              )}
+            >
+              安装 Win
+            </a>
+            <a
+              href="#"
+              className={cn(
+                'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+              )}
+            >
+              安装 iOS
+            </a>
+            <a
+              href="#"
+              className={cn(
+                'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+              )}
+            >
+              安装 Android
+            </a>
+          </div>
           <a
             href="/app"
             className={cn(

@@ -37,15 +37,65 @@ export function FinalCTA({ theme }: Props) {
               现在安装浏览器扩展，让每一次英文阅读都成为词汇积累的机会。
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a
-                href="https://github.com/bayernjf/word-picker/releases"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
-              >
-                <Download className="w-4 h-4" />
-                安装 Chrome 扩展
-              </a>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <a
+                  href="https://github.com/bayernjf/word-picker/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  安装浏览器插件
+                </a>
+                <a
+                  href="https://github.com/bayernjf/word-base/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                  )}
+                >
+                  安装 Mac
+                </a>
+                <a
+                  href="https://github.com/bayernjf/word-base/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                  )}
+                >
+                  安装 Win
+                </a>
+                <a
+                  href="#"
+                  className={cn(
+                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                  )}
+                >
+                  安装 iOS
+                </a>
+                <a
+                  href="#"
+                  className={cn(
+                    'inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-medium transition-colors border',
+                    theme === 'dark'
+                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600',
+                  )}
+                >
+                  安装 Android
+                </a>
+              </div>
               <a
                 href="/app"
                 className={cn(
