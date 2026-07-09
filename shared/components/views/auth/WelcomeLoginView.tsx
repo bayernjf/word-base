@@ -147,7 +147,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
       <div className={`w-full max-w-md ${themeStyles.card}`}>
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-4">
-            <WordBaseFullLogo className="h-12 w-auto" />
+            <WordBaseFullLogo className="h-14 w-auto" />
           </div>
           <p className={`text-sm mt-2 ${themeStyles.textSecondary}`}>
             {step === 'register' ? t('login.registerSubtitle') :
