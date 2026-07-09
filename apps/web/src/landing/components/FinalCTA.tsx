@@ -1,6 +1,7 @@
-import { ArrowRight, Download, BookOpen } from 'lucide-react';
+import { ArrowRight, Download } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
+import { WordBaseFullLogo } from './LandingNav';
 
 interface Props {
   theme: LandingTheme;
@@ -63,12 +64,9 @@ export function FinalCTA({ theme }: Props) {
       <footer className={cn('px-4 sm:px-6 py-8 border-t', t.border)}>
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 via-purple-400 to-fuchsia-400 flex items-center justify-center">
-                <BookOpen className="w-3.5 h-3.5 text-white" />
-              </div>
-              <span className={cn('text-sm font-bold tracking-tight', t.text)}>WordBase</span>
-              <span className={cn('text-xs ml-2', t.textSubtle)}>添忆：添加记忆；浏览即学习</span>
+            <div className="flex items-center gap-3">
+              <WordBaseFullLogo className="h-7 w-auto" />
+              <span className={cn('text-xs ml-1', t.textSubtle)}>添忆：添加记忆；浏览即学习</span>
             </div>
             <div className="flex items-center gap-5">
               <a

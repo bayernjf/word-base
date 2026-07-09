@@ -2,8 +2,8 @@ import { Moon, Sun, Github, ArrowRight } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
 
-const WordBaseLogo = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+export const WordBaseFullLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 340 128" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <defs>
       <linearGradient id="bookLeft" x1="10" y1="10" x2="26" y2="54" gradientUnits="userSpaceOnUse">
         <stop offset="0%" stopColor="#818cf8"/>
@@ -17,11 +17,19 @@ const WordBaseLogo = ({ className }: { className?: string }) => (
         <stop offset="0%" stopColor="#fbbf24"/>
         <stop offset="100%" stopColor="#f59e0b"/>
       </linearGradient>
+      <linearGradient id="textGrad" x1="72" y1="36" x2="240" y2="92" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#6366f1"/>
+        <stop offset="50%" stopColor="#818cf8"/>
+        <stop offset="100%" stopColor="#f59e0b"/>
+      </linearGradient>
     </defs>
-    <rect x="36" y="14" width="16" height="40" rx="3" fill="url(#bookRight)"/>
-    <rect x="10" y="10" width="16" height="44" rx="3" fill="url(#bookLeft)"/>
-    <rect x="22" y="16" width="20" height="28" rx="3.5" fill="url(#card)"/>
-    <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" opacity="0.8"/>
+    <g transform="translate(4, 24) scale(1.2)">
+      <rect x="36" y="14" width="16" height="40" rx="3" fill="url(#bookRight)"/>
+      <rect x="10" y="10" width="16" height="44" rx="3" fill="url(#bookLeft)"/>
+      <rect x="22" y="16" width="20" height="28" rx="3.5" fill="url(#card)"/>
+      <path d="M26 23.5h12M26 29.5h12M26 35.5h10" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" opacity="0.8"/>
+    </g>
+    <text x="78" y="78" fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" fontSize="50" fontWeight="800" fill="url(#textGrad)" letterSpacing="-1.5">WordBase</text>
   </svg>
 );
 
@@ -49,9 +57,8 @@ export function LandingNav({ theme, toggleTheme }: Props) {
       )}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2.5 group">
-          <WordBaseLogo className="w-8 h-8" />
-          <span className={cn('text-lg font-bold tracking-tight', t.text)}>WordBase</span>
+        <a href="/" className="flex items-center group">
+          <WordBaseFullLogo className="h-8 w-auto" />
         </a>
 
         <nav className="hidden md:flex items-center gap-7">
