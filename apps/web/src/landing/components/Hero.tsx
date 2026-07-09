@@ -36,7 +36,7 @@ export function Hero({ theme }: Props) {
           )}
         >
           <Sparkles className="w-3.5 h-3.5" />
-          Ctrl/Cmd 悬停即查词 · AI 语境深度学习
+          默认 Ctrl 悬停即查词 · AI 语境深度学习
         </div>
 
         <h1
@@ -52,7 +52,7 @@ export function Hero({ theme }: Props) {
         </h1>
 
         <p className={cn('mt-6 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed', t.textMuted)}>
-          WordBase 结合浏览器划词扩展 WordPicker 与 AI 词汇学习工作台。在英文网页阅读时按住 <kbd className={cn('px-1.5 py-0.5 rounded text-xs font-mono border', theme === 'dark' ? 'bg-slate-800/60 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600')}>Ctrl/Cmd</kbd> 悬停即查词，一键收藏同步云端，在全平台通过 AI 故事、语境练习真正掌握词汇。
+          WordBase 结合浏览器划词扩展 WordPicker 与 AI 词汇学习工作台。在英文网页阅读时按住 <kbd className={cn('px-1.5 py-0.5 rounded text-xs font-mono border', theme === 'dark' ? 'bg-slate-800/60 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600')}>Ctrl</kbd> 悬停即查词，一键收藏同步云端，在全平台通过 AI 故事、语境练习真正掌握词汇。
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3">
