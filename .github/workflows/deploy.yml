@@ -67,30 +67,48 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download web dist
-        uses: actions/download-artifact@v5
+      - uses: actions/setup-node@v5
         with:
-          name: web-dist
-          path: apps/web/dist
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
 
       - name: Deploy to Vercel
-        working-directory: apps/web
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
         run: |
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
           
-          mkdir -p .vercel/output/static
-          cp -r dist/* .vercel/output/static/
-          echo '{"version":3,"routes":[{"src":"/app(/.*)?","dest":"/app/index.html"},{"handle":"filesystem"},{"src":"/.*","dest":"/index.html"}]}' > .vercel/output/config.json
-          
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            DEPLOY_OUTPUT=$(npx vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --yes 2>&1)
+            DEPLOY_OUTPUT=$(npx vercel deploy --prod --token=$VERCEL_TOKEN --yes \
+              --build-env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+              --build-env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+              --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+              --env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+              --env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+              --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+              2>&1)
           else
-            DEPLOY_OUTPUT=$(npx vercel deploy --prebuilt --token=$VERCEL_TOKEN --yes 2>&1)
+            DEPLOY_OUTPUT=$(npx vercel deploy --token=$VERCEL_TOKEN --yes \
+              --build-env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+              --build-env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+              --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+              --env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+              --env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+              --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+              2>&1)
           fi
           
           echo "$DEPLOY_OUTPUT"
