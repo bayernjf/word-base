@@ -61,7 +61,12 @@ export function Hero({ theme }: Props) {
           <div className="flex flex-wrap items-center justify-center gap-2">
             <button
               onClick={downloadChrome}
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
+              className={cn(
+                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                theme === 'dark'
+                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+              )}
             >
               安装浏览器插件
               <ArrowRight className="w-4 h-4" />
