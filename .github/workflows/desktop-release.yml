@@ -184,9 +184,66 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  build-ios:
+    name: Build iOS (Simulator)
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build mobile frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm -w @wordbase/mobile run build
+
+      - name: Sync Capacitor
+        working-directory: apps/mobile
+        run: npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios/App
+        run: pod install
+
+      - name: Build iOS app for simulator
+        working-directory: apps/mobile/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ../../build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Zip iOS app
+        working-directory: apps/mobile/build/Build/Products/Debug-iphonesimulator
+        run: |
+          mv App.app WordBase.app
+          zip -r WordBase-iOS-Simulator.zip WordBase.app
+          ls -la WordBase-iOS-Simulator.zip
+
+      - name: Upload iOS app
+        uses: actions/upload-artifact@v5
+        with:
+          name: iOS
+          path: apps/mobile/build/Build/Products/Debug-iphonesimulator/WordBase-iOS-Simulator.zip
+          if-no-files-found: error
+          retention-days: 30
+
   publish:
     name: Publish GitHub Release
-    needs: [build-desktop, build-android]
+    needs: [build-desktop, build-android, build-ios]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: always()
@@ -200,7 +257,7 @@ jobs:
       - name: Flatten artifact tree
         run: |
           mkdir -p release-flat
-          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.apk" \) -exec cp -v {} release-flat/ \;
+          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.apk" -o -name "*.zip" \) -exec cp -v {} release-flat/ \;
           ls -la release-flat
 
       - name: Create GitHub Release
