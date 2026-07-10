@@ -1,4 +1,4 @@
-import { Moon, Sun, ArrowRight } from 'lucide-react';
+import { Moon, Sun, Github, ArrowRight } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
 
@@ -90,6 +90,15 @@ export function LandingNav({ theme, toggleTheme }: Props) {
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
+          <a
+            href="https://github.com/bayernjf/word-base"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden"
+            aria-label="GitHub"
+          >
+            <Github className="w-4 h-4" />
+          </a>
           <a
             href="/app"
             className={cn(
