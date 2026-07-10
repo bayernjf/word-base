@@ -2,6 +2,7 @@ import { ArrowRight, Download } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
 import { WordBaseFullLogo } from './LandingNav';
+import { useDownloadUrls } from '../hooks/useDownloadUrls';
 
 interface Props {
   theme: LandingTheme;
@@ -9,6 +10,7 @@ interface Props {
 
 export function FinalCTA({ theme }: Props) {
   const t = themeVars(theme);
+  const { downloadMac, downloadWin, downloadAndroid, downloadIos, downloadChrome } = useDownloadUrls();
 
   return (
     <>
@@ -38,19 +40,15 @@ export function FinalCTA({ theme }: Props) {
             </p>
             <div className="flex flex-col items-center justify-center gap-3">
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <a
-                  href="https://github.com/bayernjf/word-picker/releases"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={downloadChrome}
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
                 >
                   <Download className="w-4 h-4" />
                   安装浏览器插件
-                </a>
-                <a
-                  href="https://github.com/bayernjf/word-base/releases"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                </button>
+                <button
+                  onClick={downloadMac}
                   className={cn(
                     'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
@@ -59,11 +57,9 @@ export function FinalCTA({ theme }: Props) {
                   )}
                 >
                   安装 Mac
-                </a>
-                <a
-                  href="https://github.com/bayernjf/word-base/releases"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                </button>
+                <button
+                  onClick={downloadWin}
                   className={cn(
                     'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
@@ -72,11 +68,9 @@ export function FinalCTA({ theme }: Props) {
                   )}
                 >
                   安装 Win
-                </a>
-                <a
-                  href="https://github.com/bayernjf/word-base/releases"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                </button>
+                <button
+                  onClick={downloadIos}
                   className={cn(
                     'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
@@ -85,11 +79,9 @@ export function FinalCTA({ theme }: Props) {
                   )}
                 >
                   安装 iOS
-                </a>
-                <a
-                  href="https://github.com/bayernjf/word-base/releases"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                </button>
+                <button
+                  onClick={downloadAndroid}
                   className={cn(
                     'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
@@ -98,7 +90,7 @@ export function FinalCTA({ theme }: Props) {
                   )}
                 >
                   安装 Android
-                </a>
+                </button>
               </div>
               <a
                 href="/app"
@@ -125,30 +117,6 @@ export function FinalCTA({ theme }: Props) {
               <span className={cn('text-xs ml-1', t.textSubtle)}>添忆：添加记忆；浏览即学习</span>
             </div>
             <div className="flex items-center gap-5">
-              <a
-                href="https://github.com/bayernjf/word-base"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  'text-xs transition-colors',
-                  t.textSubtle,
-                  theme === 'dark' ? 'hover:text-white' : 'hover:text-slate-700',
-                )}
-              >
-                GitHub
-              </a>
-              <a
-                href="https://github.com/bayernjf/word-picker/releases"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  'text-xs transition-colors',
-                  t.textSubtle,
-                  theme === 'dark' ? 'hover:text-white' : 'hover:text-slate-700',
-                )}
-              >
-                Chrome 商店
-              </a>
               <a
                 href="/app"
                 className={cn(
