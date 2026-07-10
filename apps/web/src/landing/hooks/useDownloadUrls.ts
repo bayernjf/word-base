@@ -43,7 +43,7 @@ export function useDownloadUrls() {
         const releases = await res.json();
         const latest = Array.isArray(releases) && releases.length > 0 ? releases[0] : null;
         const assets: ReleaseAsset[] = latest?.assets || [];
-        const chrome = assets.find((a) => a.name.includes('Chrome') || a.name.endsWith('.crx'));
+        const chrome = assets.find((a) => a.name.includes('chrome') && a.name.endsWith('.zip'));
         setUrls((prev) => ({
           ...prev,
           chrome: chrome?.browser_download_url || '',
