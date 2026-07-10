@@ -1,6 +1,7 @@
 import { ArrowRight, Sparkles, Check, Globe, Monitor, Smartphone } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
+import { useDownloadUrls } from '../hooks/useDownloadUrls';
 
 interface Props {
   theme: LandingTheme;
@@ -8,6 +9,7 @@ interface Props {
 
 export function Hero({ theme }: Props) {
   const t = themeVars(theme);
+  const { downloadMac, downloadWin, downloadAndroid, downloadIos, downloadChrome } = useDownloadUrls();
 
   return (
     <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 px-4 sm:px-6 overflow-hidden">
@@ -57,19 +59,15 @@ export function Hero({ theme }: Props) {
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3">
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <a
-              href="https://github.com/bayernjf/word-picker/releases"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={downloadChrome}
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
             >
               安装浏览器插件
               <ArrowRight className="w-4 h-4" />
-            </a>
-            <a
-              href="https://github.com/bayernjf/word-base/releases"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={downloadMac}
               className={cn(
                 'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
@@ -78,11 +76,9 @@ export function Hero({ theme }: Props) {
               )}
             >
               安装 Mac
-            </a>
-            <a
-              href="https://github.com/bayernjf/word-base/releases"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={downloadWin}
               className={cn(
                 'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
@@ -91,11 +87,9 @@ export function Hero({ theme }: Props) {
               )}
             >
               安装 Win
-            </a>
-            <a
-              href="https://github.com/bayernjf/word-base/releases"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={downloadIos}
               className={cn(
                 'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
@@ -104,11 +98,9 @@ export function Hero({ theme }: Props) {
               )}
             >
               安装 iOS
-            </a>
-            <a
-              href="https://github.com/bayernjf/word-base/releases"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={downloadAndroid}
               className={cn(
                 'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
@@ -117,7 +109,7 @@ export function Hero({ theme }: Props) {
               )}
             >
               安装 Android
-            </a>
+            </button>
           </div>
           <a
             href="/app"
