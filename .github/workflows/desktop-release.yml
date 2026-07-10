@@ -229,7 +229,8 @@ jobs:
       - name: Zip iOS app
         working-directory: apps/mobile/build/Build/Products/Debug-iphonesimulator
         run: |
-          zip -r WordBase-iOS-Simulator.zip App.app
+          mv App.app WordBase.app
+          zip -r WordBase-iOS-Simulator.zip WordBase.app
           ls -la WordBase-iOS-Simulator.zip
 
       - name: Upload iOS app
