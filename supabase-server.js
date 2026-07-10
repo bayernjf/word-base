@@ -55,8 +55,9 @@ app.get('/api/v1/health', (_req, res) => {
   res.json({ ok: true })
 })
 
-// 静态文件服务
-app.use(express.static(join(__dirname, 'dist')))
+if (process.env.NODE_ENV !== 'vercel-serverless') {
+  app.use(express.static(join(__dirname, 'dist')))
+}
 
 // =============================================
 // 辅助函数：记录同步变更日志
@@ -1923,16 +1924,21 @@ app.post('/api/v1/words/batch-delete', async (req, res) => {
   }
 })
 
-// 所有其他路由返回 React 应用
-app.get('*', (_req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'))
-})
+if (process.env.NODE_ENV !== 'vercel-serverless') {
+  app.get('*', (_req, res) => {
+    res.sendFile(join(__dirname, 'dist', 'index.html'))
+  })
+}
 
-app.listen(PORT, () => {
-  console.log(`🚀 Supabase 后端服务运行在 http://localhost:${PORT}`)
-  console.log('  - 与现有 API 完全兼容')
-  console.log('  - 所有数据存储在 Supabase')
-  if (!supabaseAdmin) {
-    console.warn('  - 警告: 未配置 SUPABASE_SERVICE_ROLE_KEY，注销账号无法真正删除 auth 用户')
-  }
-})
+if (process.env.NODE_ENV !== 'vercel-serverless') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Supabase 后端服务运行在 http://localhost:${PORT}`)
+    console.log('  - 与现有 API 完全兼容')
+    console.log('  - 所有数据存储在 Supabase')
+    if (!supabaseAdmin) {
+      console.warn('  - 警告: 未配置 SUPABASE_SERVICE_ROLE_KEY，注销账号无法真正删除 auth 用户')
+    }
+  })
+}
+
+export default app
