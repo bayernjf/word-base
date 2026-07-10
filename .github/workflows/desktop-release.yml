@@ -176,6 +176,12 @@ jobs:
         working-directory: apps/mobile/android
         run: ./gradlew assembleDebug --no-daemon
 
+      - name: Rename Android APK
+        working-directory: apps/mobile/android/app/build/outputs/apk/debug
+        run: |
+          mv app-debug.apk WordBase-debug.apk
+          ls -la
+
       - name: Upload Android APK
         uses: actions/upload-artifact@v5
         with:
