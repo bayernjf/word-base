@@ -673,7 +673,7 @@ const fetchAiProvider = async (url, options) => {
 }
 
 // 调用用户配置的 AI provider，返回模型原始文本（由各调用方自行解析）
-const callAiProviderRaw = async ({ config, prompt }) => {
+const callAiProviderRaw = async ({ config, prompt, jsonMode = true }) => {
   const apiKey = decryptApiKey(config.encrypted_api_key)
   const provider = normalizeAiProvider(config.provider)
   const model = config.model || defaultModelForProvider(provider)
@@ -693,7 +693,7 @@ const callAiProviderRaw = async ({ config, prompt }) => {
             }
           ],
           generationConfig: {
-            responseMimeType: 'application/json'
+            ...(jsonMode ? { responseMimeType: 'application/json' } : {})
           }
         })
       })
@@ -714,7 +714,7 @@ const callAiProviderRaw = async ({ config, prompt }) => {
       model,
       contents: prompt,
       config: {
-        responseMimeType: 'application/json'
+        ...(jsonMode ? { responseMimeType: 'application/json' } : {})
       }
     })
     return response.text || ''
@@ -756,7 +756,7 @@ const callAiProviderRaw = async ({ config, prompt }) => {
     body: JSON.stringify({
       model,
       messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
       temperature: 0.2
     })
   })
@@ -1063,7 +1063,18 @@ app.post('/api/v1/ai/providers/test', async (req, res) => {
     }
 
     const config = { provider, model, endpoint: endpoint || undefined, encrypted_api_key }
-    const raw = await callAiProviderRaw({ config, prompt: 'Reply with the single word: OK' })
+    let raw
+    try {
+      raw = await callAiProviderRaw({ config, prompt: 'Reply with the single word: OK', jsonMode: false })
+    } catch (firstErr) {
+      if (provider === 'openai-compatible' && endpoint && !/\/v\d+(\/|$)/.test(endpoint)) {
+        const fallbackEndpoint = endpoint.replace(/\/+$/, '') + '/v1'
+        const fallbackConfig = { ...config, endpoint: fallbackEndpoint }
+        raw = await callAiProviderRaw({ config: fallbackConfig, prompt: 'Reply with the single word: OK', jsonMode: false })
+      } else {
+        throw firstErr
+      }
+    }
     const ok = String(raw || '').trim().length > 0
     res.json({ ok, model, provider })
   } catch (err) {
