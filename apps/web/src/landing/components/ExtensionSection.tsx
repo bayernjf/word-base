@@ -10,8 +10,8 @@ const features = [
   {
     icon: <Keyboard className="w-5 h-5" />,
     color: '#818cf8',
-    title: 'Ctrl/Cmd 悬停即查',
-    desc: '无需选中、无需右键，按住 Ctrl/Cmd 键鼠标悬停即可触发查词，极致流畅',
+    title: '默认 Ctrl 悬停即查',
+    desc: '无需选中、无需右键，默认按住 Ctrl 键鼠标悬停即可触发查词，极致流畅',
   },
   {
     icon: <Shield className="w-5 h-5" />,
