@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm -w @wordbase/web run build",
+  "outputDirectory": "apps/web/dist",
+  "rewrites": [
+    { "source": "/app(/.*)?", "destination": "/app.html" },
+    { "source": "/api(.*)", "destination": "/api/[...all].js" }
+  ]
+}
