@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { LandingNav } from './components/LandingNav';
 import { Hero } from './components/Hero';

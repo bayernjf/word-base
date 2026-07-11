@@ -1,4 +1,4 @@
-const API_BASE_URL = (globalThis.__ENV || {}).VITE_API_BASE_URL || ''
+const API_BASE_URL = (globalThis.__ENV || {}).NEXT_PUBLIC_API_BASE_URL || ''
 
 function shouldProxyApi(url) {
   return url.pathname.startsWith('/api/')
@@ -9,7 +9,7 @@ export default {
     const url = new URL(request.url)
 
     if (shouldProxyApi(url)) {
-      const apiBase = env.VITE_API_BASE_URL || API_BASE_URL
+      const apiBase = env.NEXT_PUBLIC_API_BASE_URL || API_BASE_URL
       if (!apiBase) {
         return new Response(JSON.stringify({ error: 'API base URL not configured' }), {
           status: 500,

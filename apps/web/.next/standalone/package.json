@@ -1,0 +1,34 @@
+{
+  "name": "word-base",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "npm@10.8.1",
+  "workspaces": [
+    "shared",
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --filter=@wordbase/web",
+    "dev:web": "turbo run dev --filter=@wordbase/web",
+    "dev:api": "turbo run dev --filter=@wordbase/api",
+    "dev:desktop": "turbo run dev --filter=@wordbase/desktop",
+    "dev:mobile": "turbo run dev --filter=@wordbase/mobile",
+    "build": "turbo run build --filter=@wordbase/web",
+    "build:all": "turbo run build",
+    "preview": "npm -w @wordbase/web run preview",
+    "clean": "turbo run clean",
+    "lint": "turbo run lint",
+    "lint:all": "turbo run lint"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "sharp": "^0.35.3",
+    "tsx": "^4.21.0",
+    "turbo": "^2.10.4"
+  }
+}
