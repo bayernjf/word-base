@@ -16,8 +16,8 @@ function getEnvValue(key: string): string | undefined {
   return undefined
 }
 
-const supabaseUrl = getEnvValue('NEXT_PUBLIC_SUPABASE_URL') || 'http://localhost:54321'
-const supabaseAnonKey = getEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 'your-anon-key'
+const supabaseUrl = getEnvValue('NEXT_PUBLIC_SUPABASE_URL') || ''
+const supabaseAnonKey = getEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || ''
 
 let _client: SupabaseClient | null = null
 
