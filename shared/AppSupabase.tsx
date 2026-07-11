@@ -135,8 +135,8 @@ export default function AppSupabase() {
   const [autoEnrich, setAutoEnrich] = useState<boolean>(false);
   const [autoExplain, setAutoExplain] = useState<boolean>(false);
   const syncServerBaseUrl = (() => {
-    if (import.meta.env.VITE_SYNC_SERVER_URL) {
-      return import.meta.env.VITE_SYNC_SERVER_URL as string;
+    if (import.meta.env.NEXT_PUBLIC_SYNC_SERVER_URL || import.meta.env.VITE_SYNC_SERVER_URL) {
+      return (import.meta.env.NEXT_PUBLIC_SYNC_SERVER_URL || import.meta.env.VITE_SYNC_SERVER_URL) as string;
     }
     if (typeof window === 'undefined') {
       return 'http://localhost:3001';

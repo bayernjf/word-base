@@ -65,7 +65,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string, remember?: boolean) => {
     logger.debug('signIn', { email, remember });
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const apiBaseUrl = import.meta.env.NEXT_PUBLIC_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || '';
     if (apiBaseUrl) {
       try {
         const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {

@@ -120,7 +120,7 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
         {
           id: String(Date.now()),
           sender: 'ai',
-          text: `🔍 Loaded vocabulary profile for "${match.word}": It means "${match.chineseTranslation}" (${match.partOfSpeech}). Core concept: ${match.definition}. Here is a synonym: ${match.synonyms[0] || 'N/A'}.`,
+          text: `🔍 Loaded vocabulary profile for "${match.word}": It means "${match.chineseTranslation}" (${match.partOfSpeech}). Core concept: ${match.definition}. Here is a synonym: ${match.synonyms?.[0] || 'N/A'}.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -613,8 +613,8 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
                 
                 <p className="text-xs mt-2"><strong className="text-neutral-500 uppercase tracking-widest text-[9px] block">Definition:</strong> {selectedWord.definition}</p>
                 <p className={`text-xs font-semibold ${accentTextColor} mt-1`}><strong className="text-neutral-500 uppercase tracking-widest text-[9px] block">Translation:</strong> {selectedWord.chineseTranslation}</p>
-                {selectedWord.synonyms.length > 0 && (
-                  <p className="text-xs mt-1"><strong>Synonyms:</strong> {selectedWord.synonyms.join(', ')}</p>
+                {(selectedWord.synonyms?.length ?? 0) > 0 && (
+                  <p className="text-xs mt-1"><strong>Synonyms:</strong> {(selectedWord.synonyms ?? []).join(', ')}</p>
                 )}
               </div>
             )}

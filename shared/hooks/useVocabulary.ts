@@ -239,12 +239,29 @@ function toWordPayload(word: Omit<Word, 'id'>) {
   };
 }
 
+function normalizeSourceLink(link: string | undefined): string {
+  const raw = String(link || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    url.hash = '';
+    return url.toString();
+  } catch {
+    const hashIndex = raw.indexOf('#');
+    return hashIndex >= 0 ? raw.slice(0, hashIndex) : raw;
+  }
+}
+
 function mergeContexts(existingContexts: WordContext[], nextContexts: WordContext[]) {
   const mergedContexts: WordContext[] = [...existingContexts];
 
   nextContexts.forEach((context) => {
+    const contextNormalized = String(context.context || '').trim();
+    const sourceLinkNormalized = normalizeSourceLink(context.sourceLink);
     const duplicated = mergedContexts.some(
-      (item) => item.context === context.context && item.sourceLink === context.sourceLink
+      (item) =>
+        String(item.context || '').trim() === contextNormalized &&
+        normalizeSourceLink(item.sourceLink) === sourceLinkNormalized
     );
     if (!duplicated) {
       mergedContexts.push(context);

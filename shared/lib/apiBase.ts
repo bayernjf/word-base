@@ -6,8 +6,9 @@ function detectPlatform(): Platform {
     if (w.__TAURI_INTERNALS__ || w.__TAURI__ || w.tauri) {
       return 'desktop'
     }
-    if (w.Capacitor) {
-      const platform = w.Capacitor?.getPlatform?.() || ''
+    if (w.ReactNative) {
+      // Expo RN injects ReactNative on global object
+      const platform = w.Platform?.OS || ''
       if (platform === 'ios') return 'ios'
       if (platform === 'android') return 'android'
     }
@@ -19,23 +20,33 @@ function detectPlatform(): Platform {
     const ua = navigator.userAgent || ''
     if (/Android/i.test(ua)) return 'android'
     if (/iPhone|iPad|iPod/i.test(ua)) return 'ios'
-    if (/Capacitor/i.test(ua)) return 'ios'
   }
   return 'web'
 }
 
-const platform = detectPlatform()
-const env = import.meta.env
+function getEnvValue(key: string): string | undefined {
+  // Normalize: try NEXT_PUBLIC_ prefix for Next.js, then bare key, then VITE_ fallback
+  const bareKey = key.replace(/^NEXT_PUBLIC_/, '')
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key] || process.env[bareKey] || process.env[`VITE_${bareKey}`]
+  }
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env[key] || import.meta.env[`VITE_${bareKey}`]
+  }
+  return undefined
+}
 
-let rawBase = env.VITE_API_BASE_URL || ''
+const platform = detectPlatform()
+
+let rawBase = getEnvValue('NEXT_PUBLIC_API_BASE_URL') || ''
 
 if (!rawBase) {
   if (platform === 'desktop') {
-    rawBase = env.VITE_DESKTOP_API_BASE_URL || ''
+    rawBase = getEnvValue('NEXT_PUBLIC_DESKTOP_API_BASE_URL') || ''
   } else if (platform === 'ios') {
-    rawBase = env.VITE_IOS_API_BASE_URL || env.VITE_MOBILE_API_BASE_URL || ''
+    rawBase = getEnvValue('NEXT_PUBLIC_IOS_API_BASE_URL') || getEnvValue('NEXT_PUBLIC_MOBILE_API_BASE_URL') || ''
   } else if (platform === 'android') {
-    rawBase = env.VITE_ANDROID_API_BASE_URL || env.VITE_MOBILE_API_BASE_URL || ''
+    rawBase = getEnvValue('NEXT_PUBLIC_ANDROID_API_BASE_URL') || getEnvValue('NEXT_PUBLIC_MOBILE_API_BASE_URL') || ''
   }
 }
 
