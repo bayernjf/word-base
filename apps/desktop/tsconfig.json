@@ -12,7 +12,8 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
-      "@wordbase/shared/*": ["../../shared/*"]
+      "@wordbase/shared/*": ["../../shared/*"],
+      "@wordbase/web-primitives": ["../web/src/primitives"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true

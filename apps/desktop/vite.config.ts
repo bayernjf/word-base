@@ -27,6 +27,7 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@wordbase/shared': path.resolve(__dirname, '../../shared'),
+        '@wordbase/web-primitives': path.resolve(__dirname, '../web/src/primitives'),
       },
     },
     build: {

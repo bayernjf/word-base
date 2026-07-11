@@ -27,15 +27,15 @@ jobs:
 
       - name: Build web frontend
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm -w @wordbase/web run build
 
-      - name: Upload web dist artifact
+      - name: Upload web build artifact
         uses: actions/upload-artifact@v5
         with:
-          name: web-dist
-          path: apps/web/dist
+          name: web-build
+          path: apps/web/.next
 
   deploy-cloudflare:
     name: Deploy to Cloudflare Pages
@@ -45,11 +45,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download web dist
+      - name: Download web build
         uses: actions/download-artifact@v5
         with:
-          name: web-dist
-          path: apps/web/dist
+          name: web-build
+          path: apps/web/.next
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
@@ -57,7 +57,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: word-base
-          directory: apps/web/dist
+          directory: apps/web/.next
 
   deploy-vercel:
     name: Deploy to Vercel
@@ -79,8 +79,8 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
         run: |
@@ -89,23 +89,23 @@ jobs:
           
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             DEPLOY_OUTPUT=$(npx vercel deploy --prod --token=$VERCEL_TOKEN --yes \
-              --build-env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
-              --build-env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+              --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
               --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
-              --env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
-              --env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+              --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
               --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
               2>&1)
           else
             DEPLOY_OUTPUT=$(npx vercel deploy --token=$VERCEL_TOKEN --yes \
-              --build-env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
-              --build-env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+              --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
               --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
-              --env VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
-              --env VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+              --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+              --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
               --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
               2>&1)

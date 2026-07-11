@@ -1,8 +1,12 @@
 {
   "buildCommand": "npm -w @wordbase/web run build",
-  "outputDirectory": "apps/web/dist",
+  "outputDirectory": "apps/web/.next",
+  "functions": {
+    "api/[[...all]].ts": {
+      "runtime": "@vercel/node@3"
+    }
+  },
   "rewrites": [
-    { "source": "/app(/.*)?", "destination": "/app.html" },
-    { "source": "/api(.*)", "destination": "/api/[...all].js" }
+    { "source": "/api(.*)", "destination": "/api/[[...all]]" }
   ]
 }

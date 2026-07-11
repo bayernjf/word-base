@@ -4,17 +4,22 @@ import AppSupabase from '@wordbase/shared/AppSupabase';
 import { SupabaseProvider } from '@wordbase/shared/context/SupabaseContext';
 import '@wordbase/shared/index.css';
 import { getPlatform, setPlatform } from '@wordbase/shared/platform';
+import { setPrimitives, PrimitiveThemeProvider } from '@wordbase/shared/primitives';
+import { webPrimitives } from '@wordbase/web-primitives';
 import { desktopPlatform } from './platform-desktop';
 
 setPlatform(desktopPlatform);
+setPrimitives(webPrimitives);
 
 const root = createRoot(document.getElementById('root')!);
 getPlatform().kv.init().then(() => {
   root.render(
     <StrictMode>
-      <SupabaseProvider>
-        <AppSupabase />
-      </SupabaseProvider>
+      <PrimitiveThemeProvider theme="glass">
+        <SupabaseProvider>
+          <AppSupabase />
+        </SupabaseProvider>
+      </PrimitiveThemeProvider>
     </StrictMode>
   );
 });

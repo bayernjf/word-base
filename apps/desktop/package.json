@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
     "tauri": "tauri",
     "tauri:init": "tauri init --app-name wordbase-desktop --window-title WordBase --frontend-dist ../dist --dev-url http://localhost:3002",
     "tauri:dev": "tauri dev",

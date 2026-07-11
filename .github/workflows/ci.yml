@@ -27,21 +27,21 @@ jobs:
 
       - name: Typecheck web app
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm -w @wordbase/web exec tsc -- --noEmit
 
       - name: Build web frontend
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm -w @wordbase/web run build
 
-      - name: Upload web dist artifact
+      - name: Upload web build artifact
         uses: actions/upload-artifact@v5
         with:
-          name: web-dist
-          path: apps/web/dist
+          name: web-build
+          path: apps/web/.next
 
   supabase-health:
     name: Supabase Health Check
@@ -58,15 +58,15 @@ jobs:
 
       - name: Check Supabase connectivity
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$VITE_SUPABASE_URL" ]; then
-            echo "Warning: VITE_SUPABASE_URL not set, skipping Supabase health check"
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
+            echo "Warning: NEXT_PUBLIC_SUPABASE_URL not set, skipping Supabase health check"
             exit 0
           fi
-          echo "Checking Supabase at: $VITE_SUPABASE_URL"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$VITE_SUPABASE_URL/rest/v1/" -H "apikey: $VITE_SUPABASE_ANON_KEY" -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY")
+          echo "Checking Supabase at: $NEXT_PUBLIC_SUPABASE_URL"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY")
           echo "Supabase HTTP status: $HTTP_CODE"
           if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "400" ]; then
             echo "Supabase service is reachable"
