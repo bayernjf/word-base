@@ -26,16 +26,21 @@ const supabaseAdmin = supabaseServiceRoleKey
   : null
 
 app.use(async (c, next) => {
-  c.res.headers.set('Access-Control-Allow-Origin', '*')
-  c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-  c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  // 允许来自已知前端的请求（禁止 * + credentials 组合）
+  const origin = c.req.header('Origin');
+  if (origin) {
+    c.res.headers.set('Access-Control-Allow-Origin', origin);
+    c.res.headers.set('Access-Control-Allow-Credentials', 'true');
+  }
+  c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
   if (c.req.method === 'OPTIONS') {
-    return c.json({ ok: true }, 200)
+    return c.json({ ok: true }, 200);
   }
   
-  await next()
-})
+  await next();
+});
 
 const createUserSupabaseClient = (token: string) =>
   createClient(supabaseUrl, supabaseAnonKey, {
@@ -63,12 +68,31 @@ const getRequestContext = async (c: { req: { header: (key: string) => string | u
   }
 
   const db = createUserSupabaseClient(token)
-  const {
-    data: { user },
-    error
-  } = await db.auth.getUser(token)
+  
+  // 直接解析 JWT 获取用户信息，避免每次请求都查数据库
+  let user = null
+  try {
+    const jwtParts = token.split('.')
+    if (jwtParts.length === 3) {
+      const payload = JSON.parse(Buffer.from(jwtParts[1], 'base64').toString('utf-8'))
+      if (payload?.sub) {
+        user = {
+          id: payload.sub,
+          email: payload?.email || '',
+          user_metadata: payload?.user_metadata || {}
+        }
+      }
+    }
+  } catch {
+    // JWT 解析失败，降级为查数据库
+    const { data: { user: dbUser }, error } = await db.auth.getUser(token)
+    if (error || !dbUser) {
+      return { token, user: null, db }
+    }
+    user = dbUser
+  }
 
-  if (error || !user) {
+  if (!user) {
     return { token, user: null, db }
   }
 
@@ -293,7 +317,8 @@ app.post('/api/v1/auth/login', async (c) => {
 
     return c.json(buildAuthResponse(data.session))
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    console.error('[auth/login] error:', (err as Error).message)
+    return c.json({ error: 'internal_server_error' }, 500)
   }
 })
 
@@ -364,7 +389,7 @@ app.post('/api/v1/auth/register', async (c) => {
 
     return c.json(buildAuthResponse(data.session))
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -389,7 +414,7 @@ app.post('/api/v1/auth/refresh', async (c) => {
 
     return c.json(buildAuthResponse(data.session))
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -412,7 +437,7 @@ app.delete('/api/v1/auth/delete-account', async (c) => {
 
     return c.json({ ok: true })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -441,7 +466,7 @@ app.get('/api/v1/ai/providers', async (c) => {
       updatedAt: row.updated_at
     })) })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -495,7 +520,7 @@ app.post('/api/v1/ai/providers', async (c) => {
       updatedAt: data.updated_at
     } })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -551,7 +576,7 @@ app.patch('/api/v1/ai/providers/:id', async (c) => {
       updatedAt: data.updated_at
     } })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -569,7 +594,7 @@ app.delete('/api/v1/ai/providers/:id', async (c) => {
     if (error) throw error
     return c.json({ ok: true })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -619,7 +644,7 @@ app.post('/api/v1/ai/providers/test', async (c) => {
     return c.json({ ok, model, provider })
   } catch (err) {
     console.error('[ai/providers/test] error:', (err as Error).message)
-    return c.json({ error: (err as Error).message || 'connection_test_failed' }, 502)
+    return c.json({ error: 'connection_test_failed' }, 502)
   }
 })
 
@@ -646,7 +671,7 @@ app.post('/api/v1/books', async (c) => {
     if (error) throw error
     return c.json(data[0])
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -666,7 +691,7 @@ app.get('/api/v1/books', async (c) => {
     if (error) throw error
     return c.json(data)
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -689,7 +714,7 @@ app.put('/api/v1/books/:id', async (c) => {
     if (error) throw error
     return c.json(data[0])
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -711,7 +736,7 @@ app.delete('/api/v1/books/:id', async (c) => {
     if (error) throw error
     return c.json(data)
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -736,7 +761,7 @@ app.get('/api/v1/words', async (c) => {
     if (error) throw error
     return c.json(data)
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -763,7 +788,7 @@ app.post('/api/v1/words', async (c) => {
     if (error) throw error
     return c.json(data[0])
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -785,7 +810,7 @@ app.delete('/api/v1/words/:id', async (c) => {
     if (error) throw error
     return c.json(data)
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -804,7 +829,7 @@ app.get('/api/v1/sync/status', async (c) => {
     if (error) throw error
     return c.json({ version: data[0]?.sync_version || 0 })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -834,7 +859,7 @@ app.get('/api/v1/sync/full', async (c) => {
       words: wordsRes.data
     })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -851,7 +876,7 @@ app.post('/api/v1/words/batch', async (c) => {
         ...word,
         created_at: now,
         updated_at: now,
-        sync_version: 1,
+        sync_version: (word.sync_version || 0) + 1,
         is_deleted: false
       }
       return mapped
@@ -862,17 +887,51 @@ app.post('/api/v1/words/batch', async (c) => {
       return c.json([])
     }
 
-    const { data, error } = await db
+    // 先查询现有记录的 sync_version，检测冲突
+    const wordKeys = dedupedWords.map(w => `${w.user_id}:${w.word}:${w.book_id}`)
+    const { data: existingWords, error: fetchError } = await db
       .from('words')
-      .upsert(dedupedWords, {
-        onConflict: 'user_id,word,book_id'
-      })
-      .select()
+      .select('id, word, book_id, sync_version')
+      .in('word', dedupedWords.map(w => w.word))
+      .eq('user_id', user.id)
 
-    if (error) throw error
-    return c.json(data)
+    if (fetchError) throw fetchError
+
+    // 标记冲突的单词
+    const existingMap = new Map<string, number>()
+    for (const w of (existingWords || [])) {
+      const key = `${user.id}:${w.word}:`
+      existingMap.set(key + (w.book_id || ''), w.sync_version || 0)
+    }
+
+    const conflicts: string[] = []
+    const cleanWords = dedupedWords.filter(w => {
+      const key = `${user.id}:${w.word}:${w.book_id}`
+      const existingVersion = existingMap.get(key)
+      const incomingVersion = w.sync_version || 1
+      if (existingVersion !== undefined && incomingVersion <= existingVersion) {
+        conflicts.push(w.word)
+        return false
+      }
+      return true
+    })
+
+    let data: any[] = []
+    if (cleanWords.length > 0) {
+      const { data: inserted, error: upsertError } = await db
+        .from('words')
+        .upsert(cleanWords, {
+          onConflict: 'user_id,word,book_id',
+          ignoreDuplicates: false
+        })
+        .select()
+      if (upsertError) throw upsertError
+      data = inserted
+    }
+
+    return c.json({ data, conflicts })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -897,7 +956,7 @@ app.post('/api/v1/words/batch-delete', async (c) => {
     if (error) throw error
     return c.json(data)
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -962,7 +1021,21 @@ app.post('/api/v1/ai/enrich', async (c) => {
     ].join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    const parsed = JSON.parse(extractJsonText(raw))
+    let parsed: any
+    try {
+      parsed = JSON.parse(extractJsonText(raw))
+    } catch {
+      console.warn('AI enrich JSON parse failed, returning fallback', { wordId: body?.wordId })
+      return c.json({
+        enrichment: {
+          definition: '',
+          translation: '',
+          synonyms: [],
+          examples: [],
+          usageHistory: [],
+        },
+      }, 200)
+    }
 
     const enrichment = {
       definition: readString(parsed.definition),
@@ -1003,7 +1076,7 @@ app.post('/api/v1/ai/enrich', async (c) => {
 
     return c.json({ enrichment })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1032,7 +1105,13 @@ app.post('/api/v1/ai/explain', async (c) => {
     ].join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    const parsed = JSON.parse(extractJsonText(raw))
+    let parsed: any
+    try {
+      parsed = JSON.parse(extractJsonText(raw))
+    } catch {
+      console.warn('AI deepExplanation JSON parse failed')
+      return c.json({ deepExplanation: { contextInsights: [], synonymComparison: '', memoryHook: '' } }, 200)
+    }
 
     const deepExplanation = {
       contextInsights: (Array.isArray(parsed.contextInsights) ? parsed.contextInsights : [])
@@ -1058,7 +1137,7 @@ app.post('/api/v1/ai/explain', async (c) => {
 
     return c.json({ deepExplanation })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1087,7 +1166,13 @@ app.post('/api/v1/ai/sense-cluster', async (c) => {
     ].join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    const parsed = JSON.parse(extractJsonText(raw))
+    let parsed: any
+    try {
+      parsed = JSON.parse(extractJsonText(raw))
+    } catch {
+      console.warn('AI sense-cluster JSON parse failed')
+      return c.json({ senseGroups: { groups: [] } }, 200)
+    }
 
     const senseGroups = {
       groups: (Array.isArray(parsed.groups) ? parsed.groups : [])
@@ -1116,7 +1201,7 @@ app.post('/api/v1/ai/sense-cluster', async (c) => {
 
     return c.json({ senseGroups })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1139,7 +1224,7 @@ app.post('/api/v1/ai/translate', async (c) => {
 
     return c.json({ translatedText })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1182,7 +1267,13 @@ app.post('/api/v1/ai/story-generate', async (c) => {
     ].filter(Boolean).join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    const parsed = JSON.parse(extractJsonText(raw))
+    let parsed: any
+    try {
+      parsed = JSON.parse(extractJsonText(raw))
+    } catch {
+      console.warn('AI story generation JSON parse failed')
+      return c.json({ error: 'ai_parse_failed' }, 500)
+    }
 
     const story = {
       title: readString(parsed.title),
@@ -1237,7 +1328,7 @@ app.post('/api/v1/ai/story-generate', async (c) => {
       remaining,
     })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1281,7 +1372,7 @@ app.post('/api/v1/ai/tutor-chat', async (c) => {
 
     return c.json({ reply })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1301,7 +1392,7 @@ app.post('/api/v1/session/bootstrap', async (c) => {
     }
     return c.json({ token: data.session.access_token })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1328,7 +1419,7 @@ app.post('/api/v1/pairing/new', async (c) => {
     if (error) throw error
     return c.json({ code, expiresAt })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
@@ -1356,7 +1447,7 @@ app.get('/api/v1/pairing/code', async (c) => {
 
     return c.json({ code: data.code, expiresAt })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    return c.json({ error: "internal_server_error" }, 500)
   }
 })
 
