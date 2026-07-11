@@ -469,18 +469,34 @@ export function useVocabularyBooks() {
       try {
         const now = new Date().toISOString();
 
-        await Promise.all([
-          supabase
+        // 先更新 book，再更新 words，失败时回滚
+        const { error: bookError } = await supabase
+          .from('vocabulary_books')
+          .update({ is_deleted: true, is_sync: false, updated_at: now })
+          .eq('id', bookId)
+          .eq('user_id', user.id);
+
+        if (bookError) {
+          logger.error('deleteBook failed at book update:', bookError);
+          return false;
+        }
+
+        const { error: wordsError } = await supabase
+          .from('words')
+          .update({ is_deleted: true, updated_at: now })
+          .eq('book_id', bookId)
+          .eq('user_id', user.id);
+
+        if (wordsError) {
+          // 回滚：恢复 book 状态
+          await supabase
             .from('vocabulary_books')
-            .update({ is_deleted: true, is_sync: false, updated_at: now })
+            .update({ is_deleted: false, updated_at: now })
             .eq('id', bookId)
-            .eq('user_id', user.id),
-          supabase
-            .from('words')
-            .update({ is_deleted: true, updated_at: now })
-            .eq('book_id', bookId)
-            .eq('user_id', user.id),
-        ]);
+            .eq('user_id', user.id);
+          logger.error('deleteBook failed at words update, rolled back book:', wordsError);
+          return false;
+        }
 
         setBooks((prev) => {
           const remaining = prev.filter((book) => book.id !== bookId);
@@ -715,6 +731,9 @@ export function useWords(bookId?: string) {
       }
       logger.debug('moveWords', { count: wordIds.length, targetBookId });
 
+      // 提升到 try 块外部，供 catch 块访问
+      const processedSourceIds: string[] = [];
+
       try {
         const { data: sourceRows, error: sourceError } = await supabase
           .from('words')
@@ -758,7 +777,8 @@ export function useWords(bookId?: string) {
         const now = new Date().toISOString();
         let movedCount = 0;
         let duplicateCount = 0;
-        const processedSourceIds: string[] = [];
+        // 记录已移动的单词，用于失败时回滚
+        const movedWordMap = new Map<string, string>(); // sourceId -> existingTargetRowId (如果是合并操作)
 
         for (const sourceWord of movingWords) {
           const existingTargetRow = targetWordMap.get(sourceWord.word);
@@ -779,6 +799,7 @@ export function useWords(bookId?: string) {
 
             movedCount += 1;
             processedSourceIds.push(sourceWord.id);
+            movedWordMap.set(sourceWord.id, ''); // 空字符串表示纯移动，无需回滚
             continue;
           }
 
@@ -804,6 +825,9 @@ export function useWords(bookId?: string) {
             .eq('is_deleted', false);
 
           if (updateExistingError) throw updateExistingError;
+
+          // 记录合并操作的目标单词 ID，用于回滚
+          movedWordMap.set(sourceWord.id, existingTargetRow.id);
         }
 
         setWords((prev) => prev.filter((word) => !processedSourceIds.includes(word.id)));
@@ -814,7 +838,35 @@ export function useWords(bookId?: string) {
           duplicateCount,
         } satisfies MoveWordsResult;
       } catch (error) {
-        logger.error('Error moving words:', error);
+        logger.error('Error moving words, attempting rollback:', error);
+        
+        // 回滚已移动的单词
+        if (processedSourceIds.length > 0) {
+          try {
+            const { data: sourceRows } = await supabase
+              .from('words')
+              .select('id, book_id')
+              .eq('user_id', user.id)
+              .in('id', processedSourceIds);
+            
+            if (sourceRows) {
+              const rollbackUpdates = sourceRows.map(row => ({
+                id: row.id,
+                book_id: row.book_id, // 恢复原来的 book_id
+              }));
+              
+              await supabase
+                .from('words')
+                .upsert(rollbackUpdates, {
+                  onConflict: 'id,user_id',
+                });
+              logger.info('moveWords rollback completed', { rollbackCount: rollbackUpdates.length });
+            }
+          } catch (rollbackError) {
+            logger.error('moveWords rollback failed:', rollbackError);
+          }
+        }
+        
         return {
           success: false,
           movedCount: 0,
