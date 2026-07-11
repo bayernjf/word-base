@@ -1,0 +1,105 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Rollback target platform'
+        required: true
+        type: choice
+        options:
+          - cloudflare
+          - vercel
+          - both
+      target_commit:
+        description: 'Target commit SHA to rollback to (optional, defaults to previous successful deploy)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  rollback:
+    name: Rollback ${{ github.event.inputs.platform }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 10
+
+      - name: Determine rollback target
+        id: target
+        run: |
+          TARGET="${{ github.event.inputs.target_commit }}"
+          if [ -z "$TARGET" ]; then
+            # Find the previous commit before the last deploy
+            LAST_COMMIT=$(git rev-parse HEAD~1)
+            echo "No target specified, using previous commit: $LAST_COMMIT"
+            TARGET="$LAST_COMMIT"
+          fi
+          echo "target=$TARGET" >> $GITHUB_OUTPUT
+          echo "Target commit: $TARGET"
+
+      - name: Verify target commit builds
+        run: |
+          git checkout ${{ steps.target.outputs.target }}
+          npm ci
+          npm run lint || { echo "::error::Lint failed on rollback target"; exit 1; }
+          npm run test || { echo "::error::Tests failed on rollback target"; exit 1; }
+          npm -w @wordbase/web run build || { echo "::error::Build failed on rollback target"; exit 1; }
+          echo "✅ Rollback target verified"
+
+      - name: Rollback to Cloudflare Pages
+        if: github.event.inputs.platform == 'cloudflare' || github.event.inputs.platform == 'both'
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: word-base
+          directory: apps/web/.next/standalone/apps/web
+          branch: main
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
+
+      - name: Rollback to Vercel
+        if: github.event.inputs.platform == 'vercel' || github.event.inputs.platform == 'both'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
+        run: |
+          mkdir -p .vercel
+          echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
+          
+          npx vercel deploy --prod --token=$VERCEL_TOKEN --yes \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --build-env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+            --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+            --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+            2>&1
+
+      - name: Notify result
+        run: |
+          echo "## Rollback Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | ${{ github.event.inputs.platform }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target | ${{ steps.target.outputs.target }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ✅ Rollback complete |" >> $GITHUB_STEP_SUMMARY
