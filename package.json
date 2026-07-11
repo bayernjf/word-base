@@ -20,7 +20,8 @@
     "preview": "npm -w @wordbase/web run preview",
     "clean": "turbo run clean",
     "lint": "turbo run lint",
-    "lint:all": "turbo run lint"
+    "lint:all": "turbo run lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "dotenv": "^17.2.3"
@@ -33,6 +34,7 @@
     "eslint": "^10.7.0",
     "sharp": "^0.35.3",
     "tsx": "^4.21.0",
-    "turbo": "^2.10.4"
+    "turbo": "^2.10.4",
+    "vitest": "^2.1.3"
   }
 }
