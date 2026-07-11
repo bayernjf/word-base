@@ -8,11 +8,12 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 
 | 类别 | 技术 | 说明 |
 |------|------|------|
-| **Monorepo 管理** | npm workspaces | `shared/` + `apps/*` 多包结构 |
-| **包管理** | npm | 统一依赖管理 |
+| **Monorepo 管理** | Turborepo | 构建缓存 + 任务编排，`shared/` + `packages/*` + `apps/*` |
+| **包管理** | npm workspaces | 统一依赖管理 |
 | **模块系统** | ES Modules | `type: module` |
-| **共享代码** | `shared/` 目录 | 组件 / 类型 / 工具 / hooks / 上下文 |
+| **共享代码** | `shared/` 目录 | 组件 / 类型 / 工具 / hooks / 上下文 / primitives / tokens |
 | **应用入口** | `apps/web` / `apps/desktop` / `apps/mobile` | 三端独立构建 |
+| **API 服务** | `packages/api` | Hono 独立边缘 API 包 |
 
 ---
 
@@ -22,8 +23,8 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 |------|------|------|
 | **UI 框架** | React | ^19.0.1 |
 | **语言** | TypeScript | ~5.8.2 |
-| **构建工具** | Vite | ^6.2.3 |
-| **React 插件** | `@vitejs/plugin-react` | ^5.0.4 |
+| **Web 框架** | Next.js | ^15.5.20 |
+| **App Router** | Next.js App Router | SSR / Edge Runtime |
 | **JSX 模式** | `react-jsx` | 自动导入 React |
 | **TS Target** | ES2022 | - |
 | **模块解析** | `bundler` | - |
@@ -36,8 +37,13 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 | 类别 | 技术 | 版本 |
 |------|------|------|
 | **CSS 框架** | Tailwind CSS | ^4.1.14 |
-| **Vite 集成** | `@tailwindcss/vite` | ^4.1.14 |
-| **PostCSS** | `autoprefixer` | ^10.4.21 |
+| **跨端 UI 统一** | Primitive 组件架构 | 三端共享 token + 接口，各端独立实现 |
+| **Design Token** | `shared/tokens/` | 颜色、间距、圆角、字号、字重纯值 |
+| **Primitive 接口** | `shared/primitives/types.ts` | 9 个跨端基础组件（View/Text/Button/Input 等） |
+| **Web 实现** | `apps/web/src/primitives/` | HTML + CSSProperties |
+| **RN 实现** | `apps/mobile/src/primitives/` | View + StyleSheet |
+
+详见 [跨端 UI 统一方案](./CROSS_PLATFORM_UI.md)。
 
 ---
 
@@ -67,35 +73,35 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 |------|------|------|
 | **Google Gemini SDK** | `@google/genai` | ^2.4.0 |
 | **支持的 AI Provider** | OpenAI / Anthropic / Gemini / OpenAI-Compatible | - |
-| **API Key 加密** | AES-256-GCM | Node.js `crypto` 模块 |
+| **API Key 加密** | AES-256-GCM | Web Crypto API（跨端兼容） |
 | **AI 功能** | 单词丰富 / 深度解释 / 义项聚类 / 故事生成 / 导师对话 / 翻译 | - |
 
 ---
 
-## 7. 后端（Express）
+## 7. 后端 API（Hono）
 
 | 类别 | 技术 | 版本 |
 |------|------|------|
-| **Web 框架** | Express | ^4.21.2 |
-| **运行时** | Node.js | 22 |
+| **Web 框架** | Hono | ^4.6.5 |
+| **Node 适配器** | `@hono/node-server` | ^1.12.0 |
+| **运行时** | Node.js 22 / Cloudflare Workers / Vercel Serverless | - |
 | **环境变量** | dotenv | ^17.2.3 |
-| **加密模块** | Node.js `crypto` | `createCipheriv` / `createDecipheriv` / `createHash` / `randomBytes` |
-| **静态文件服务** | Express `express.static` | - |
-| **CORS** | 自定义中间件 | - |
-| **入口文件** | `supabase-server.js` | - |
-| **Vercel Serverless 入口** | `api/[...all].js` | - |
+| **加密模块** | Web Crypto API | `crypto.subtle`（AES-256-GCM） |
+| **CORS** | Hono 中间件 | - |
+| **入口文件** | `packages/api/src/index.ts` | Hono app |
+| **Server 入口** | `packages/api/src/server.ts` | `@hono/node-server` |
+| **Vercel 入口** | `api/[[...all]].ts` | Hono → Vercel Serverless 适配 |
+| **包名** | `@wordbase/api` | - |
 
-### 后端 API 端点（30+）
+### 后端 API 端点
 
 | 分类 | 端点 |
 |------|------|
 | **认证** | 登录 / 注册 / 刷新 token / 登出 / 注销账号 |
-| **单词本** | CRUD / 同步 / 默认单词本 |
-| **单词** | CRUD / 批量导入 / 语境管理 |
-| **AI 丰富** | 单词释义 / 深度解释 / 义项聚类 |
-| **AI 故事** | 生成故事 / 导师对话 / 翻译 |
+| **单词本** | CRUD / 同步 |
+| **单词** | CRUD / 批量导入 / 批量删除 |
 | **AI 配置** | Provider CRUD / 测试连接 |
-| **同步** | 变更日志 / 版本同步 |
+| **同步** | 版本状态 / 全量同步 |
 | **健康检查** | `/api/v1/health` |
 
 ---
@@ -117,25 +123,25 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 | **应用分类** | Education | - |
 | **Bundle ID** | `com.wordbase.desktop` | - |
 | **配置文件** | `apps/desktop/src-tauri/tauri.conf.json` | - |
+| **Primitive 注册** | 复用 `webPrimitives` | HTML + CSSProperties |
 
 ---
 
-## 9. 移动端（Capacitor）
+## 9. 移动端（Expo React Native）
 
 | 类别 | 技术 | 版本 |
 |------|------|------|
-| **移动框架** | Capacitor 7 | ^7.6.7 |
-| **Capacitor CLI** | `@capacitor/cli` | ^7.0.0 |
-| **iOS 平台** | `@capacitor/ios` | ^7.0.0 |
-| **Android 平台** | `@capacitor/android` | ^7.0.0 |
-| **剪贴板** | `@capacitor/clipboard` | ^7.0.4 |
-| **本地存储** | `@capacitor/preferences` | ^7.0.4 |
-| **本地通知** | `@capacitor/local-notifications` | ^7.0.6 |
-| **TTS 语音** | `@capacitor-community/text-to-speech` | ^6.1.0 |
-| **Android 构建** | Gradle + Java 21 | - |
-| **iOS 构建** | CocoaPods + Swift | - |
+| **移动框架** | Expo | ^52.0.0 |
+| **UI 框架** | React Native | ^0.76.0 |
+| **剪贴板** | `expo-clipboard` | ^7.0.0 |
+| **TTS 语音** | `expo-speech` | ^7.0.0 |
+| **本地通知** | `expo-notifications` | ^0.29.0 |
+| **状态栏** | `expo-status-bar` | ^2.0.0 |
+| **本地存储** | `@react-native-async-storage/async-storage` | ^2.0.0 |
+| **安全区域** | `react-native-safe-area-context` | ^4.12.0 |
 | **Bundle ID** | `com.wordbase.mobile` | - |
-| **配置文件** | `apps/mobile/capacitor.config.ts` | - |
+| **配置文件** | `apps/mobile/app.json` | - |
+| **Primitive 实现** | `apps/mobile/src/primitives/` | View + StyleSheet |
 
 ---
 
@@ -168,7 +174,7 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 
 | 平台 | 用途 | 配置文件 |
 |------|------|---------|
-| **Vercel** | 前端静态 + Serverless Functions（后端） | `vercel.json`、`api/[...all].js` |
+| **Vercel** | 前端 SSR + Serverless Functions（Hono API） | `vercel.json`、`api/[[...all]].ts` |
 | **Cloudflare Pages** | 前端静态托管 | - |
 | **Cloudflare Workers** | API 请求反向代理到 Vercel | `apps/web/public/_worker.js` |
 
@@ -178,8 +184,8 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 Cloudflare Pages（前端静态资源，全球 CDN）
   └─ /api/* → _worker.js 反代 → Vercel 后端
 
-Vercel（完整 Node.js 运行时）
-  └─ Serverless Functions → Express（supabase-server.js）
+Vercel（Node.js 运行时）
+  └─ Serverless Functions → Hono API（packages/api）
 ```
 
 ---
@@ -203,10 +209,10 @@ Vercel（完整 Node.js 运行时）
 
 | 类别 | 技术 | 版本 |
 |------|------|------|
+| **Monorepo 工具** | Turborepo | ^2.10.4 |
 | **TS 执行器** | tsx | ^4.21.0 |
 | **图像处理** | sharp | ^0.35.3 |
 | **Node 类型** | `@types/node` | ^22.14.0 |
-| **Express 类型** | `@types/express` | ^4.17.21 |
 
 ---
 
@@ -217,6 +223,7 @@ Vercel（完整 Node.js 运行时）
 | **类型检查** | TypeScript `tsc --noEmit` | `npm run lint` |
 | **Lint（Web）** | tsc 类型检查 | `npm -w @wordbase/web run lint` |
 | **全端 Lint** | tsc 类型检查 | `npm run lint:all` |
+| **构建编排** | Turborepo | `npm run build:all` |
 
 ---
 
@@ -224,36 +231,33 @@ Vercel（完整 Node.js 运行时）
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                         前端 UI 层                                 │
-│  React 19 + TypeScript + Tailwind CSS 4 + Motion + Lucide Icons   │
-└───────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                        数据 & 业务层                               │
-│  Supabase JS SDK + React Context + Hooks + SRS 算法               │
+│                         跨端 UI 层                                 │
+│  Design Token + Primitive 组件架构（View/Text/Button/...）         │
+│  三端统一接口，各端独立实现                                         │
 └───────────────────────────────────────────────────────────────────┘
                               │
           ┌───────────────────┼───────────────────┐
           ▼                   ▼                   ▼
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
 │   Web 端      │   │  桌面端       │   │  移动端       │
-│  Vite + SPA   │   │  Tauri 2      │   │  Capacitor 7  │
-│  Vercel/CF    │   │  macOS/Win    │   │  iOS/Android  │
+│  Next.js 15   │   │  Tauri 2      │   │  Expo RN 52   │
+│  SSR/Edge     │   │  macOS/Win    │   │  iOS/Android  │
+│  Vercel/CF    │   │  WebView      │   │  原生渲染     │
 └───────────────┘   └───────────────┘   └───────────────┘
           │                   │                   │
           └───────────────────┼───────────────────┘
                               ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│                        后端服务层                                  │
-│  Express 4 + Node.js 22 + Supabase Admin + Google GenAI SDK      │
-│  AES-256-GCM API Key 加密                                         │
+│                        后端 API 层                                 │
+│  Hono 4 + @hono/node-server + Supabase Admin + Google GenAI SDK  │
+│  AES-256-GCM API Key 加密（Web Crypto API）                       │
+│  可部署到 Vercel Serverless / Cloudflare Workers                   │
 └───────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌───────────────────────────────────────────────────────────────────┐
 │                        基础设施层                                  │
-│  Vercel（Serverless Functions）+ Cloudflare Pages + Workers       │
-│  GitHub Actions CI/CD                                             │
+│  Turborepo + Vercel + Cloudflare Pages/Workers                    │
+│  GitHub Actions CI/CD                                              │
 └───────────────────────────────────────────────────────────────────┘
 ```

@@ -104,10 +104,10 @@ GitHub Actions（统一构建）
 | `VERCEL_TOKEN` | Step 4 的 Vercel Token | ✅ |
 | `VERCEL_ORG_ID` | Step 3 的 Vercel Organization ID | ✅ |
 | `VERCEL_PROJECT_ID` | Step 3 的 Vercel Project ID | ✅ |
-| `VITE_SUPABASE_URL` | Supabase 项目 URL | ✅ |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key | ✅ |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | ✅ |
 
-> 注意：`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY` 如果 CI 工作流里已经配过就不用重复加。
+> 注意：`NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 如果 CI 工作流里已经配过就不用重复加。
 
 ### Step 6：推送触发部署
 
@@ -158,8 +158,8 @@ git push origin main
 
 | 变量名 | 说明 |
 |--------|------|
-| `VITE_SUPABASE_URL` | Supabase 项目 URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 
 > 落地页（`/`）不需要 Supabase，只有产品页（`/app`）才需要。
 

@@ -12,7 +12,7 @@
 
 ## 技术栈
 
-- **前端**: React 19 + TypeScript + Vite + Tailwind CSS v4
+- **前端**: React 19 + TypeScript + Next.js + Tailwind CSS v4
 - **后端**: Express + Supabase
 - **数据库**: PostgreSQL (Supabase)
 - **UI**: Lucide Icons + Motion (Framer Motion)
@@ -31,8 +31,8 @@
 2. 配置环境变量:
    复制 `.env.example` 为 `.env`，填入你的 Supabase 配置:
    ```env
-   VITE_SUPABASE_URL=your-supabase-url
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    AI_CONFIG_ENCRYPTION_KEY=replace-with-a-long-random-secret
    ```
@@ -57,30 +57,30 @@
 
 ```env
 # 通用覆盖（优先级最高，临时调试改这个）
-VITE_API_BASE_URL=
+NEXT_PUBLIC_API_BASE_URL=
 
-# Web 端（默认走 vite proxy /api → localhost:3001，留空即可）
-# VITE_API_BASE_URL=
+# Web 端（默认走 Next.js rewrite /api → localhost:3001，留空即可）
+# NEXT_PUBLIC_API_BASE_URL=
 
 # 桌面端（Tauri，Mac/Win 都用 localhost）
-VITE_DESKTOP_API_BASE_URL=http://localhost:3001
+NEXT_PUBLIC_DESKTOP_API_BASE_URL=http://localhost:3001
 
 # iOS 模拟器
-VITE_IOS_API_BASE_URL=http://localhost:3001
+NEXT_PUBLIC_IOS_API_BASE_URL=http://localhost:3001
 
 # Android 模拟器（AVD 专用地址 10.0.2.2 指向宿主机）
-VITE_ANDROID_API_BASE_URL=http://10.0.2.2:3001
+NEXT_PUBLIC_ANDROID_API_BASE_URL=http://10.0.2.2:3001
 
 # 真机调试（iOS/Android 同一 wifi，填电脑内网 IP）
-# VITE_IOS_API_BASE_URL=http://192.168.x.x:3001
-# VITE_ANDROID_API_BASE_URL=http://192.168.x.x:3001
+# NEXT_PUBLIC_IOS_API_BASE_URL=http://192.168.x.x:3001
+# NEXT_PUBLIC_ANDROID_API_BASE_URL=http://192.168.x.x:3001
 ```
 
 ### 各端启动命令
 
 | 端 | 命令 | 访问地址 | AI 后端地址 |
 |---|------|---------|------------|
-| Web | `npm run dev:web` | `http://localhost:3000` | 走 vite 代理 |
+| Web | `npm run dev:web` | `http://localhost:3000` | 走 Next.js 代理 |
 | Mac 桌面 | `npm run dev:desktop` | Tauri 窗口 | `http://localhost:3001` |
 | iOS 模拟器 | `npm -w @wordbase/mobile run cap:run:ios` | 模拟器 | `http://localhost:3001` |
 | Android 模拟器 | `npm -w @wordbase/mobile run cap:run:android` | 模拟器 | `http://10.0.2.2:3001` |
@@ -116,7 +116,7 @@ npm run server:supabase
 ```
 
 - **Mac 本机**：Web + Mac 桌面 + iOS 模拟器 + Android 模拟器 共用这一个后端
-- **Windows 电脑**：需要在 Windows 上单独启后端，或把 `VITE_DESKTOP_API_BASE_URL` 改成 Mac 的内网 IP
+- **Windows 电脑**：需要在 Windows 上单独启后端，或把 `NEXT_PUBLIC_DESKTOP_API_BASE_URL` 改成 Mac 的内网 IP
 
 ## 开发模式 vs 构建产物
 
