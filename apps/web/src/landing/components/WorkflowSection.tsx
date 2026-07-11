@@ -105,7 +105,7 @@ export function WorkflowSection({ theme }: Props) {
       color: '#818cf8',
       step: '01',
       title: '采集',
-      desc: '浏览英文网页时按住 Ctrl/Cmd 悬停单词，即时弹出翻译释义',
+      desc: '浏览英文网页时按住 Ctrl 悬停单词，即时弹出翻译释义',
     },
     {
       icon: <Cloud className="w-5 h-5" />,

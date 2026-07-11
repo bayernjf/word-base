@@ -94,12 +94,7 @@ export function LandingNav({ theme, toggleTheme }: Props) {
             href="https://github.com/bayernjf/word-base"
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(
-              'hidden sm:inline-flex p-2 rounded-lg transition-colors',
-              theme === 'dark'
-                ? 'hover:bg-slate-800/60 text-slate-400'
-                : 'hover:bg-slate-100 text-slate-600',
-            )}
+            className="hidden"
             aria-label="GitHub"
           >
             <Github className="w-4 h-4" />
