@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
+import React, { useState, useEffect, useRef, useSyncExternalStore, useMemo } from 'react';
 import { Search, ChevronRight, ChevronDown, CheckCircle2, ArrowUp, ArrowDown, ChevronsUpDown, Sparkles, BrainCircuit, Loader2, Play } from 'lucide-react';
 import { AppLanguage, MoveWordsResult, Word, VocabularyBook } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
@@ -275,12 +275,21 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     />
   );
 
-  const filteredWords = words
-    .filter(w => w.bookId === selectedBookId)
-    .filter(w => w.word.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                 (w.translation && w.translation.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                 (w.definition && w.definition.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                 (w.chineseTranslation && w.chineseTranslation.includes(searchQuery)));
+  const filteredWords = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase();
+    return words.filter(w => {
+      // 按词本过滤
+      if (w.bookId !== selectedBookId) return false;
+      // 按搜索过滤
+      if (searchQuery && !w.word.toLowerCase().includes(searchLower) && 
+          !(w.translation && w.translation.toLowerCase().includes(searchLower)) ||
+          !(w.definition && w.definition.toLowerCase().includes(searchLower)) ||
+          !(w.chineseTranslation && w.chineseTranslation.includes(searchQuery))) {
+        return false;
+      }
+      return true;
+    });
+  }, [words, selectedBookId, searchQuery]);
 
   // 计算当前单词本中最大context数量N
   const currentBookWords = words.filter(w => w.bookId === selectedBookId);
