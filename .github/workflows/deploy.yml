@@ -29,6 +29,9 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
         run: npm -w @wordbase/web run build
 
       - name: Upload web build artifact
@@ -51,13 +54,35 @@ jobs:
           name: web-build
           path: apps/web/.next
 
+      - name: Prepare Cloudflare deployment files
+        run: |
+          cp -R apps/web/.next/static apps/web/.next/standalone/apps/web/
+          cp -r apps/web/.next/server apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/paths.json apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/prerender-manifest.js apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/server-reference-manifest.js apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/build-manifest.json apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/react-loadable-manifest.json apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/export-marker.json apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/images-manifest.json apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/next-font-manifest.json apps/web/.next/standalone/apps/web/
+          cp apps/web/.next/next-font-manifest.json apps/web/.next/standalone/apps/web/
+          cp apps/web/package.json apps/web/.next/standalone/apps/web/
+          sed -i 's/"scripts": {/"scripts": {},/' apps/web/.next/standalone/apps/web/package.json
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: word-base
-          directory: apps/web/.next
+          directory: apps/web/.next/standalone/apps/web
+          var: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+            SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+            AI_CONFIG_ENCRYPTION_KEY=${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
 
   deploy-vercel:
     name: Deploy to Vercel
@@ -81,6 +106,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
         run: |
@@ -91,10 +117,12 @@ jobs:
             DEPLOY_OUTPUT=$(npx vercel deploy --prod --token=$VERCEL_TOKEN --yes \
               --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
               --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+              --build-env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
               --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
               --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
               --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+              --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
               --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
               2>&1)
@@ -102,10 +130,12 @@ jobs:
             DEPLOY_OUTPUT=$(npx vercel deploy --token=$VERCEL_TOKEN --yes \
               --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
               --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+              --build-env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
               --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
               --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
               --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+              --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
               --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
               2>&1)
