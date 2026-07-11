@@ -78,9 +78,9 @@ export interface VocabularyBook {
   id: string;
   userId: string;
   name: string;
-  description: string;
+  description?: string;
   wordCount: number;
-  icon: string;
+  icon?: string;
   createdAt: number;
   updatedAt: number;
   isSync: boolean;
