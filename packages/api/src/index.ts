@@ -888,7 +888,6 @@ app.post('/api/v1/words/batch', async (c) => {
     }
 
     // 先查询现有记录的 sync_version，检测冲突
-    const wordKeys = dedupedWords.map(w => `${w.user_id}:${w.word}:${w.book_id}`)
     const { data: existingWords, error: fetchError } = await db
       .from('words')
       .select('id, word, book_id, sync_version')
@@ -909,7 +908,7 @@ app.post('/api/v1/words/batch', async (c) => {
       const key = `${user.id}:${w.word}:${w.book_id}`
       const existingVersion = existingMap.get(key)
       const incomingVersion = w.sync_version || 1
-      if (existingVersion !== undefined && incomingVersion <= existingVersion) {
+      if (existingVersion !== undefined && incomingVersion < existingVersion) {
         conflicts.push(w.word)
         return false
       }
