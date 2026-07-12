@@ -40,10 +40,77 @@ jobs:
           name: web-build
           path: apps/web/.next
 
+  deploy-vercel:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
+        run: |
+          mkdir -p .vercel
+          echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
+          
+          # Always deploy to Vercel Preview (random URL for dev, fixed URL for main)
+          DEPLOY_OUTPUT=$(npx vercel deploy --token=$VERCEL_TOKEN --yes \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --build-env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+            --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+            --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
+            2>&1)
+          
+          echo "$DEPLOY_OUTPUT"
+          
+          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[^ ]*\.vercel\.app' | head -1)
+          
+          if [ -n "$DEPLOY_URL" ]; then
+            echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
+            echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
+            echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Preview URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
+            echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
+            echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | ⚠️ URL not detected |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Output Vercel URL for downstream jobs (Cloudflare needs this for API proxy)
+          if [ -n "$DEPLOY_URL" ]; then
+            echo "vercel-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          else
+            echo "vercel-url=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}" >> $GITHUB_OUTPUT
+          fi
+
   deploy-cloudflare:
     name: Deploy to Cloudflare Pages
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, deploy-vercel]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     steps:
       - uses: actions/checkout@v5
@@ -80,80 +147,6 @@ jobs:
           var: |
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+            NEXT_PUBLIC_API_BASE_URL=${{ needs.deploy-vercel.outputs.vercel-url }}
             SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
             AI_CONFIG_ENCRYPTION_KEY=${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-
-  deploy-vercel:
-    name: Deploy to Vercel
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: Deploy to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-        run: |
-          mkdir -p .vercel
-          echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
-          
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            DEPLOY_OUTPUT=$(npx vercel deploy --prod --token=$VERCEL_TOKEN --yes \
-              --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
-              --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
-              --build-env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
-              --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-              --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
-              --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
-              --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
-              --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
-              --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-              --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
-              2>&1)
-          else
-            DEPLOY_OUTPUT=$(npx vercel deploy --token=$VERCEL_TOKEN --yes \
-              --build-env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
-              --build-env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
-              --build-env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
-              --build-env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-              --build-env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
-              --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
-              --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
-              --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
-              --env SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-              --env AI_CONFIG_ENCRYPTION_KEY="$AI_CONFIG_ENCRYPTION_KEY" \
-              2>&1)
-          fi
-          
-          echo "$DEPLOY_OUTPUT"
-          
-          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[^ ]*\.vercel\.app' | head -1)
-          
-          if [ -n "$DEPLOY_URL" ]; then
-            echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
-            echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Status | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
-            echo "| Preview URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
-            echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Status | ⚠️ URL not detected |" >> $GITHUB_STEP_SUMMARY
-          fi
