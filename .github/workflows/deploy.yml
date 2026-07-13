@@ -66,8 +66,10 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-        working-directory: apps/web
+        # Deploy from repo ROOT so shared/ and other packages are available.
+        # The root vercel.json already configures the web workspace build.
         run: |
+          # Write Vercel project link at repo root
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
 
@@ -96,6 +98,7 @@ jobs:
             exit $DEPLOY_EXIT
           fi
 
+          # Vercel prints the preview URL as the last https://*.vercel.app line
           DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[^ ]*\.vercel\.app' | tail -1)
 
           if [ -n "$DEPLOY_URL" ]; then
