@@ -5,6 +5,8 @@
     "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
