@@ -9,6 +9,14 @@ import { setPrimitives, PrimitiveThemeProvider } from '@wordbase/shared/primitiv
 import { webPrimitives } from '../../primitives';
 import { webPlatform } from '../../platform-web';
 
+// Inject public env vars into global for shared package access
+;(globalThis as any).__APP_ENV__ = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  NEXT_PUBLIC_SYNC_SERVER_URL: process.env.NEXT_PUBLIC_SYNC_SERVER_URL,
+}
+
 export default function AppPage() {
   const [platformReady, setPlatformReady] = useState(false);
 

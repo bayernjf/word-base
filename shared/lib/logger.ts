@@ -17,7 +17,9 @@ function getMinLevel(): LogLevel {
   } catch {
     // ignore
   }
-  return import.meta.env.PROD ? 'warn' : 'debug';
+  const isProd = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')
+    || (typeof import.meta !== 'undefined' && String(import.meta.env?.PROD) === 'true');
+  return isProd ? 'warn' : 'debug';
 }
 
 function isLevelEnabled(level: LogLevel): boolean {
