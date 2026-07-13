@@ -10,13 +10,14 @@
     "jsx": "react-native",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "paths": {
       "@wordbase/shared": ["../../shared"],
       "@wordbase/shared/*": ["../../shared/*"]
     },
-    "types": ["react-native", "expo"]
+    "types": ["react-native", "expo", "node"]
   },
-  "include": ["src/**/*", "App.tsx"],
+  "include": ["src/**/*", "App.tsx", "../../shared/**/*", "babel.config.js"],
   "exclude": ["node_modules", ".expo"]
 }

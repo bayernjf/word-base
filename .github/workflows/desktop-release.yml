@@ -3,13 +3,14 @@ name: Desktop Release
 on:
   push:
     tags:
-      - 'desktop-v*'
+      - 'v*'
     branches:
+      - main
       - dev
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. 0.1.0)'
+        description: 'Version tag (e.g. 0.1.0, leave empty for snapshot)'
         required: false
         type: string
 
@@ -46,43 +47,6 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
 
       - run: npm ci
-
-      - name: Generate src-tauri via tauri init (idempotent)
-        working-directory: apps/desktop
-        shell: bash
-        run: |
-          if [ ! -d src-tauri ]; then
-            export CI=true
-            npx tauri init --ci \
-              --app-name wordbase-desktop \
-              --window-title WordBase \
-              --frontend-dist ../dist \
-              --dev-url http://localhost:3002 \
-              --before-dev-command "npm run dev" \
-              --before-build-command "npm run build"
-          fi
-          cp native-templates/tauri.conf.json src-tauri/tauri.conf.json
-          mkdir -p src-tauri/capabilities
-          cp native-templates/capabilities/default.json src-tauri/capabilities/default.json
-
-      - name: Patch Cargo.toml (add plugins)
-        working-directory: apps/desktop/src-tauri
-        shell: bash
-        run: |
-          if ! grep -q tauri-plugin-store Cargo.toml; then
-            cat >> Cargo.toml <<'EOF'
-          tauri-plugin-clipboard-manager = "2"
-          tauri-plugin-notification = "2"
-          tauri-plugin-shell = "2"
-          tauri-plugin-store = "2"
-          EOF
-          fi
-
-      - name: Patch lib.rs (register plugins)
-        working-directory: apps/desktop/src-tauri/src
-        shell: bash
-        run: |
-          cp ../../native-templates/lib.rs lib.rs
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -249,6 +213,10 @@ jobs:
     if: always()
 
     steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
@@ -260,16 +228,91 @@ jobs:
           find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.apk" -o -name "*.zip" \) -exec cp -v {} release-flat/ \;
           ls -la release-flat
 
+      - name: Determine version
+        id: version
+        run: |
+          set -e
+          REF="${{ github.ref }}"
+          EVENT="${{ github.event_name }}"
+          MANUAL_VERSION="${{ github.event.inputs.version }}"
+
+          if [ "$EVENT" = "workflow_dispatch" ] && [ -n "$MANUAL_VERSION" ]; then
+            TAG="v${MANUAL_VERSION#v}"
+            PRERELEASE="false"
+            RELEASE_NAME="$TAG"
+            CREATE_TAG="false"
+            GEN_NOTES="true"
+            echo "Manual dispatch with version: $TAG"
+          elif echo "$REF" | grep -q '^refs/tags/v'; then
+            TAG="${REF#refs/tags/}"
+            PRERELEASE="false"
+            RELEASE_NAME="$TAG"
+            CREATE_TAG="false"
+            GEN_NOTES="true"
+            echo "Tag push: $TAG"
+          elif [ "$REF" = "refs/heads/main" ]; then
+            # 找最新 v* tag，自动 bump patch
+            LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1 || echo "")
+            if [ -z "$LATEST_TAG" ]; then
+              NEW_TAG="v0.1.0"
+            else
+              # 去掉 v 前缀，拆分 major.minor.patch，patch+1
+              BASE="${LATEST_TAG#v}"
+              MAJOR=$(echo "$BASE" | cut -d. -f1)
+              MINOR=$(echo "$BASE" | cut -d. -f2)
+              PATCH=$(echo "$BASE" | cut -d. -f3)
+              PATCH=$((PATCH + 1))
+              NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+            fi
+            TAG="$NEW_TAG"
+            PRERELEASE="false"
+            RELEASE_NAME="$NEW_TAG"
+            CREATE_TAG="true"
+            GEN_NOTES="true"
+            echo "Main branch auto-bump: $LATEST_TAG -> $NEW_TAG"
+          elif [ "$REF" = "refs/heads/dev" ]; then
+            TAG="snapshot"
+            PRERELEASE="true"
+            RELEASE_NAME="Dev Snapshot"
+            CREATE_TAG="false"
+            GEN_NOTES="false"
+            echo "Dev branch snapshot"
+          else
+            TAG="snapshot"
+            PRERELEASE="true"
+            RELEASE_NAME="Dev Snapshot"
+            CREATE_TAG="false"
+            GEN_NOTES="false"
+            echo "Default snapshot"
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "create_tag=$CREATE_TAG" >> $GITHUB_OUTPUT
+          echo "gen_notes=$GEN_NOTES" >> $GITHUB_OUTPUT
+
+      - name: Create and push new tag (main auto-bump)
+        if: steps.version.outputs.create_tag == 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
         if: hashFiles('release-flat/*') != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'snapshot' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Dev Snapshot' }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.release_name }}
           draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          generate_release_notes: ${{ startsWith(github.ref, 'refs/tags/') }}
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          generate_release_notes: ${{ steps.version.outputs.gen_notes == 'true' }}
           files: release-flat/*
-          append_body: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          append_body: ${{ steps.version.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
