@@ -239,12 +239,29 @@ function toWordPayload(word: Omit<Word, 'id'>) {
   };
 }
 
+function normalizeSourceLink(link: string | undefined): string {
+  const raw = String(link || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    url.hash = '';
+    return url.toString();
+  } catch {
+    const hashIndex = raw.indexOf('#');
+    return hashIndex >= 0 ? raw.slice(0, hashIndex) : raw;
+  }
+}
+
 function mergeContexts(existingContexts: WordContext[], nextContexts: WordContext[]) {
   const mergedContexts: WordContext[] = [...existingContexts];
 
   nextContexts.forEach((context) => {
+    const contextNormalized = String(context.context || '').trim();
+    const sourceLinkNormalized = normalizeSourceLink(context.sourceLink);
     const duplicated = mergedContexts.some(
-      (item) => item.context === context.context && item.sourceLink === context.sourceLink
+      (item) =>
+        String(item.context || '').trim() === contextNormalized &&
+        normalizeSourceLink(item.sourceLink) === sourceLinkNormalized
     );
     if (!duplicated) {
       mergedContexts.push(context);
@@ -374,6 +391,30 @@ export function useVocabularyBooks() {
       logger.debug('createBook', { name: book.name, isSync: book.isSync });
 
       try {
+        // 先检查是否已存在同名单词本，避免 409 冲突
+        const { data: existingBooks, error: queryErr } = await supabase
+          .from('vocabulary_books')
+          .select('id, name, is_sync')
+          .eq('user_id', user.id)
+          .eq('is_deleted', false)
+          .eq('name', book.name);
+
+        if (queryErr) {
+          logger.warn('createBook: failed to check existing books', queryErr);
+        }
+
+        const existingBook = existingBooks?.[0];
+        if (existingBook) {
+          logger.info('createBook: book already exists, returning existing one', { id: existingBook.id });
+          // 如果要设为同步，把已存在的设为同步
+          if (book.isSync && !existingBook.is_sync) {
+            await applySetSyncBook(existingBook.id);
+          }
+          await loadBooks();
+          // 返回 null 避免后续逻辑出错，但会重新加载
+          return null;
+        }
+
         const { data, error } = await supabase
           .from('vocabulary_books')
           .insert({
@@ -400,7 +441,13 @@ export function useVocabularyBooks() {
         await loadBooks();
         logger.info('createBook success', { id: mapped.id, name: mapped.name });
         return mapped;
-      } catch (error) {
+      } catch (error: any) {
+        // 唯一约束冲突（同名已存在）时，重新加载 books 即可，不报错
+        if (error?.code === '23505') {
+          logger.warn('createBook: duplicate book already exists, reloading');
+          await loadBooks();
+          return null;
+        }
         logger.error('Error creating book:', error);
         return null;
       }
@@ -452,18 +499,34 @@ export function useVocabularyBooks() {
       try {
         const now = new Date().toISOString();
 
-        await Promise.all([
-          supabase
+        // 先更新 book，再更新 words，失败时回滚
+        const { error: bookError } = await supabase
+          .from('vocabulary_books')
+          .update({ is_deleted: true, is_sync: false, updated_at: now })
+          .eq('id', bookId)
+          .eq('user_id', user.id);
+
+        if (bookError) {
+          logger.error('deleteBook failed at book update:', bookError);
+          return false;
+        }
+
+        const { error: wordsError } = await supabase
+          .from('words')
+          .update({ is_deleted: true, updated_at: now })
+          .eq('book_id', bookId)
+          .eq('user_id', user.id);
+
+        if (wordsError) {
+          // 回滚：恢复 book 状态
+          await supabase
             .from('vocabulary_books')
-            .update({ is_deleted: true, is_sync: false, updated_at: now })
+            .update({ is_deleted: false, updated_at: now })
             .eq('id', bookId)
-            .eq('user_id', user.id),
-          supabase
-            .from('words')
-            .update({ is_deleted: true, updated_at: now })
-            .eq('book_id', bookId)
-            .eq('user_id', user.id),
-        ]);
+            .eq('user_id', user.id);
+          logger.error('deleteBook failed at words update, rolled back book:', wordsError);
+          return false;
+        }
 
         setBooks((prev) => {
           const remaining = prev.filter((book) => book.id !== bookId);
@@ -524,31 +587,40 @@ export function useWords(bookId?: string) {
       setIsLoading(false);
       return;
     }
+    // bookId 为空时不发请求，等 selectedBookId 确定后再查（避免 waterfall 空查询）
+    if (!bookId) {
+      setIsLoading(false);
+      return;
+    }
+
+    // 竞态保护：快速切换 bookId 时，旧请求结果不应覆盖新请求
+    let cancelled = false;
 
     try {
       setIsLoading(true);
-      let query = supabase
+      const { data, error } = await supabase
         .from('words')
-        .select(
-          WORD_SELECT_COLUMNS
-        )
+        .select(WORD_SELECT_COLUMNS)
         .eq('user_id', user.id)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false)
+        .eq('book_id', bookId)
+        .order('time_added', { ascending: false });
 
-      if (bookId) {
-        query = query.eq('book_id', bookId);
-      }
-
-      const { data, error } = await query.order('time_added', { ascending: false });
-
+      if (cancelled) return;
       if (error) throw error;
       setWords(((data || []) as SupabaseWordRow[]).map(mapWordRow));
       logger.info(`loadWords success, count=${(data || []).length}`);
     } catch (error) {
-      logger.error('Error loading words:', error);
+      if (!cancelled) {
+        logger.error('Error loading words:', error);
+      }
     } finally {
-      setIsLoading(false);
+      if (!cancelled) {
+        setIsLoading(false);
+      }
     }
+
+    return () => { cancelled = true; };
   }, [user, bookId]);
 
   const addWord = useCallback(
@@ -698,6 +770,9 @@ export function useWords(bookId?: string) {
       }
       logger.debug('moveWords', { count: wordIds.length, targetBookId });
 
+      // 提升到 try 块外部，供 catch 块访问
+      const processedSourceIds: string[] = [];
+
       try {
         const { data: sourceRows, error: sourceError } = await supabase
           .from('words')
@@ -741,7 +816,8 @@ export function useWords(bookId?: string) {
         const now = new Date().toISOString();
         let movedCount = 0;
         let duplicateCount = 0;
-        const processedSourceIds: string[] = [];
+        // 记录已移动的单词，用于失败时回滚
+        const movedWordMap = new Map<string, string>(); // sourceId -> existingTargetRowId (如果是合并操作)
 
         for (const sourceWord of movingWords) {
           const existingTargetRow = targetWordMap.get(sourceWord.word);
@@ -762,6 +838,7 @@ export function useWords(bookId?: string) {
 
             movedCount += 1;
             processedSourceIds.push(sourceWord.id);
+            movedWordMap.set(sourceWord.id, ''); // 空字符串表示纯移动，无需回滚
             continue;
           }
 
@@ -787,6 +864,9 @@ export function useWords(bookId?: string) {
             .eq('is_deleted', false);
 
           if (updateExistingError) throw updateExistingError;
+
+          // 记录合并操作的目标单词 ID，用于回滚
+          movedWordMap.set(sourceWord.id, existingTargetRow.id);
         }
 
         setWords((prev) => prev.filter((word) => !processedSourceIds.includes(word.id)));
@@ -797,7 +877,35 @@ export function useWords(bookId?: string) {
           duplicateCount,
         } satisfies MoveWordsResult;
       } catch (error) {
-        logger.error('Error moving words:', error);
+        logger.error('Error moving words, attempting rollback:', error);
+        
+        // 回滚已移动的单词
+        if (processedSourceIds.length > 0) {
+          try {
+            const { data: sourceRows } = await supabase
+              .from('words')
+              .select('id, book_id')
+              .eq('user_id', user.id)
+              .in('id', processedSourceIds);
+            
+            if (sourceRows) {
+              const rollbackUpdates = sourceRows.map(row => ({
+                id: row.id,
+                book_id: row.book_id, // 恢复原来的 book_id
+              }));
+              
+              await supabase
+                .from('words')
+                .upsert(rollbackUpdates, {
+                  onConflict: 'id,user_id',
+                });
+              logger.info('moveWords rollback completed', { rollbackCount: rollbackUpdates.length });
+            }
+          } catch (rollbackError) {
+            logger.error('moveWords rollback failed:', rollbackError);
+          }
+        }
+        
         return {
           success: false,
           movedCount: 0,

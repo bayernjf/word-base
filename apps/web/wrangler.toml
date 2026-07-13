@@ -2,6 +2,11 @@ name = "wordbase"
 compatibility_date = "2024-01-01"
 
 [vars]
+NEXT_PUBLIC_SUPABASE_URL = ""
+NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
+NEXT_PUBLIC_API_BASE_URL = ""
+SUPABASE_SERVICE_ROLE_KEY = ""
+AI_CONFIG_ENCRYPTION_KEY = ""
 
 [env.production]
-pages_build_output_dir = "dist"
+pages_build_output_dir = ".next"

@@ -59,7 +59,18 @@ export function parseAiEnrichmentResponse(raw: string): AiEnrichment {
   };
 }
 
+// 简单的内存缓存（LRU，TTL 5 分钟）
+const aiCache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
 export async function requestAiEnrichment(input: AiEnrichmentRequest, accessToken: string): Promise<AiEnrichment> {
+  const cacheKey = `enrich:${input.word}:${input.wordId || ''}`;
+  const cached = aiCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    console.debug('[aiEnrich] cache hit', { word: input.word });
+    return cached.data as AiEnrichment;
+  }
+
   console.debug('[aiEnrich] requestAiEnrichment', { word: input.word, wordId: input.wordId });
   const response = await fetch(apiUrl('/api/v1/ai/enrich'), {
     method: 'POST',
@@ -75,8 +86,21 @@ export async function requestAiEnrichment(input: AiEnrichmentRequest, accessToke
     throw new Error(String(data?.error || 'ai_enrich_failed'));
   }
 
+  const result = normalizeEnrichment(data?.enrichment);
+  // 写入缓存
+  aiCache.set(cacheKey, { data: result, ts: Date.now() });
+  // 清理过期缓存
+  if (aiCache.size > 100) {
+    const now = Date.now();
+    for (const [key, entry] of aiCache.entries()) {
+      if (now - entry.ts > CACHE_TTL_MS) {
+        aiCache.delete(key);
+      }
+    }
+  }
+
   console.debug('[aiEnrich] requestAiEnrichment success', { word: input.word });
-  return normalizeEnrichment(data?.enrichment);
+  return result;
 }
 
 export interface DeepExplanation {
@@ -270,28 +294,7 @@ function normalizeEnrichment(value: unknown): AiEnrichment {
   return parseAiEnrichmentResponse(JSON.stringify(value));
 }
 
-function extractJsonText(raw: string): string {
-  const text = String(raw || '').trim();
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) return fenced[1].trim();
-
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start >= 0 && end > start) {
-    return text.slice(start, end + 1);
-  }
-
-  return text;
-}
-
-function readString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function readStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(readString).filter(Boolean);
-}
+import { extractJsonText, readString, readStringArray } from './aiUtils';
 
 function readExamples(value: unknown): AiEnrichment['examples'] {
   if (!Array.isArray(value)) return [];

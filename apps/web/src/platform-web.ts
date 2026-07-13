@@ -1,6 +1,6 @@
 import { createCachedKV, type PlatformAPI, type SpeakOptions } from '@wordbase/shared/platform';
 
-function pickEnglishVoice(voices: SpeechSynthesisVoice[], preferred?: string): SpeechSynthesisVoice | null {
+function pickEnglishVoice(voices: any[], preferred?: string): any {
   if (!voices.length) return null;
   if (preferred) {
     const byName = voices.find(v => v.name === preferred);

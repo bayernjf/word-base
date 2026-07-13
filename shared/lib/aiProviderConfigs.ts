@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from './apiBase';
+
 export type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'openai-compatible';
 
 export interface AiProviderConfig {
@@ -109,7 +111,8 @@ function readString(value: unknown): string {
 }
 
 async function requestAiProviderApi(path: string, accessToken: string, init: RequestInit = {}) {
-  const response = await fetch(path, {
+  const url = getApiBaseUrl() + path;
+  const response = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',

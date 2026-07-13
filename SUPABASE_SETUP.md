@@ -24,8 +24,8 @@
 ### 3. 配置环境变量
 在 `word-base/.env` 中添加：
 ```env
-VITE_SUPABASE_URL=your-supabase-url
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 ### 4. 本地开发（可选）

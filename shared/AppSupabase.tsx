@@ -135,11 +135,13 @@ export default function AppSupabase() {
   const [autoEnrich, setAutoEnrich] = useState<boolean>(false);
   const [autoExplain, setAutoExplain] = useState<boolean>(false);
   const syncServerBaseUrl = (() => {
-    if (import.meta.env.VITE_SYNC_SERVER_URL) {
-      return import.meta.env.VITE_SYNC_SERVER_URL as string;
+    const env = import.meta.env;
+    if (env?.NEXT_PUBLIC_SYNC_SERVER_URL || env?.VITE_SYNC_SERVER_URL) {
+      return (env?.NEXT_PUBLIC_SYNC_SERVER_URL || env?.VITE_SYNC_SERVER_URL) as string;
     }
     if (typeof window === 'undefined') {
-      return 'http://localhost:3001';
+      // SSR 时返回空字符串，由上层处理
+      return '';
     }
     // 非标准 web 协议（tauri: / capacitor: / file:）时 window.location 不能直接用，
     // 回退到 localhost；生产环境应通过 VITE_SYNC_SERVER_URL 显式注入。
@@ -250,9 +252,11 @@ export default function AppSupabase() {
     }
   }, [user]);
 
-  // 首次登录时自动创建默认单词本
+  // 首次登录时自动创建默认单词本（仅当没有任何同步单词本时）
   useEffect(() => {
-    if (user && !booksLoading && books.length === 0) {
+    if (!user || booksLoading) return;
+    const hasSyncBook = books.some((book) => book.isSync);
+    if (!hasSyncBook && books.length === 0) {
       void createBook({
         name: '默认',
         description: '默认单词本',
@@ -276,10 +280,26 @@ export default function AppSupabase() {
     const savedBookId = getPlatform().kv.getSync('wordbase-selected-book');
     const rememberedBook = savedBookId ? books.find((book) => book.id === savedBookId) : null;
     const syncBook = selectPreferredSyncBook(books);
-    const nextBookId = rememberedBook?.id || syncBook?.id || books[0].id;
+
+    // 优先选同步单词本：插件添加的单词始终写入同步单词本，
+    // 如果记住了非同步单词本，用户会误以为新单词没同步成功
+    let nextBookId: string;
+    if (rememberedBook && (!syncBook || rememberedBook.id === syncBook.id)) {
+      // 记住的就是同步单词本（或没有同步单词本），直接用记住的
+      nextBookId = rememberedBook.id;
+    } else if (syncBook) {
+      // 记住的不是同步单词本，或没记住——优先同步单词本
+      nextBookId = syncBook.id;
+    } else {
+      nextBookId = books[0].id;
+    }
 
     if (nextBookId && nextBookId !== selectedBookId) {
       setSelectedBookId(nextBookId);
+      // 如果纠正了记住的单词本（切换到同步单词本），持久化修正
+      if (!rememberedBook || rememberedBook.id !== nextBookId) {
+        persistSelectedBookId(nextBookId);
+      }
     }
   }, [books, selectedBookId]);
 
@@ -317,7 +337,8 @@ export default function AppSupabase() {
       setModels(providers);
       logger.info(`loadAiProviders success, count=${providers.length}`);
     } catch (error) {
-      logger.error('Error loading AI providers:', error);
+      // 未配置 AI 模型或数据库表不存在时为正常情况，只打 warn
+      logger.warn('Could not load AI providers (no configs yet):', error instanceof Error ? error.message : error);
       setModels([]);
     }
   }, [session?.access_token]);
@@ -721,234 +742,239 @@ export default function AppSupabase() {
 
   const activeWordCard = words.find((wordItem) => wordItem.id === selectedWordId) || words[0];
 
-  const renderMainView = () => {
-    if (!user) {
-      return (
-        <WelcomeLoginView
-          themeStyles={themeStyles}
-          language={language}
-          onLogin={handleSignIn}
-          onRegister={handleSignUp}
-          onRequestPasswordReset={handleRequestPasswordReset}
-          authError={authError}
-          setAuthError={setAuthError}
-        />
-      );
-    }
-
-    const navigateToBook = activeView.startsWith('vocabulary-');
-    const bookIdFromNavigation = navigateToBook ? activeView.slice('vocabulary-'.length) : null;
-    const finalSelectedBookId = bookIdFromNavigation || selectedBookId;
-
-    if (navigateToBook && bookIdFromNavigation && bookIdFromNavigation !== selectedBookId) {
-      setSelectedBookId(bookIdFromNavigation);
-      persistSelectedBookId(bookIdFromNavigation);
-    }
-
-    if (activeView === 'vocabulary' || navigateToBook) {
-      return (
-        <VocabularyListView
-          themeStyles={themeStyles}
-          language={language}
-          onNavigate={setActiveView}
-          words={words}
-          books={books}
-          onSelectWord={setSelectedWordId}
-          onAddWord={handleAddWord}
-          initialSelectedBookId={finalSelectedBookId}
-          onBookChange={(id) => {
-            setSelectedBookId(id);
-            persistSelectedBookId(id);
-            setActiveView(`vocabulary-${id}`);
-          }}
-          onDeleteWords={handleDeleteWords}
-          onMoveWords={handleMoveWords}
-          onUpdateWord={(id, updates) => updateWord(id, updates)}
-        />
-      );
-    }
-
-    if (activeView.startsWith('settings-editmodel-')) {
-      const modelId = activeView.slice('settings-editmodel-'.length);
-      const modelToEdit = models.find((modelItem) => modelItem.id === modelId) || null;
-
-      return (
-        <SettingsLayout
-          themeStyles={themeStyles}
-          language={language}
-          activeSettingsTab="settings-aimodels"
-          activeView={activeView}
-          onNavigateSettings={setActiveView}
-        >
-          <AddNewModelView
-            themeStyles={themeStyles}
-            language={language}
-            onNavigate={setActiveView}
-            onSaveModel={(updates) => handleUpdateCustomModel(modelId, updates)}
-            initialModel={modelToEdit}
-          />
-        </SettingsLayout>
-      );
-    }
-
-    switch (activeView) {
-      case 'dashboard':
-        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} user={currentUser} />;
-      case 'worddetail':
+  // 提取为独立组件避免每次 render 重建
+  const MainContentView = useMemo(() => {
+    const ContentView: React.FC = () => {
+      if (!user) {
         return (
-          <WordDetailView
+          <WelcomeLoginView
             themeStyles={themeStyles}
             language={language}
-            onNavigate={setActiveView}
-            word={activeWordCard}
-            onUpdateFamiliarity={(id, level) => {
-              void updateWord(id, { familiarity: level, timeUpdated: Date.now(), dateUpdated: Date.now() });
-            }}
-            onUpdateContexts={(id, contexts) => updateWord(id, { contexts, timeUpdated: Date.now(), dateUpdated: Date.now() })}
-            onUpdateWord={(id, updates) => updateWord(id, updates)}
-            aiProviders={models}
+            onLogin={handleSignIn}
+            onRegister={handleSignUp}
+            onRequestPasswordReset={handleRequestPasswordReset}
+            authError={authError}
+            setAuthError={setAuthError}
           />
         );
-      case 'mylists':
+      }
+
+      const navigateToBook = activeView.startsWith('vocabulary-');
+      const bookIdFromNavigation = navigateToBook ? activeView.slice('vocabulary-'.length) : null;
+      const finalSelectedBookId = bookIdFromNavigation || selectedBookId;
+
+      if (navigateToBook && bookIdFromNavigation && bookIdFromNavigation !== selectedBookId) {
+        setSelectedBookId(bookIdFromNavigation);
+        persistSelectedBookId(bookIdFromNavigation);
+      }
+
+      if (activeView === 'vocabulary' || navigateToBook) {
         return (
-          <MyListsView
+          <VocabularyListView
             themeStyles={themeStyles}
             language={language}
             onNavigate={setActiveView}
-            books={books}
-            onCreateBook={handleCreateBook}
-            onSetSyncBook={handleSetSyncBook}
-            onDeleteBooks={handleDeleteBooks}
-            onUpdateBook={handleUpdateBook}
-          />
-        );
-      case 'stories':
-        return <StudyScenarioView
-          themeStyles={themeStyles}
-          language={language}
-          stories={stories}
-          words={words}
-          isGenerating={isGeneratingStory}
-          hasActiveModel={hasActiveModel}
-          accessToken={session?.access_token}
-          onGenerateStory={generateStory}
-          onDeleteStory={deleteStory}
-        />;
-      case 'practice':
-        return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} />;
-      case 'practice-review':
-        return (
-          <ReviewView
-            themeStyles={themeStyles}
-            language={language}
             words={words}
-            onNavigate={setActiveView}
-            onReviewWord={(id, updates) => updateWord(id, updates)}
+            books={books}
+            onSelectWord={setSelectedWordId}
+            onAddWord={handleAddWord}
+            initialSelectedBookId={finalSelectedBookId}
+            onBookChange={(id) => {
+              setSelectedBookId(id);
+              persistSelectedBookId(id);
+              setActiveView(`vocabulary-${id}`);
+            }}
+            onDeleteWords={handleDeleteWords}
+            onMoveWords={handleMoveWords}
+            onUpdateWord={(id, updates) => updateWord(id, updates)}
           />
         );
-      case 'practice-listening':
-        return <ListeningPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} quizzes={listeningQuizzes} />;
-      case 'practice-speaking':
-        return <SpeakingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
-      case 'practice-reading':
-        return <ReadingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
-      case 'practice-writing':
-        return <WritingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
-      case 'profile':
-        return (
-          <AccountSettingsView
-            themeStyles={themeStyles}
-            language={language}
-            user={currentUser}
-            onUpdateProfile={handleUpdateProfile}
-            onChangePassword={handleChangePassword}
-            onDeleteAccount={handleDeleteAccount}
-          />
-        );
-      case 'settings-list':
+      }
+
+      if (activeView.startsWith('settings-editmodel-')) {
+        const modelId = activeView.slice('settings-editmodel-'.length);
+        const modelToEdit = models.find((modelItem) => modelItem.id === modelId) || null;
+
         return (
           <SettingsLayout
             themeStyles={themeStyles}
             language={language}
-            activeSettingsTab="settings-list"
-            activeView={activeView}
-            onNavigateSettings={setActiveView}
-          />
-        );
-      case 'settings-account':
-      case 'settings-appearance':
-      case 'settings-aimodels':
-      case 'settings-autoai':
-      case 'settings-addmodel':
-      case 'settings-sync':
-        return (
-          <SettingsLayout
-            themeStyles={themeStyles}
-            language={language}
-            activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
+            activeSettingsTab="settings-aimodels"
             activeView={activeView}
             onNavigateSettings={setActiveView}
           >
-            {activeView === 'settings-account' && (
-              <AccountSettingsView
-                themeStyles={themeStyles}
-                language={language}
-                user={currentUser}
-                onUpdateProfile={handleUpdateProfile}
-                onChangePassword={handleChangePassword}
-                onDeleteAccount={handleDeleteAccount}
-              />
-            )}
-            {activeView === 'settings-appearance' && (
-              <AppearanceSettingsView
-                themeStyles={themeStyles}
-                language={language}
-                activeTheme={theme}
-                onThemeChange={handleThemeChange}
-                isCompactMode={isCompactMode}
-                onCompactToggle={() => setIsCompactMode(!isCompactMode)}
-                isSmallTypography={isSmallTypography}
-                onTypographyToggle={() => setIsSmallTypography(!isSmallTypography)}
-              />
-            )}
-            {activeView === 'settings-autoai' && (
-              <AutoAiSettingsView
-                themeStyles={themeStyles}
-                language={language}
-                autoEnrich={autoEnrich}
-                autoExplain={autoExplain}
-                onAutoEnrichToggle={handleToggleAutoEnrich}
-                onAutoExplainToggle={handleToggleAutoExplain}
-                hasActiveModel={hasActiveModel}
-              />
-            )}
-            {activeView === 'settings-aimodels' && (
-              <AIModelsView
-                themeStyles={themeStyles}
-                language={language}
-                onNavigate={setActiveView}
-                models={models}
-                onToggleModel={handleToggleModel}
-                onEditModel={(modelId) => setActiveView(`settings-editmodel-${modelId}`)}
-                onDeleteModel={handleDeleteModel}
-              />
-            )}
-            {activeView === 'settings-addmodel' && (
-              <AddNewModelView
-                themeStyles={themeStyles}
-                language={language}
-                onNavigate={setActiveView}
-                onSaveModel={handleAddCustomModel}
-                onTestConnection={handleTestModelConnection}
-              />
-            )}
-            {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
+            <AddNewModelView
+              themeStyles={themeStyles}
+              language={language}
+              onNavigate={setActiveView}
+              onSaveModel={(updates) => handleUpdateCustomModel(modelId, updates)}
+              onTestConnection={handleTestModelConnection}
+              initialModel={modelToEdit}
+            />
           </SettingsLayout>
         );
-      default:
-        return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} user={currentUser} />;
-    }
-  };
+      }
+
+      switch (activeView) {
+        case 'dashboard':
+          return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} user={currentUser} />;
+        case 'worddetail':
+          return (
+            <WordDetailView
+              themeStyles={themeStyles}
+              language={language}
+              onNavigate={setActiveView}
+              word={activeWordCard}
+              onUpdateFamiliarity={(id, level) => {
+                void updateWord(id, { familiarity: level, timeUpdated: Date.now(), dateUpdated: Date.now() });
+              }}
+              onUpdateContexts={(id, contexts) => updateWord(id, { contexts, timeUpdated: Date.now(), dateUpdated: Date.now() })}
+              onUpdateWord={(id, updates) => updateWord(id, updates)}
+              aiProviders={models}
+            />
+          );
+        case 'mylists':
+          return (
+            <MyListsView
+              themeStyles={themeStyles}
+              language={language}
+              onNavigate={setActiveView}
+              books={books}
+              onCreateBook={handleCreateBook}
+              onSetSyncBook={handleSetSyncBook}
+              onDeleteBooks={handleDeleteBooks}
+              onUpdateBook={handleUpdateBook}
+            />
+          );
+        case 'stories':
+          return <StudyScenarioView
+            themeStyles={themeStyles}
+            language={language}
+            stories={stories}
+            words={words}
+            isGenerating={isGeneratingStory}
+            hasActiveModel={hasActiveModel}
+            accessToken={session?.access_token}
+            onGenerateStory={generateStory}
+            onDeleteStory={deleteStory}
+          />;
+        case 'practice':
+          return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} />;
+        case 'practice-review':
+          return (
+            <ReviewView
+              themeStyles={themeStyles}
+              language={language}
+              words={words}
+              onNavigate={setActiveView}
+              onReviewWord={(id, updates) => updateWord(id, updates)}
+            />
+          );
+        case 'practice-listening':
+          return <ListeningPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} quizzes={listeningQuizzes} />;
+        case 'practice-speaking':
+          return <SpeakingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+        case 'practice-reading':
+          return <ReadingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+        case 'practice-writing':
+          return <WritingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+        case 'profile':
+          return (
+            <AccountSettingsView
+              themeStyles={themeStyles}
+              language={language}
+              user={currentUser}
+              onUpdateProfile={handleUpdateProfile}
+              onChangePassword={handleChangePassword}
+              onDeleteAccount={handleDeleteAccount}
+            />
+          );
+        case 'settings-list':
+          return (
+            <SettingsLayout
+              themeStyles={themeStyles}
+              language={language}
+              activeSettingsTab="settings-list"
+              activeView={activeView}
+              onNavigateSettings={setActiveView}
+            />
+          );
+        case 'settings-account':
+        case 'settings-appearance':
+        case 'settings-aimodels':
+        case 'settings-autoai':
+        case 'settings-addmodel':
+        case 'settings-sync':
+          return (
+            <SettingsLayout
+              themeStyles={themeStyles}
+              language={language}
+              activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
+              activeView={activeView}
+              onNavigateSettings={setActiveView}
+            >
+              {activeView === 'settings-account' && (
+                <AccountSettingsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  user={currentUser}
+                  onUpdateProfile={handleUpdateProfile}
+                  onChangePassword={handleChangePassword}
+                  onDeleteAccount={handleDeleteAccount}
+                />
+              )}
+              {activeView === 'settings-appearance' && (
+                <AppearanceSettingsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  activeTheme={theme}
+                  onThemeChange={handleThemeChange}
+                  isCompactMode={isCompactMode}
+                  onCompactToggle={() => setIsCompactMode(!isCompactMode)}
+                  isSmallTypography={isSmallTypography}
+                  onTypographyToggle={() => setIsSmallTypography(!isSmallTypography)}
+                />
+              )}
+              {activeView === 'settings-autoai' && (
+                <AutoAiSettingsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  autoEnrich={autoEnrich}
+                  autoExplain={autoExplain}
+                  onAutoEnrichToggle={handleToggleAutoEnrich}
+                  onAutoExplainToggle={handleToggleAutoExplain}
+                  hasActiveModel={hasActiveModel}
+                />
+              )}
+              {activeView === 'settings-aimodels' && (
+                <AIModelsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  onNavigate={setActiveView}
+                  models={models}
+                  onToggleModel={handleToggleModel}
+                  onEditModel={(modelId) => setActiveView(`settings-editmodel-${modelId}`)}
+                  onDeleteModel={handleDeleteModel}
+                />
+              )}
+              {activeView === 'settings-addmodel' && (
+                <AddNewModelView
+                  themeStyles={themeStyles}
+                  language={language}
+                  onNavigate={setActiveView}
+                  onSaveModel={handleAddCustomModel}
+                  onTestConnection={handleTestModelConnection}
+                />
+              )}
+              {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
+            </SettingsLayout>
+          );
+        default:
+          return <DashboardView themeStyles={themeStyles} language={language} onNavigate={setActiveView} books={books} words={words} user={currentUser} />;
+      }
+    };
+    return ContentView;
+  }, [user, activeView, words, books, models, stories, session, theme, language, themeStyles, currentUser, autoEnrich, autoExplain, hasActiveModel, isCompactMode, isSmallTypography, selectedBookId, selectedWordId, isGeneratingStory, handleSignIn, handleSignUp, handleRequestPasswordReset, authError, setActiveView, setSelectedBookId, persistSelectedBookId, handleAddWord, handleDeleteWords, handleMoveWords, updateWord, handleUpdateCustomModel, handleCreateBook, handleSetSyncBook, handleDeleteBooks, handleUpdateBook, generateStory, deleteStory, handleUpdateProfile, handleChangePassword, handleDeleteAccount, handleToggleModel, handleDeleteModel, handleAddCustomModel, handleTestModelConnection, handleThemeChange, setIsCompactMode, setIsSmallTypography, handleToggleAutoEnrich, handleToggleAutoExplain, activeWordCard]);
 
   if (authLoading) {
     return (
@@ -1021,7 +1047,7 @@ export default function AppSupabase() {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              {renderMainView()}
+              <MainContentView />
             </motion.div>
           </AnimatePresence>
         ) : (
@@ -1045,7 +1071,7 @@ export default function AppSupabase() {
                   transition={{ duration: 0.25 }}
                   className="h-full"
                 >
-                  {renderMainView()}
+                  <MainContentView />
                 </motion.div>
               </AnimatePresence>
             </div>

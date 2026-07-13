@@ -1,21 +1,22 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
+    "target": "ESNext",
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
     "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-native",
+    "resolveJsonModule": true,
     "isolatedModules": true,
-    "moduleDetection": "force",
-    "allowJs": true,
-    "jsx": "react-jsx",
+    "noEmit": true,
     "paths": {
+      "@wordbase/shared": ["../../shared"],
       "@wordbase/shared/*": ["../../shared/*"]
     },
-    "allowImportingTsExtensions": true,
-    "noEmit": true
+    "types": ["react-native", "expo"]
   },
-  "include": ["src/**/*", "../../shared/**/*"]
+  "include": ["src/**/*", "App.tsx"],
+  "exclude": ["node_modules", ".expo"]
 }

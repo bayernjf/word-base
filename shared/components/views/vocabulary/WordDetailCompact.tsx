@@ -124,7 +124,7 @@ export const WordDetailCompact: React.FC<WordDetailCompactProps> = ({
           </div>
         )}
         <div className={`rounded-lg border ${isGlass ? 'border-white/10' : 'border-[#bad8b7]'} overflow-hidden`}>
-          <button onClick={() => onToggleSection('senseClusters')} className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer ${isGlass ? 'hover:bg-white/5 text-white/70' : 'hover:bg-[#f2faee] text-[#5d7564]'}`}>
+          <div onClick={() => onToggleSection('senseClusters')} className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer ${isGlass ? 'hover:bg-white/5 text-white/70' : 'hover:bg-[#f2faee] text-[#5d7564]'}`}>
             <span>{t('wordDetail.senseTitle')}{word.senseGroups?.groups?.length ? ` (${word.senseGroups.groups.length})` : ''}</span>
             <div className="flex items-center gap-2">
               {senseClusterError && <span className="text-[10px] text-rose-500">{senseClusterError}</span>}
@@ -135,7 +135,7 @@ export const WordDetailCompact: React.FC<WordDetailCompactProps> = ({
               </button>
               {expandedSections.senseClusters ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </div>
-          </button>
+          </div>
           {expandedSections.senseClusters && word.senseGroups?.groups?.length ? (
             <div className={`px-4 pb-3 pt-2 border-t space-y-2 ${isGlass ? 'border-white/5' : 'border-[#c7dfbd]'}`}>
               {word.senseGroups.groups.map((group, gi) => (

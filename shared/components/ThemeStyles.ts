@@ -1,4 +1,5 @@
 import { ThemeType } from '../types';
+import { getColorTokens, type ColorTokens } from '../tokens';
 
 export interface ThemeClasses {
   name: ThemeType;
@@ -61,4 +62,13 @@ export function getThemeClasses(theme: ThemeType, isSmallTypography: boolean = f
         secondaryBg: 'bg-white/10',
       };
   }
+}
+
+/**
+ * Token-based theme adapter for gradual migration.
+ * Returns the same structure as ThemeClasses but backed by ColorTokens,
+ * so new components using primitives can coexist with old Tailwind-based ones.
+ */
+export function getThemeTokens(theme: ThemeType): ColorTokens {
+  return getColorTokens(theme);
 }
