@@ -17,12 +17,7 @@ const manualChunks: ManualChunksOption = (id) => {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss({
-      content: [
-        path.resolve(__dirname, '../../shared/**/*.{ts,tsx}'),
-        path.resolve(__dirname, './**/*.{ts,tsx,html}'),
-      ],
-    })],
+    plugins: [react(), tailwindcss()],
     envDir: path.resolve(__dirname, '../..'),
     resolve: {
       alias: {
@@ -35,7 +30,7 @@ export default defineConfig(() => {
         output: { manualChunks },
       },
       target: ['es2022', 'chrome120', 'safari17'],
-      minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
+      minify: process.env.TAURI_DEBUG ? false : ('esbuild' as const),
       sourcemap: !!process.env.TAURI_DEBUG,
       chunkSizeWarningLimit: 600,
     },
