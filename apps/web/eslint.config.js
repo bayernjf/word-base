@@ -5,8 +5,13 @@ import parserTs from "@typescript-eslint/parser";
 
 export default [
   { files: ["**/*.{js,mjs,cjs,ts,tsx}"] },
-  { ignores: ["node_modules/", ".next/", "dist/"] },
-  { languageOptions: { globals: globals.browser, parser: parserTs } },
+  { ignores: ["node_modules/", ".next/", "dist/", "next-env.d.ts"] },
+  {
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+      parser: parserTs,
+    },
+  },
   pluginJs.configs.recommended,
   {
     plugins: {
@@ -16,6 +21,7 @@ export default [
       ...pluginTs.configs.recommended.rules,
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": "warn",
+      "no-undef": "off",
     },
   },
 ];
