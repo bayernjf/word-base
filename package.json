@@ -2,7 +2,6 @@
   "name": "word-base",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "packageManager": "npm@10.8.1",
   "workspaces": [
     "shared",

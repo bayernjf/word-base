@@ -23,8 +23,6 @@
       }
     },
     "plugins": [
-      ["expo-clipboard"],
-      ["expo-speech"],
       ["expo-notifications"]
     ]
   }
