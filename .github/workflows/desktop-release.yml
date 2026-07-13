@@ -162,14 +162,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Build mobile frontend
+      - name: Prebuild Android native project
+        working-directory: apps/mobile
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-        run: npm -w @wordbase/mobile run build
-
-      - name: Prebuild Android native project
-        working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean
 
       - name: Build Android APK
@@ -205,14 +202,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Build mobile frontend
+      - name: Prebuild iOS native project
+        working-directory: apps/mobile
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-        run: npm -w @wordbase/mobile run build
-
-      - name: Prebuild iOS native project
-        working-directory: apps/mobile
         run: npx expo prebuild --platform ios --clean
 
       - name: Install CocoaPods
