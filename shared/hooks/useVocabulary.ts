@@ -391,6 +391,30 @@ export function useVocabularyBooks() {
       logger.debug('createBook', { name: book.name, isSync: book.isSync });
 
       try {
+        // 先检查是否已存在同名单词本，避免 409 冲突
+        const { data: existingBooks, error: queryErr } = await supabase
+          .from('vocabulary_books')
+          .select('id, name, is_sync')
+          .eq('user_id', user.id)
+          .eq('is_deleted', false)
+          .eq('name', book.name);
+
+        if (queryErr) {
+          logger.warn('createBook: failed to check existing books', queryErr);
+        }
+
+        const existingBook = existingBooks?.[0];
+        if (existingBook) {
+          logger.info('createBook: book already exists, returning existing one', { id: existingBook.id });
+          // 如果要设为同步，把已存在的设为同步
+          if (book.isSync && !existingBook.is_sync) {
+            await applySetSyncBook(existingBook.id);
+          }
+          await loadBooks();
+          // 返回 null 避免后续逻辑出错，但会重新加载
+          return null;
+        }
+
         const { data, error } = await supabase
           .from('vocabulary_books')
           .insert({
@@ -417,7 +441,13 @@ export function useVocabularyBooks() {
         await loadBooks();
         logger.info('createBook success', { id: mapped.id, name: mapped.name });
         return mapped;
-      } catch (error) {
+      } catch (error: any) {
+        // 唯一约束冲突（同名已存在）时，重新加载 books 即可，不报错
+        if (error?.code === '23505') {
+          logger.warn('createBook: duplicate book already exists, reloading');
+          await loadBooks();
+          return null;
+        }
         logger.error('Error creating book:', error);
         return null;
       }
@@ -557,31 +587,40 @@ export function useWords(bookId?: string) {
       setIsLoading(false);
       return;
     }
+    // bookId 为空时不发请求，等 selectedBookId 确定后再查（避免 waterfall 空查询）
+    if (!bookId) {
+      setIsLoading(false);
+      return;
+    }
+
+    // 竞态保护：快速切换 bookId 时，旧请求结果不应覆盖新请求
+    let cancelled = false;
 
     try {
       setIsLoading(true);
-      let query = supabase
+      const { data, error } = await supabase
         .from('words')
-        .select(
-          WORD_SELECT_COLUMNS
-        )
+        .select(WORD_SELECT_COLUMNS)
         .eq('user_id', user.id)
-        .eq('is_deleted', false);
+        .eq('is_deleted', false)
+        .eq('book_id', bookId)
+        .order('time_added', { ascending: false });
 
-      if (bookId) {
-        query = query.eq('book_id', bookId);
-      }
-
-      const { data, error } = await query.order('time_added', { ascending: false });
-
+      if (cancelled) return;
       if (error) throw error;
       setWords(((data || []) as SupabaseWordRow[]).map(mapWordRow));
       logger.info(`loadWords success, count=${(data || []).length}`);
     } catch (error) {
-      logger.error('Error loading words:', error);
+      if (!cancelled) {
+        logger.error('Error loading words:', error);
+      }
     } finally {
-      setIsLoading(false);
+      if (!cancelled) {
+        setIsLoading(false);
+      }
     }
+
+    return () => { cancelled = true; };
   }, [user, bookId]);
 
   const addWord = useCallback(

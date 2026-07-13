@@ -280,14 +280,13 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     return words.filter(w => {
       // 按词本过滤
       if (w.bookId !== selectedBookId) return false;
-      // 按搜索过滤
-      if (searchQuery && !w.word.toLowerCase().includes(searchLower) && 
-          !(w.translation && w.translation.toLowerCase().includes(searchLower)) ||
-          !(w.definition && w.definition.toLowerCase().includes(searchLower)) ||
-          !(w.chineseTranslation && w.chineseTranslation.includes(searchQuery))) {
-        return false;
-      }
-      return true;
+      // 搜索过滤：搜索为空时显示全部；搜索时只要任一匹配字段命中即通过
+      if (!searchQuery) return true;
+      const matchesWord = w.word.toLowerCase().includes(searchLower);
+      const matchesTranslation = !!w.translation && w.translation.toLowerCase().includes(searchLower);
+      const matchesDefinition = !!w.definition && w.definition.toLowerCase().includes(searchLower);
+      const matchesChineseTranslation = !!w.chineseTranslation && w.chineseTranslation.includes(searchQuery);
+      return matchesWord || matchesTranslation || matchesDefinition || matchesChineseTranslation;
     });
   }, [words, selectedBookId, searchQuery]);
 

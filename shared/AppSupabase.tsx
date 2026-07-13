@@ -135,8 +135,9 @@ export default function AppSupabase() {
   const [autoEnrich, setAutoEnrich] = useState<boolean>(false);
   const [autoExplain, setAutoExplain] = useState<boolean>(false);
   const syncServerBaseUrl = (() => {
-    if (import.meta.env.NEXT_PUBLIC_SYNC_SERVER_URL || import.meta.env.VITE_SYNC_SERVER_URL) {
-      return (import.meta.env.NEXT_PUBLIC_SYNC_SERVER_URL || import.meta.env.VITE_SYNC_SERVER_URL) as string;
+    const env = import.meta.env;
+    if (env?.NEXT_PUBLIC_SYNC_SERVER_URL || env?.VITE_SYNC_SERVER_URL) {
+      return (env?.NEXT_PUBLIC_SYNC_SERVER_URL || env?.VITE_SYNC_SERVER_URL) as string;
     }
     if (typeof window === 'undefined') {
       // SSR 时返回空字符串，由上层处理
@@ -251,9 +252,11 @@ export default function AppSupabase() {
     }
   }, [user]);
 
-  // 首次登录时自动创建默认单词本
+  // 首次登录时自动创建默认单词本（仅当没有任何同步单词本时）
   useEffect(() => {
-    if (user && !booksLoading && books.length === 0) {
+    if (!user || booksLoading) return;
+    const hasSyncBook = books.some((book) => book.isSync);
+    if (!hasSyncBook && books.length === 0) {
       void createBook({
         name: '默认',
         description: '默认单词本',
@@ -277,10 +280,26 @@ export default function AppSupabase() {
     const savedBookId = getPlatform().kv.getSync('wordbase-selected-book');
     const rememberedBook = savedBookId ? books.find((book) => book.id === savedBookId) : null;
     const syncBook = selectPreferredSyncBook(books);
-    const nextBookId = rememberedBook?.id || syncBook?.id || books[0].id;
+
+    // 优先选同步单词本：插件添加的单词始终写入同步单词本，
+    // 如果记住了非同步单词本，用户会误以为新单词没同步成功
+    let nextBookId: string;
+    if (rememberedBook && (!syncBook || rememberedBook.id === syncBook.id)) {
+      // 记住的就是同步单词本（或没有同步单词本），直接用记住的
+      nextBookId = rememberedBook.id;
+    } else if (syncBook) {
+      // 记住的不是同步单词本，或没记住——优先同步单词本
+      nextBookId = syncBook.id;
+    } else {
+      nextBookId = books[0].id;
+    }
 
     if (nextBookId && nextBookId !== selectedBookId) {
       setSelectedBookId(nextBookId);
+      // 如果纠正了记住的单词本（切换到同步单词本），持久化修正
+      if (!rememberedBook || rememberedBook.id !== nextBookId) {
+        persistSelectedBookId(nextBookId);
+      }
     }
   }, [books, selectedBookId]);
 
@@ -318,7 +337,8 @@ export default function AppSupabase() {
       setModels(providers);
       logger.info(`loadAiProviders success, count=${providers.length}`);
     } catch (error) {
-      logger.error('Error loading AI providers:', error);
+      // 未配置 AI 模型或数据库表不存在时为正常情况，只打 warn
+      logger.warn('Could not load AI providers (no configs yet):', error instanceof Error ? error.message : error);
       setModels([]);
     }
   }, [session?.access_token]);
@@ -788,6 +808,7 @@ export default function AppSupabase() {
               language={language}
               onNavigate={setActiveView}
               onSaveModel={(updates) => handleUpdateCustomModel(modelId, updates)}
+              onTestConnection={handleTestModelConnection}
               initialModel={modelToEdit}
             />
           </SettingsLayout>

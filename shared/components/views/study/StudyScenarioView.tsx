@@ -299,7 +299,7 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
             {stories.map(s => {
               const active = activeStory?.id === s.id;
               return (
-                <button
+                <div
                   key={s.id}
                   onClick={() => setActiveStoryId(s.id)}
                   className={`flex-shrink-0 w-[55%] max-w-[200px] text-left p-2.5 rounded-xl border transition-all cursor-pointer active:scale-[0.98] ${
@@ -332,7 +332,7 @@ export const StudyScenarioView: React.FC<StudyScenarioProps> = ({ themeStyles, l
                       {s.difficulty}
                     </span>
                   </div>
-                </button>
+                </div>
               );
             })}
             <button
