@@ -2,52 +2,84 @@
 /**
  * Inject version number into all package configs before CI build.
  * Usage: node scripts/set-version.cjs <version>
- *   version can be like "1.2.3" or "v1.2.3" or "0.0.0-snapshot"
+ *   version can be like "1.2.3", "v1.2.3", or "snapshot"
  */
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-let version = process.argv[2];
-if (!version) {
+let raw = process.argv[2];
+if (!raw) {
   console.error('Usage: node set-version.cjs <version>');
   process.exit(1);
 }
-// Strip leading 'v'
-version = version.replace(/^v/, '');
+raw = raw.replace(/^v/, '');
 
-console.log(`Setting version to: ${version}`);
+const isSnapshot = raw === 'snapshot' || !/^\d+\.\d+\.\d+/.test(raw);
+const buildMeta = isSnapshot
+  ? `${raw}.${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.${(process.env.GITHUB_SHA || 'local').slice(0, 7)}`
+  : raw;
+const semver = isSnapshot ? `0.0.0-${buildMeta}` : raw;
+
+console.log(`Raw input:     ${raw}`);
+console.log(`Is snapshot:   ${isSnapshot}`);
+console.log(`Semver value:  ${semver}`);
 
 function updateJson(filePath, mutator) {
   const abs = path.resolve(ROOT, filePath);
+  if (!fs.existsSync(abs)) {
+    console.log(`  skip   ${filePath} (not found)`);
+    return;
+  }
   const json = JSON.parse(fs.readFileSync(abs, 'utf8'));
   mutator(json);
   fs.writeFileSync(abs, JSON.stringify(json, null, 2) + '\n');
   console.log(`  updated ${filePath}`);
 }
 
-// Root package.json
-updateJson('package.json', (j) => { j.version = version; });
+function replaceInFile(filePath, regex, replacement) {
+  const abs = path.resolve(ROOT, filePath);
+  if (!fs.existsSync(abs)) {
+    console.log(`  skip   ${filePath} (not found)`);
+    return;
+  }
+  let content = fs.readFileSync(abs, 'utf8');
+  content = content.replace(regex, replacement);
+  fs.writeFileSync(abs, content);
+  console.log(`  updated ${filePath}`);
+}
 
-// Desktop: Tauri config
-updateJson('apps/desktop/src-tauri/tauri.conf.json', (j) => { j.version = version; });
+// Version code for mobile: MAJOR*10000 + MINOR*100 + PATCH; snapshot uses date-based code
+let versionCode;
+if (isSnapshot) {
+  const d = new Date();
+  versionCode = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+} else {
+  const basePart = semver.split('-')[0];
+  const [maj, min, pat] = basePart.split('.').map(n => parseInt(n, 10) || 0);
+  versionCode = maj * 10000 + min * 100 + pat;
+}
+
+// Root package.json
+updateJson('package.json', (j) => { j.version = semver; });
+
+// Desktop: Tauri config (src-tauri/tauri.conf.json is the one tauri reads at build time)
+updateJson('apps/desktop/src-tauri/tauri.conf.json', (j) => { j.version = semver; });
 
 // Desktop: package.json
-updateJson('apps/desktop/package.json', (j) => { j.version = version; });
+updateJson('apps/desktop/package.json', (j) => { j.version = semver; });
 
 // Desktop: Cargo.toml (simple regex, not full TOML parser)
-const cargoPath = path.resolve(ROOT, 'apps/desktop/src-tauri/Cargo.toml');
-let cargo = fs.readFileSync(cargoPath, 'utf8');
-cargo = cargo.replace(/^version\s*=\s*"[^"]*"/m, `version = "${version}"`);
-fs.writeFileSync(cargoPath, cargo);
-console.log('  updated apps/desktop/src-tauri/Cargo.toml');
+replaceInFile(
+  'apps/desktop/src-tauri/Cargo.toml',
+  /^version\s*=\s*"[^"]*"/m,
+  `version = "${semver}"`
+);
 
 // Mobile: app.json (Expo "version") + buildNumber/versionCode
-const [maj, min, pat] = version.split(/[.-]/)[0].split('.').map(n => parseInt(n, 10) || 0);
-const versionCode = maj * 10000 + min * 100 + pat;
 updateJson('apps/mobile/app.json', (j) => {
-  j.expo.version = version;
+  j.expo.version = semver;
   j.expo.ios = j.expo.ios || {};
   j.expo.ios.buildNumber = String(versionCode);
   j.expo.android = j.expo.android || {};
@@ -55,18 +87,16 @@ updateJson('apps/mobile/app.json', (j) => {
 });
 
 // Mobile package.json
-updateJson('apps/mobile/package.json', (j) => { j.version = version; });
+updateJson('apps/mobile/package.json', (j) => { j.version = semver; });
 
 // Web package.json
-updateJson('apps/web/package.json', (j) => { j.version = version; });
+updateJson('apps/web/package.json', (j) => { j.version = semver; });
 
 // API package.json
-updateJson('packages/api/package.json', (j) => { j.version = version; });
+updateJson('packages/api/package.json', (j) => { j.version = semver; });
 
 // Shared package.json (if exists)
-const sharedPkg = path.resolve(ROOT, 'shared/package.json');
-if (fs.existsSync(sharedPkg)) {
-  updateJson('shared/package.json', (j) => { j.version = version; });
-}
+updateJson('shared/package.json', (j) => { j.version = semver; });
 
+console.log(`Version code: ${versionCode}`);
 console.log('Done.');

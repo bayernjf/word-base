@@ -116,7 +116,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
 
       - name: Setup Rust (stable)
@@ -130,6 +130,46 @@ jobs:
       - run: npm ci
 
       - name: Inject version
+        run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
+
+      - name: Generate src-tauri via tauri init (idempotent)
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          if [ ! -d src-tauri ]; then
+            export CI=true
+            npx tauri init --ci \
+              --app-name wordbase-desktop \
+              --window-title WordBase \
+              --frontend-dist ../dist \
+              --dev-url http://localhost:3002 \
+              --before-dev-command "npm run dev" \
+              --before-build-command "npm run build"
+          fi
+          cp native-templates/tauri.conf.json src-tauri/tauri.conf.json
+          mkdir -p src-tauri/capabilities
+          cp native-templates/capabilities/default.json src-tauri/capabilities/default.json
+
+      - name: Patch Cargo.toml (add plugins)
+        working-directory: apps/desktop/src-tauri
+        shell: bash
+        run: |
+          if ! grep -q tauri-plugin-store Cargo.toml; then
+            cat >> Cargo.toml <<'EOF'
+          tauri-plugin-clipboard-manager = "2"
+          tauri-plugin-notification = "2"
+          tauri-plugin-shell = "2"
+          tauri-plugin-store = "2"
+          EOF
+          fi
+
+      - name: Patch lib.rs (register plugins)
+        working-directory: apps/desktop/src-tauri/src
+        shell: bash
+        run: |
+          cp ../../native-templates/lib.rs lib.rs
+
+      - name: Re-inject version after tauri.conf overwrite
         run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
 
       - uses: tauri-apps/tauri-action@v0
@@ -196,7 +236,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
 
       - name: Setup JDK 21
@@ -247,7 +287,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
 
       - run: npm ci
