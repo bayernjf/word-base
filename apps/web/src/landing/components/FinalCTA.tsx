@@ -6,11 +6,17 @@ import { useDownloadUrls } from '../hooks/useDownloadUrls';
 
 interface Props {
   theme: LandingTheme;
+  onMacDownload?: () => void;
 }
 
-export function FinalCTA({ theme }: Props) {
+export function FinalCTA({ theme, onMacDownload }: Props) {
   const t = themeVars(theme);
   const { downloadMac, downloadWin, downloadAndroid, downloadIos, downloadChrome } = useDownloadUrls();
+
+  const handleDownloadMac = () => {
+    downloadMac();
+    onMacDownload?.();
+  };
 
   return (
     <>
@@ -39,7 +45,7 @@ export function FinalCTA({ theme }: Props) {
               现在安装浏览器扩展，让每一次英文阅读都成为词汇积累的机会。
             </p>
             <div className="flex flex-col items-center justify-center gap-3">
-              <div className="flex flex-wrap items-center justify-center gap-2">
+              <div className="inline-flex flex-wrap items-center justify-center gap-2">
                 <button
                   onClick={downloadChrome}
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
@@ -48,9 +54,9 @@ export function FinalCTA({ theme }: Props) {
                   安装浏览器插件
                 </button>
                 <button
-                  onClick={downloadMac}
+                  onClick={handleDownloadMac}
                   className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
+                    'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
                       ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                       : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -61,7 +67,7 @@ export function FinalCTA({ theme }: Props) {
                 <button
                   onClick={downloadWin}
                   className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
+                    'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
                       ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                       : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -72,7 +78,7 @@ export function FinalCTA({ theme }: Props) {
                 <button
                   onClick={downloadIos}
                   className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
+                    'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
                       ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                       : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -83,7 +89,7 @@ export function FinalCTA({ theme }: Props) {
                 <button
                   onClick={downloadAndroid}
                   className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
+                    'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                     theme === 'dark'
                       ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                       : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -95,7 +101,7 @@ export function FinalCTA({ theme }: Props) {
               <a
                 href="/app"
                 className={cn(
-                  'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
+                  'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                   theme === 'dark'
                     ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                     : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',

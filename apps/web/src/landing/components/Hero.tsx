@@ -5,11 +5,17 @@ import { useDownloadUrls } from '../hooks/useDownloadUrls';
 
 interface Props {
   theme: LandingTheme;
+  onMacDownload?: () => void;
 }
 
-export function Hero({ theme }: Props) {
+export function Hero({ theme, onMacDownload }: Props) {
   const t = themeVars(theme);
   const { downloadMac, downloadWin, downloadAndroid, downloadIos, downloadChrome } = useDownloadUrls();
+
+  const handleDownloadMac = () => {
+    downloadMac();
+    onMacDownload?.();
+  };
 
   return (
     <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 px-4 sm:px-6 overflow-hidden">
@@ -58,7 +64,7 @@ export function Hero({ theme }: Props) {
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3">
-          <div className="flex flex-wrap items-center justify-center gap-2">
+          <div className="inline-flex flex-wrap items-center justify-center gap-2">
             <button
               onClick={downloadChrome}
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
@@ -67,9 +73,9 @@ export function Hero({ theme }: Props) {
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
-              onClick={downloadMac}
+              onClick={handleDownloadMac}
               className={cn(
-                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
                   ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -80,7 +86,7 @@ export function Hero({ theme }: Props) {
             <button
               onClick={downloadWin}
               className={cn(
-                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
                   ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -91,7 +97,7 @@ export function Hero({ theme }: Props) {
             <button
               onClick={downloadIos}
               className={cn(
-                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
                   ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -102,7 +108,7 @@ export function Hero({ theme }: Props) {
             <button
               onClick={downloadAndroid}
               className={cn(
-                'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
                 theme === 'dark'
                   ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -114,7 +120,7 @@ export function Hero({ theme }: Props) {
           <a
             href="/app"
             className={cn(
-              'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+              'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
               theme === 'dark'
                 ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                 : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
