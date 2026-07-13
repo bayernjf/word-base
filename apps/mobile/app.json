@@ -2,7 +2,7 @@
   "expo": {
     "name": "WordBase",
     "slug": "word-base",
-    "version": "1.0.0",
+    "version": "0.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,17 +13,38 @@
     },
     "ios": {
       "bundleIdentifier": "com.wordbase.mobile",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "infoPlist": {
+        "UIBackgroundModes": ["fetch", "remote-notification"],
+        "NSUserNotificationsUsageDescription": "WordBase 需要发送通知来提醒你复习单词。",
+        "NSSpeechRecognitionUsageDescription": "WordBase 使用语音识别来进行单词发音练习。",
+        "NSMicrophoneUsageDescription": "WordBase 需要麦克风权限来进行发音练习。"
+      }
     },
     "android": {
       "package": "com.wordbase.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK"
+      ]
     },
     "plugins": [
-      ["expo-notifications"]
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2563eb"
+        }
+      ]
     ]
   }
 }

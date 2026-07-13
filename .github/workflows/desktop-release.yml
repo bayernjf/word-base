@@ -1,15 +1,16 @@
-name: Desktop Release
+name: Release
 
 on:
   push:
     tags:
-      - 'desktop-v*'
+      - 'v*'
     branches:
+      - main
       - dev
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. 0.1.0)'
+        description: 'Version tag (e.g. 0.1.0, leave empty for snapshot)'
         required: false
         type: string
 
@@ -17,9 +18,90 @@ permissions:
   contents: write
 
 jobs:
+  determine-version:
+    name: Determine version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      release_name: ${{ steps.version.outputs.release_name }}
+      create_tag: ${{ steps.version.outputs.create_tag }}
+      gen_notes: ${{ steps.version.outputs.gen_notes }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          set -e
+          REF="${{ github.ref }}"
+          EVENT="${{ github.event_name }}"
+          MANUAL_VERSION="${{ github.event.inputs.version }}"
+
+          if [ "$EVENT" = "workflow_dispatch" ] && [ -n "$MANUAL_VERSION" ]; then
+            TAG="v${MANUAL_VERSION#v}"
+            PRERELEASE="false"
+            RELEASE_NAME="$TAG"
+            CREATE_TAG="false"
+            GEN_NOTES="true"
+            echo "Manual dispatch with version: $TAG"
+          elif echo "$REF" | grep -q '^refs/tags/v'; then
+            TAG="${REF#refs/tags/}"
+            PRERELEASE="false"
+            RELEASE_NAME="$TAG"
+            CREATE_TAG="false"
+            GEN_NOTES="true"
+            echo "Tag push: $TAG"
+          elif [ "$REF" = "refs/heads/main" ]; then
+            LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1 || echo "")
+            if [ -z "$LATEST_TAG" ]; then
+              NEW_TAG="v0.1.0"
+            else
+              BASE="${LATEST_TAG#v}"
+              MAJOR=$(echo "$BASE" | cut -d. -f1)
+              MINOR=$(echo "$BASE" | cut -d. -f2)
+              PATCH=$(echo "$BASE" | cut -d. -f3)
+              PATCH=$((PATCH + 1))
+              NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+            fi
+            TAG="$NEW_TAG"
+            PRERELEASE="false"
+            RELEASE_NAME="$NEW_TAG"
+            CREATE_TAG="true"
+            GEN_NOTES="true"
+            echo "Main branch auto-bump: $LATEST_TAG -> $NEW_TAG"
+          else
+            TAG="snapshot"
+            PRERELEASE="true"
+            RELEASE_NAME="Dev Snapshot"
+            CREATE_TAG="false"
+            GEN_NOTES="false"
+            echo "Dev branch snapshot"
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "create_tag=$CREATE_TAG" >> $GITHUB_OUTPUT
+          echo "gen_notes=$GEN_NOTES" >> $GITHUB_OUTPUT
+
+      - name: Create and push new tag (main auto-bump)
+        if: steps.version.outputs.create_tag == 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-desktop:
     name: Build Desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
+    needs: determine-version
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +128,9 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
 
       - run: npm ci
+
+      - name: Inject version
+        run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
 
       - name: Generate src-tauri via tauri init (idempotent)
         working-directory: apps/desktop
@@ -84,6 +169,9 @@ jobs:
         run: |
           cp ../../native-templates/lib.rs lib.rs
 
+      - name: Re-inject version after tauri.conf overwrite
+        run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -104,9 +192,7 @@ jobs:
             else
               newname=$(echo "$f" | sed 's/_/-/g')
             fi
-            if [ "$f" != "$newname" ]; then
-              mv "$f" "$newname"
-            fi
+            if [ "$f" != "$newname" ]; then mv "$f" "$newname"; fi
           done
           ls -la
 
@@ -117,9 +203,7 @@ jobs:
         run: |
           for f in *.exe; do
             newname=$(echo "$f" | sed 's/_/-/g' | sed 's/-x64-setup/ Setup/' | sed 's/-setup/ Setup/')
-            if [ "$f" != "$newname" ]; then
-              mv "$f" "$newname"
-            fi
+            if [ "$f" != "$newname" ]; then mv "$f" "$newname"; fi
           done
           ls -la
 
@@ -144,6 +228,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    needs: determine-version
     timeout-minutes: 90
 
     steps:
@@ -162,6 +247,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Inject version
+        run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
+
       - name: Prebuild Android native project
         working-directory: apps/mobile
         env:
@@ -176,7 +264,8 @@ jobs:
       - name: Rename Android APK
         working-directory: apps/mobile/android/app/build/outputs/apk/debug
         run: |
-          mv app-debug.apk WordBase-debug.apk
+          VERSION="${{ needs.determine-version.outputs.tag }}"
+          mv app-debug.apk "WordBase-Android-${VERSION}.apk"
           ls -la
 
       - name: Upload Android APK
@@ -190,6 +279,7 @@ jobs:
   build-ios:
     name: Build iOS (Simulator)
     runs-on: macos-14
+    needs: determine-version
     timeout-minutes: 90
 
     steps:
@@ -201,6 +291,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Inject version
+        run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
 
       - name: Prebuild iOS native project
         working-directory: apps/mobile
@@ -229,26 +322,28 @@ jobs:
       - name: Zip iOS app
         working-directory: apps/mobile/build/Build/Products/Debug-iphonesimulator
         run: |
-          mv WordBase.app WordBase.app
-          zip -r WordBase-iOS-Simulator.zip WordBase.app
-          ls -la WordBase-iOS-Simulator.zip
+          VERSION="${{ needs.determine-version.outputs.tag }}"
+          zip -r "WordBase-iOS-Simulator-${VERSION}.zip" WordBase.app
+          ls -la "WordBase-iOS-Simulator-${VERSION}.zip"
 
       - name: Upload iOS app
         uses: actions/upload-artifact@v5
         with:
           name: iOS
-          path: apps/mobile/build/Build/Products/Debug-iphonesimulator/WordBase-iOS-Simulator.zip
+          path: apps/mobile/build/Build/Products/Debug-iphonesimulator/WordBase-iOS-Simulator-*.zip
           if-no-files-found: error
           retention-days: 30
 
   publish:
     name: Publish GitHub Release
-    needs: [build-desktop, build-android, build-ios]
+    needs: [determine-version, build-desktop, build-android, build-ios]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: always()
 
     steps:
+      - uses: actions/checkout@v5
+
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
@@ -264,12 +359,12 @@ jobs:
         if: hashFiles('release-flat/*') != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'snapshot' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Dev Snapshot' }}
+          tag_name: ${{ needs.determine-version.outputs.tag }}
+          name: ${{ needs.determine-version.outputs.release_name }}
           draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          generate_release_notes: ${{ startsWith(github.ref, 'refs/tags/') }}
+          prerelease: ${{ needs.determine-version.outputs.prerelease == 'true' }}
+          generate_release_notes: ${{ needs.determine-version.outputs.gen_notes == 'true' }}
           files: release-flat/*
-          append_body: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          append_body: ${{ needs.determine-version.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
