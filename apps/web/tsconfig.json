@@ -36,6 +36,8 @@
   },
   "include": [
     "../../shared/**/*",
+    "../../packages/api/src/**/*",
+    "api/**/*",
     ".next/types/**/*",
     "src/**/*",
     ".next/types/**/*.ts"
