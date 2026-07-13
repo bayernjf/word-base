@@ -2,7 +2,6 @@
   "name": "@wordbase/mobile",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "npx expo start",
     "build": "npx expo prebuild",
