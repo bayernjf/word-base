@@ -23,9 +23,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Build API package
-        run: npm -w @wordbase/api run build
-
       - name: Build web frontend
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -56,9 +53,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Build API package
-        run: npm -w @wordbase/api run build
-
       - name: Install Vercel CLI
         run: npm i -g vercel@latest
 
@@ -72,10 +66,10 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-        # Deploy from apps/web so Vercel auto-detects Next.js framework.
-        # The api/[[...all]].ts in apps/web/api/ is auto-discovered as a
-        # Vercel Serverless Function catching all /api/* requests.
-        working-directory: apps/web
+        # Deploy from repo ROOT so shared/ and packages/ are all uploaded.
+        # The Vercel project's "Root Directory" dashboard setting points to apps/web,
+        # so Vercel runs the build from apps/web and auto-detects Next.js.
+        # API routes are handled by Next.js App Router at src/app/api/[[...all]]/route.ts.
         run: |
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json

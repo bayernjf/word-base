@@ -7,7 +7,7 @@
     "build": "npx expo prebuild",
     "build:android": "npx expo run:android",
     "build:ios": "npx expo run:ios",
-    "clean": "rm -rf dist .expo",
+    "clean": "rm -rf dist .expo android ios",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
