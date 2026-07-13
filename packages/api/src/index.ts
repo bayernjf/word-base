@@ -32,7 +32,7 @@ app.use(async (c, next) => {
     c.res.headers.set('Access-Control-Allow-Origin', origin);
     c.res.headers.set('Access-Control-Allow-Credentials', 'true');
   }
-  c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
   if (c.req.method === 'OPTIONS') {
@@ -389,7 +389,8 @@ app.post('/api/v1/auth/register', async (c) => {
 
     return c.json(buildAuthResponse(data.session))
   } catch (err) {
-    return c.json({ error: "internal_server_error" }, 500)
+    console.error('[auth] error:', (err as Error).message)
+    return c.json({ error: (err as Error).message || "internal_server_error" }, 500)
   }
 })
 
