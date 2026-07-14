@@ -337,8 +337,11 @@ jobs:
       - name: Build iOS app for simulator
         working-directory: apps/mobile/ios
         run: |
-          # Build only x86_64 to cut memory & time usage on CI (simulator binaries
-          # are never shipped; single-arch is enough for artifact distribution).
+          # Build x86_64 only to cut memory & time usage on CI. Simulator builds
+          # are never shipped; single-arch avoids ExpoModulesCore double-compile OOM.
+          # We use EXCLUDED_ARCHS (not -arch) because -arch conflicts with
+          # `-destination 'generic/platform=iOS Simulator'` (xcodebuild error:
+          # "destination implies architecture, architecture must not also be specified").
           xcodebuild \
             -workspace WordBase.xcworkspace \
             -scheme WordBase \
@@ -346,8 +349,7 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath ../build \
-            -arch x86_64 \
-            ONLY_ACTIVE_ARCH=NO \
+            EXCLUDED_ARCHS=arm64 \
             CODE_SIGNING_ALLOWED=NO \
             build
 
