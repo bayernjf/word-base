@@ -27,7 +27,18 @@ jobs:
 
       - run: npm ci
 
+      - name: Check for EXPO_TOKEN
+        id: check-token
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "::warning::EXPO_TOKEN secret not configured. Skipping OTA publish. Set EXPO_TOKEN in repo secrets to enable OTA updates."
+          else
+            echo "available=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Expo and EAS
+        if: steps.check-token.outputs.available == 'true'
         uses: expo/expo-github-action@v8
         with:
           expo-version: latest
@@ -51,10 +62,11 @@ jobs:
           echo "Publishing to channel: $CHANNEL"
 
       - name: Publish OTA update
+        if: steps.check-token.outputs.available == 'true'
         working-directory: apps/mobile
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          # app.json is preconfigured with runtimeVersion policy=fingerprint
-          # eas update will compute the fingerprint and only publish if JS changed
           npx eas update --channel ${{ steps.channel.outputs.channel }} --non-interactive --message "${{ github.event.head_commit.message || 'OTA update' }}"
+
+      - name: OTA skipped (no token)
+        if: steps.check-token.outputs.available != 'true'
+        run: echo "OTA publish skipped — configure EXPO_TOKEN secret to enable."
