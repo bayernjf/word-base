@@ -149,7 +149,7 @@ jobs:
           fi
           cp apps/web/package.json apps/web/.next/standalone/apps/web/ 2>/dev/null || true
           if [ -f apps/web/.next/standalone/apps/web/package.json ]; then
-            sed -i 's/"scripts": {/"scripts": {},/' apps/web/.next/standalone/apps/web/package.json || true
+            node -e "const fs=require('fs');const p='apps/web/.next/standalone/apps/web/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.scripts={};fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')" || true
           fi
           # Copy _worker.js to deployment root so Cloudflare Pages runs it as an Advanced mode Worker.
           # Next.js copies public/ assets into .next/standalone/apps/web/public/, but Cloudflare Pages
