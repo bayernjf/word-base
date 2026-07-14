@@ -151,6 +151,10 @@ jobs:
           if [ -f apps/web/.next/standalone/apps/web/package.json ]; then
             sed -i 's/"scripts": {/"scripts": {},/' apps/web/.next/standalone/apps/web/package.json || true
           fi
+          # Copy _worker.js to deployment root so Cloudflare Pages runs it as an Advanced mode Worker.
+          # Next.js copies public/ assets into .next/standalone/apps/web/public/, but Cloudflare Pages
+          # only picks up _worker.js from the output root, not from public/.
+          cp apps/web/public/_worker.js apps/web/.next/standalone/apps/web/_worker.js 2>/dev/null || true
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1

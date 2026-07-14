@@ -191,10 +191,15 @@ jobs:
         shell: bash
         run: |
           for f in *.dmg; do
+            arch="x64"
             if echo "$f" | grep -q "aarch64"; then
-              newname=$(echo "$f" | sed 's/_/-/g' | sed 's/-aarch64/-arm64/')
-            else
-              newname=$(echo "$f" | sed 's/_/-/g')
+              arch="arm64"
+            fi
+            base=$(echo "$f" | sed 's/_/-/g' | sed 's/-aarch64//' | sed 's/-x64//')
+            newname="WordBase-${arch}.dmg"
+            sig="$f.sig"
+            if [ -f "$sig" ]; then
+              mv "$sig" "WordBase-${arch}.dmg.sig"
             fi
             if [ "$f" != "$newname" ]; then mv "$f" "$newname"; fi
           done
@@ -206,7 +211,11 @@ jobs:
         shell: bash
         run: |
           for f in *.exe; do
-            newname=$(echo "$f" | sed 's/_/-/g' | sed 's/-x64-setup/ Setup/' | sed 's/-setup/ Setup/')
+            newname="WordBase-Setup.exe"
+            sig="$f.sig"
+            if [ -f "$sig" ]; then
+              mv "$sig" "WordBase-Setup.exe.sig"
+            fi
             if [ "$f" != "$newname" ]; then mv "$f" "$newname"; fi
           done
           ls -la
@@ -434,6 +443,19 @@ jobs:
           echo "--- Generated $OUT ---"
           cat "$OUT"
 
+      - name: Delete old snapshot assets (dev only)
+        if: needs.determine-version.outputs.prerelease == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Cleaning up old snapshot assets..."
+          TAG="${{ needs.determine-version.outputs.tag }}"
+          ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null || true)
+          for asset in $ASSETS; do
+            echo "  deleting $asset"
+            gh release delete-asset "$TAG" "$asset" -y 2>/dev/null || true
+          done
+
       - name: Create GitHub Release
         if: hashFiles('release-flat/*') != ''
         uses: softprops/action-gh-release@v2
@@ -444,6 +466,7 @@ jobs:
           prerelease: ${{ needs.determine-version.outputs.prerelease == 'true' }}
           generate_release_notes: ${{ needs.determine-version.outputs.gen_notes == 'true' }}
           files: release-flat/*
+          overwrite_files: true
           append_body: ${{ needs.determine-version.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

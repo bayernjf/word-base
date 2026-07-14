@@ -136,7 +136,7 @@ fix(mobile): handle expo-notifications permission denial on Android 13
 - 新增环境变量必须同时更新 `.env.example`
 - 图标/资源文件必须是真实图片（不是文本占位符），移动端 icon.png 1024x1024
 - 不要手动修改 `apps/mobile/android/` 或 `ios/`（由 `expo prebuild` 生成）
-- Tauri `src-tauri/` 是已纳入版本控制的完整 Rust 工程，CI 直接构建，不需要 init/template 复制
+- Tauri `src-tauri/` 是已纳入版本控制的完整 Rust 工程。CI 在构建时会从 `apps/desktop/native-templates/` 复制最新的 `tauri.conf.json`、`capabilities/default.json` 和 `lib.rs`（确保 CI 配置和仓库版本一致），然后注入版本号
 - Node 版本 22（见 `.node-version`）
 
 ---
@@ -211,8 +211,21 @@ Closes #<issue号>
 ## CI/CD
 
 - `.github/workflows/deploy.yml`：Vercel（Web+API）+ Cloudflare Pages 部署（push main/dev 触发）
-- `.github/workflows/desktop-release.yml`：Release workflow，tag v* 或手动触发，构建 macOS DMG + Windows EXE + Android APK + iOS Simulator 包，发布 GitHub Release
-- `.github/workflows/test.yml`：PR/push 时跑 tsc + vitest + 各端 build + expo prebuild
+- `.github/workflows/ci.yml`：PR/push main/dev 时跑 lint + test + web build
+- `.github/workflows/desktop-release.yml`：Release workflow
+  - **正式版本**：push `v*` tag 或 push main 分支（自动 bump patch），构建 macOS DMG + Windows NSIS EXE + Android APK + iOS Simulator 包，发布 GitHub Release
+  - **dev snapshot**：push dev 分支触发，版本固定为 `0.0.0-dev`，artifact 文件名固定（`WordBase-arm64.dmg` / `WordBase-x64.dmg` / `WordBase-Setup.exe` / `WordBase-Android-snapshot.apk` / `WordBase-iOS-Simulator-snapshot.zip`），每次覆盖旧文件，不保留历史
+  - Windows 只构建 NSIS（不构建 MSI），避免 MSI 对 pre-release 版本号的格式限制
+- `.github/workflows/mobile-ota.yml`：Expo EAS Update 热更新（push main → production channel，push dev → preview channel）
+- `.github/workflows/rollback.yml`：手动触发回滚 Vercel/Cloudflare
+
+### Snapshot 版本管理规则（必须遵守）
+
+- snapshot 版本号固定为 `0.0.0-dev`，**不包含日期、commit hash 等变化后缀**
+- artifact 文件名必须固定（不含版本号或使用固定版本号），确保新构建能覆盖旧文件
+- publish 前必须先删除 snapshot release 上的旧 assets，防止文件堆积
+- 正式 release（vX.Y.Z）保留历史文件，不删除旧 assets
+- `scripts/set-version.cjs` 是版本注入的唯一入口，snapshot 模式输出 `0.0.0-dev`
 
 ---
 
@@ -223,12 +236,16 @@ Closes #<issue号>
 | `shared/lib/apiBase.ts` | 跨端 API URL 解析 |
 | `shared/platform.ts` | 平台检测抽象 |
 | `apps/web/src/app/api/[[...all]]/route.ts` | Next.js Route Handler 挂载 Hono API |
-| `apps/desktop/src-tauri/tauri.conf.json` | Tauri 配置（窗口/权限/图标） |
+| `apps/web/vercel.json` | Vercel 框架声明（`framework: "nextjs"`） |
+| `turbo.json` | Turborepo 配置 + `globalEnv` 环境变量白名单 |
+| `apps/desktop/src-tauri/tauri.conf.json` | Tauri 配置（窗口/权限/图标），`bundle.targets` 为 `["dmg", "nsis"]` |
+| `apps/desktop/native-templates/tauri.conf.json` | Tauri 配置模板（CI 构建时复制到 src-tauri/） |
 | `apps/desktop/src-tauri/capabilities/default.json` | Tauri 权限白名单 |
 | `apps/mobile/app.json` | Expo 配置（bundle ID/权限/插件） |
 | `apps/mobile/metro.config.js` | Metro watchFolders 配置（monorepo HMR） |
 | `apps/desktop/vite.config.ts` | Vite 别名/HMR/fs.allow 配置 |
-| `scripts/set-version.cjs` | CI 版本注入脚本 |
+| `scripts/set-version.cjs` | CI 版本注入脚本（snapshot → `0.0.0-dev`） |
+| `package.json` → `overrides` | npm overrides 强制统一 Expo SDK 版本 |
 | `PULL_REQUEST_WORKFLOW.md` | Git 工作流详细文档 |
 
 ---

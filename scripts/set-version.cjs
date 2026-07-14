@@ -17,10 +17,7 @@ if (!raw) {
 raw = raw.replace(/^v/, '');
 
 const isSnapshot = raw === 'snapshot' || !/^\d+\.\d+\.\d+/.test(raw);
-const buildMeta = isSnapshot
-  ? `${raw}.${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.${(process.env.GITHUB_SHA || 'local').slice(0, 7)}`
-  : raw;
-const semver = isSnapshot ? `0.0.0-${buildMeta}` : raw;
+const semver = isSnapshot ? '0.0.0-dev' : raw;
 
 console.log(`Raw input:     ${raw}`);
 console.log(`Is snapshot:   ${isSnapshot}`);
@@ -53,8 +50,7 @@ function replaceInFile(filePath, regex, replacement) {
 // Version code for mobile: MAJOR*10000 + MINOR*100 + PATCH; snapshot uses date-based code
 let versionCode;
 if (isSnapshot) {
-  const d = new Date();
-  versionCode = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  versionCode = 0;
 } else {
   const basePart = semver.split('-')[0];
   const [maj, min, pat] = basePart.split('.').map(n => parseInt(n, 10) || 0);
