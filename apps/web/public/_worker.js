@@ -18,20 +18,29 @@ export default {
       }
 
       const targetUrl = new URL(url.pathname + url.search, apiBase)
+
+      const headers = new Headers(request.headers)
+      headers.delete('host')
+      headers.delete('cf-connecting-ip')
+      headers.delete('cf-ray')
+      headers.delete('cf-visitor')
+      headers.delete('cf-worker')
+
       const proxyRequest = new Request(targetUrl, {
         method: request.method,
-        headers: request.headers,
+        headers,
         body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
         redirect: 'manual',
       })
 
-      proxyRequest.headers.delete('host')
-
       const response = await fetch(proxyRequest)
+
       const newHeaders = new Headers(response.headers)
-      newHeaders.set('Access-Control-Allow-Origin', '*')
+      newHeaders.set('Access-Control-Allow-Origin', request.headers.get('Origin') || '*')
       newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
       newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+      newHeaders.set('Access-Control-Allow-Credentials', 'true')
+      newHeaders.delete('content-encoding')
 
       return new Response(response.body, {
         status: response.status,
