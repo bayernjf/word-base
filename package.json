@@ -23,8 +23,13 @@
     "lint:all": "turbo run lint",
     "test": "vitest run"
   },
+  "overrides": {
+    "expo": "^52.0.0"
+  },
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "expo-updates-interface": "~1.0.0",
+    "motion": "^11.18.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
