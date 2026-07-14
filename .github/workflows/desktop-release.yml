@@ -347,13 +347,14 @@ jobs:
           # peak memory on the macos-14 runner (ExpoModulesCore ~150 Swift
           # files + Hermes/React pods can OOM the 14GB runner otherwise).
           xcodebuild \
+            -parallelizeTargets NO \
             -workspace WordBase.xcworkspace \
             -scheme WordBase \
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath ../build \
-            -parallelizeTargets NO \
+            -IDEBuildOperationMaxNumberOfConcurrentCompileTasks=2 \
             EXCLUDED_ARCHS=arm64 \
             COMPILER_INDEX_STORE_ENABLE=NO \
             CODE_SIGNING_ALLOWED=NO \
