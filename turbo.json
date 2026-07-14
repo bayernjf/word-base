@@ -4,6 +4,13 @@
     "tsconfig.json",
     "package.json"
   ],
+  "globalEnv": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_API_BASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "AI_CONFIG_ENCRYPTION_KEY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": [
