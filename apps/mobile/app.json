@@ -22,7 +22,7 @@
     "ios": {
       "bundleIdentifier": "com.wordbase.mobile",
       "supportsTablet": true,
-      "buildNumber": "1",
+      "buildNumber": "0",
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
@@ -35,7 +35,7 @@
     },
     "android": {
       "package": "com.wordbase.mobile",
-      "versionCode": 1,
+      "versionCode": 0,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
