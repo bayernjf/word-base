@@ -338,11 +338,10 @@ jobs:
         working-directory: apps/mobile/ios
         run: |
           # Build x86_64 only. Simulator builds are never shipped; a single arch
-          # avoids the ExpoModulesCore double-compile OOM on CI. We use
-          # EXCLUDED_ARCHS (not -arch) because -arch conflicts with
-          # `-destination 'generic/platform=iOS Simulator'`:
-          #   "destination implies architecture, architecture must not also
-          #    be specified" (xcodebuild exit code 70).
+          # avoids the ExpoModulesCore double-compile OOM on CI. We pin to a
+          # concrete x86_64 simulator destination instead of using EXCLUDED_ARCHS
+          # (which combined with 'generic/platform=iOS Simulator' produces an
+          # undefined_arch and exit 65).
           # -IDEBuildOperationMaxNumberOfConcurrentCompileTasks=2 caps Swift/
           # Clang concurrency so ExpoModulesCore's 150 Swift files don't blow
           # the macos-14 runner's 14GB memory together with Hermes/React pods.
@@ -351,10 +350,11 @@ jobs:
             -scheme WordBase \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
             -derivedDataPath ../build \
             -IDEBuildOperationMaxNumberOfConcurrentCompileTasks=2 \
-            EXCLUDED_ARCHS=arm64 \
+            ARCHS=x86_64 \
+            ONLY_ACTIVE_ARCH=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             CODE_SIGNING_ALLOWED=NO \
             build
