@@ -343,11 +343,10 @@ jobs:
           # `-destination 'generic/platform=iOS Simulator'`:
           #   "destination implies architecture, architecture must not also
           #    be specified" (xcodebuild exit code 70).
-          # -parallelizeTargets NO + COMPILER_INDEX_STORE_ENABLE=NO reduce
-          # peak memory on the macos-14 runner (ExpoModulesCore ~150 Swift
-          # files + Hermes/React pods can OOM the 14GB runner otherwise).
+          # -IDEBuildOperationMaxNumberOfConcurrentCompileTasks=2 caps Swift/
+          # Clang concurrency so ExpoModulesCore's 150 Swift files don't blow
+          # the macos-14 runner's 14GB memory together with Hermes/React pods.
           xcodebuild \
-            -parallelizeTargets NO \
             -workspace WordBase.xcworkspace \
             -scheme WordBase \
             -configuration Debug \
