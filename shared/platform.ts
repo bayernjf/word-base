@@ -37,6 +37,32 @@ export interface PlatformKV {
   remove(key: string): Promise<void>;
 }
 
+export interface UpdateCheckResult {
+  hasUpdate: boolean;
+  version?: string;
+  body?: string;
+  date?: string;
+}
+
+export interface UpdateProgress {
+  percentage?: number;
+  downloaded?: number;
+  total?: number;
+}
+
+export type UpdateChannel = 'desktop-binary' | 'mobile-ota';
+
+export interface UpdateService {
+  readonly channel: UpdateChannel;
+  check(): Promise<UpdateCheckResult>;
+  /** Download and prepare the update (desktop: download binary; mobile: fetch OTA bundle). */
+  download(onProgress?: (p: UpdateProgress) => void): Promise<void>;
+  /** Apply the downloaded update (desktop: install + relaunch; mobile: reloadAsync). */
+  apply(): Promise<void>;
+  /** True when download() has completed successfully and apply() is ready to call. */
+  isReady: boolean;
+}
+
 export interface PlatformAPI {
   readonly name: string;
 
@@ -48,10 +74,13 @@ export interface PlatformAPI {
 
   showNotification(title: string, body: string): Promise<void>;
 
-  /** 平台键值存储。Web=localStorage, Desktop=Tauri Store, Mobile=Capacitor Preferences。 */
+  /** 平台键值存储。Web=localStorage, Desktop=Tauri Store, Mobile=AsyncStorage。 */
   kv: PlatformKV;
 
   getPlatform(): 'web' | 'desktop' | 'mobile' | string;
+
+  /** 桌面端二进制更新 / 移动端 OTA 热更新。web 不实现。 */
+  updater?: UpdateService;
 }
 
 let _platform: PlatformAPI | null = null;
