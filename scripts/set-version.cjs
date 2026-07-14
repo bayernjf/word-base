@@ -47,10 +47,12 @@ function replaceInFile(filePath, regex, replacement) {
   console.log(`  updated ${filePath}`);
 }
 
-// Version code for mobile: MAJOR*10000 + MINOR*100 + PATCH; snapshot uses date-based code
+// Version code for mobile: MAJOR*10000 + MINOR*100 + PATCH
+// Snapshot must use a positive integer (Android Gradle rejects 0); 1 is fine
+// because snapshot APKs are never published to Play Store.
 let versionCode;
 if (isSnapshot) {
-  versionCode = 0;
+  versionCode = 1;
 } else {
   const basePart = semver.split('-')[0];
   const [maj, min, pat] = basePart.split('.').map(n => parseInt(n, 10) || 0);
