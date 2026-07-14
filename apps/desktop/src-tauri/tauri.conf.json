@@ -24,13 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data: https:; media-src 'self' https: blob:;"
-    },
-    "trayIcon": {
-      "id": "main",
-      "iconPath": "icons/tray-icon.png",
-      "iconAsTemplate": true,
-      "tooltip": "WordBase"
+      "csp": null
     }
   },
   "bundle": {
@@ -49,6 +43,16 @@
     "copyright": "Copyright © 2026 WordBase"
   },
   "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/bayernjf/word-base/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "windows": {
+        "installMode": "passive"
+      }
+    },
     "shell": {
       "open": true
     }

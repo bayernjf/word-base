@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "WordBase 桌面端默认能力集：剪贴板、通知、TTS（仅限 say / powershell SAPI Speech）、持久化 KV。",
+  "description": "WordBase 桌面端默认能力集：剪贴板、通知、系统 TTS shell 命令、持久化 KV。",
   "windows": [
     "main"
   ],
@@ -34,17 +34,12 @@
         {
           "name": "say",
           "cmd": "say",
-          "args": true,
-          "sidecar": false
+          "args": true
         },
         {
-          "name": "powershell-tts",
+          "name": "powershell",
           "cmd": "powershell",
-          "args": [
-            { "validator": "eq", "arg": "-Command" },
-            { "validator": "regex", "arg": "^Add-Type -AssemblyName System\\.Speech;\\s*\\$s\\s*=\\s*New-Object System\\.Speech\\.Synthesis\\.SpeechSynthesizer;\\s*\\$s\\.Speak\\('.*'\\)\\s*$" }
-          ],
-          "sidecar": false
+          "args": true
         }
       ]
     }

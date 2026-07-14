@@ -123,8 +123,9 @@ export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, l
       }
       if (isMobile) {
         try {
-          // @ts-ignore - expo-updates only exists in the mobile workspace at runtime
-          const Updates: any = await import('expo-updates');
+          // @ts-ignore - expo-updates only exists in the mobile workspace; use runtime import to avoid Vite static analysis
+          const mod = await (globalThis as any).import('expo-updates');
+          const Updates = mod as any;
           const v = Updates.updateId || Updates.runtimeVersion || 'installed';
           if (!cancelled) setCurrentVersion(typeof v === 'string' ? v.slice(0, 12) : 'installed');
           return;
