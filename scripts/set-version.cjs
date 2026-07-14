@@ -65,7 +65,15 @@ if (isSnapshot) {
 updateJson('package.json', (j) => { j.version = semver; });
 
 // Desktop: Tauri config (src-tauri/tauri.conf.json is the one tauri reads at build time)
-updateJson('apps/desktop/src-tauri/tauri.conf.json', (j) => { j.version = semver; });
+const updaterPubkey = process.env.TAURI_SIGNING_PUBKEY || '';
+updateJson('apps/desktop/src-tauri/tauri.conf.json', (j) => {
+  j.version = semver;
+  if (updaterPubkey) {
+    j.plugins = j.plugins || {};
+    j.plugins.updater = j.plugins.updater || {};
+    j.plugins.updater.pubkey = updaterPubkey;
+  }
+});
 
 // Desktop: package.json
 updateJson('apps/desktop/package.json', (j) => { j.version = semver; });
@@ -77,13 +85,19 @@ replaceInFile(
   `version = "${semver}"`
 );
 
-// Mobile: app.json (Expo "version") + buildNumber/versionCode
+// Mobile: app.json (Expo "version") + buildNumber/versionCode + OTA updates URL
+const expoUpdatesUrl = process.env.EXPO_UPDATES_URL || '';
 updateJson('apps/mobile/app.json', (j) => {
   j.expo.version = semver;
   j.expo.ios = j.expo.ios || {};
   j.expo.ios.buildNumber = String(versionCode);
   j.expo.android = j.expo.android || {};
   j.expo.android.versionCode = versionCode;
+  if (expoUpdatesUrl) {
+    j.expo.updates = j.expo.updates || {};
+    j.expo.updates.url = expoUpdatesUrl;
+    j.expo.updates.enabled = true;
+  }
 });
 
 // Mobile package.json

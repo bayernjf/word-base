@@ -1,0 +1,60 @@
+name: Mobile OTA Update
+
+on:
+  push:
+    branches: [main, dev]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ota-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-ota:
+    name: Publish OTA update
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Resolve channel from ref
+        id: channel
+        run: |
+          REF="${{ github.ref }}"
+          if echo "$REF" | grep -q '^refs/tags/v'; then
+            CHANNEL="production"
+          elif [ "$REF" = "refs/heads/main" ]; then
+            CHANNEL="production"
+          elif [ "$REF" = "refs/heads/dev" ]; then
+            CHANNEL="preview"
+          else
+            CHANNEL="preview"
+          fi
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "Publishing to channel: $CHANNEL"
+
+      - name: Publish OTA update
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          # app.json is preconfigured with runtimeVersion policy=fingerprint
+          # eas update will compute the fingerprint and only publish if JS changed
+          npx eas update --channel ${{ steps.channel.outputs.channel }} --non-interactive --message "${{ github.event.head_commit.message || 'OTA update' }}"

@@ -102,6 +102,8 @@ jobs:
     name: Build Desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     needs: determine-version
+    env:
+      TAURI_SIGNING_PUBKEY: ${{ secrets.TAURI_SIGNING_PUBKEY }}
     strategy:
       fail-fast: false
       matrix:
@@ -177,6 +179,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           args: --verbose
@@ -212,7 +216,9 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: macOS
-          path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg.sig
           if-no-files-found: error
           retention-days: 30
 
@@ -221,7 +227,9 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: Windows
-          path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe.sig
           if-no-files-found: error
           retention-days: 30
 
@@ -352,8 +360,74 @@ jobs:
       - name: Flatten artifact tree
         run: |
           mkdir -p release-flat
-          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.apk" -o -name "*.zip" \) -exec cp -v {} release-flat/ \;
+          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.apk" -o -name "*.zip" -o -name "*.sig" \) -exec cp -v {} release-flat/ \;
           ls -la release-flat
+
+      - name: Generate updater latest.json (formal releases only)
+        if: needs.determine-version.outputs.prerelease == 'false'
+        run: |
+          set -e
+          VERSION="${{ needs.determine-version.outputs.tag }}"
+          VERSION="${VERSION#v}"
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          OUT="release-flat/latest.json"
+
+          # Map Tauri triple -> installer filename glob
+          # macOS universal not supported here; we ship x86_64 + aarch64
+          # Windows x86_64 via NSIS .exe
+          declare -A PLATFORM_GLOBS
+          PLATFORM_GLOBS["darwin-x86_64"]="*x64.dmg"
+          PLATFORM_GLOBS["darwin-aarch64"]="*aarch64.dmg *arm64.dmg"
+          PLATFORM_GLOBS["windows-x86_64"]="*.exe"
+
+          echo '{' > "$OUT"
+          echo "  \"version\": \"$VERSION\"," >> "$OUT"
+          echo "  \"notes\": \"See release notes on GitHub.\"," >> "$OUT"
+          echo "  \"pub_date\": \"$PUB_DATE\"," >> "$OUT"
+          echo '  "platforms": {' >> "$OUT"
+
+          first=true
+          for triple in "${!PLATFORM_GLOBS[@]}"; do
+            globs=${PLATFORM_GLOBS[$triple]}
+            installer=""
+            sigfile=""
+            for g in $globs; do
+              # shellcheck disable=SC2086
+              f=$(ls release-flat/$g 2>/dev/null | head -1 || true)
+              if [ -n "$f" ]; then
+                installer=$(basename "$f")
+                if [ -f "$f.sig" ]; then sigfile="$f.sig"; fi
+                # also check for <name>.sig next to file (tauri action sometimes names differently)
+                break
+              fi
+            done
+            if [ -z "$installer" ]; then
+              echo "Skipping $triple (no installer found)"
+              continue
+            fi
+            sig=""
+            if [ -n "$sigfile" ] && [ -f "$sigfile" ]; then
+              sig=$(cat "$sigfile")
+            else
+              # look for any .sig that shares prefix
+              alt_sig=$(ls release-flat/${installer}.sig 2>/dev/null | head -1 || true)
+              if [ -n "$alt_sig" ]; then sig=$(cat "$alt_sig"); fi
+            fi
+            if [ -z "$sig" ]; then
+              echo "::warning::No signature found for $installer ($triple) – skipping platform"
+              continue
+            fi
+            url="$installer"
+            if [ "$first" = true ]; then first=false; else echo "," >> "$OUT"; fi
+            echo "    \"$triple\": { \"signature\": \"$sig\", \"url\": \"$url\" }" >> "$OUT"
+          done
+
+          echo "" >> "$OUT"
+          echo '  }' >> "$OUT"
+          echo '}' >> "$OUT"
+
+          echo "--- Generated $OUT ---"
+          cat "$OUT"
 
       - name: Create GitHub Release
         if: hashFiles('release-flat/*') != ''
