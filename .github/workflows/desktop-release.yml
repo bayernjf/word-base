@@ -281,8 +281,14 @@ jobs:
       - name: Rename Android APK
         working-directory: apps/mobile/android/app/build/outputs/apk/debug
         run: |
-          VERSION="${{ needs.determine-version.outputs.tag }}"
-          mv app-debug.apk "WordBase-Android-${VERSION}.apk"
+          if [ "${{ needs.determine-version.outputs.prerelease }}" = "true" ]; then
+            APK_NAME="WordBase-Android-snapshot.apk"
+          else
+            VERSION="${{ needs.determine-version.outputs.tag }}"
+            APK_NAME="WordBase-Android-${VERSION}.apk"
+          fi
+          rm -f "$APK_NAME"
+          mv app-debug.apk "$APK_NAME"
           ls -la
 
       - name: Upload Android APK
@@ -331,6 +337,8 @@ jobs:
       - name: Build iOS app for simulator
         working-directory: apps/mobile/ios
         run: |
+          # Build only x86_64 to cut memory & time usage on CI (simulator binaries
+          # are never shipped; single-arch is enough for artifact distribution).
           xcodebuild \
             -workspace WordBase.xcworkspace \
             -scheme WordBase \
@@ -338,15 +346,23 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath ../build \
+            -arch x86_64 \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             build
 
       - name: Zip iOS app
         working-directory: apps/mobile/build/Build/Products/Debug-iphonesimulator
         run: |
-          VERSION="${{ needs.determine-version.outputs.tag }}"
-          zip -r "WordBase-iOS-Simulator-${VERSION}.zip" WordBase.app
-          ls -la "WordBase-iOS-Simulator-${VERSION}.zip"
+          if [ "${{ needs.determine-version.outputs.prerelease }}" = "true" ]; then
+            ZIP_NAME="WordBase-iOS-Simulator-snapshot.zip"
+          else
+            VERSION="${{ needs.determine-version.outputs.tag }}"
+            ZIP_NAME="WordBase-iOS-Simulator-${VERSION}.zip"
+          fi
+          rm -f "$ZIP_NAME"
+          zip -r "$ZIP_NAME" WordBase.app
+          ls -la "$ZIP_NAME"
 
       - name: Upload iOS app
         uses: actions/upload-artifact@v5
