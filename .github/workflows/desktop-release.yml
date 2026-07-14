@@ -300,6 +300,10 @@ jobs:
 
       - run: npm ci
 
+      - name: Install mobile workspace dependencies
+        working-directory: apps/mobile
+        run: npm install --no-save  # ensures apps/mobile/node_modules symlinks exist for CocoaPods
+
       - name: Inject version
         run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
 
@@ -312,7 +316,8 @@ jobs:
 
       - name: Install CocoaPods
         working-directory: apps/mobile/ios
-        run: pod install
+        run: |
+          pod install --repo-update
 
       - name: Build iOS app for simulator
         working-directory: apps/mobile/ios
