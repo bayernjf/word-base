@@ -37,8 +37,18 @@ export default defineConfig(() => {
     server: {
       port: 3002,
       strictPort: true,
+      host: 'localhost',
+      hmr: {
+        protocol: 'ws',
+        host: 'localhost',
+        port: 3002,
+      },
       watch: {
         ignored: ['**/.data/**', '**/src-tauri/**'],
+      },
+      fs: {
+        // Allow serving files from the monorepo root (needed for shared/ and web primitives)
+        allow: [path.resolve(__dirname, '../..')],
       },
     },
     clearScreen: false,
