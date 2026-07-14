@@ -31,8 +31,10 @@
 ## 安装依赖
 
 ```bash
-npm install
+npm ci
 ```
+
+> 用 `npm ci` 而非 `npm install` 以严格遵循 package-lock.json，保证所有人装的依赖版本一致。首次克隆或切换分支后都建议跑一次。
 
 ## 环境变量配置
 
@@ -103,16 +105,28 @@ npm run dev
 
 需要 API 后端运行在 3001 端口（`npm run dev:api`）才能使用登录、同步、AI 等功能。
 
+> **所有命令都在项目根目录执行**（monorepo 通过 `-w` 参数指定子包）。
+
 | 端 | 命令 | 访问方式 | 说明 |
 |---|------|---------|------|
-| **Web** | `npm run dev` 或 `npm run dev:web` | 浏览器 `http://localhost:3000` | Next.js 开发服务器 |
 | **API 后端** | `npm run dev:api` | `http://localhost:3001` | Hono API 服务器（AI、认证、同步） |
-| **桌面端（浏览器预览）** | `npm run dev:desktop` | 浏览器 `http://localhost:3002` | Vite dev server，可在浏览器预览 UI |
-| **桌面端（原生窗口）** | `npm -w @wordbase/desktop run tauri:dev` | 原生 macOS/Windows 窗口 | 需要 Rust + Tauri CLI |
-| **移动端（手机预览）** | `npm run dev:mobile` | 手机安装 Expo Go 扫描二维码 | Expo dev server |
-| **移动端（浏览器模拟）** | `npm run dev` + Chrome DevTools | 浏览器 `http://localhost:3000` | 用 Web 端 + Chrome 移动设备模拟 |
-| **iOS 模拟器** | `npm -w @wordbase/mobile run build:ios` | iOS 模拟器 | 需要 Xcode |
-| **Android 模拟器** | `npm -w @wordbase/mobile run build:android` | Android 模拟器 | 需要 Android Studio |
+| **Web** | `npm run dev` | 浏览器 `http://localhost:3000` | Next.js 开发服务器 |
+| **桌面端（浏览器预览）** | `npm run dev:desktop` | 浏览器 `http://localhost:3002` | Vite dev server，浏览器快速预览 UI |
+| **桌面端（Mac/Windows 原生窗口）** | `cd apps/desktop && npm run tauri:dev` | 原生桌面窗口 | 需要 Rust + Xcode CLT(Mac)，第一次 Rust 编译较慢（5-10 分钟） |
+| **移动端（手机 Expo Go）** | `npm run dev:mobile` | 手机装 Expo Go 扫终端二维码 | 真机快速预览 |
+| **iOS 模拟器（原生）** | `cd apps/mobile && npm run build:ios` | iOS 模拟器 | 需要 Xcode，首次会自动 `pod install` |
+| **Android 模拟器（原生）** | `cd apps/mobile && npm run build:android` | Android 模拟器 | 需要 Android Studio |
+
+> 💡 **桌面端首次启动**：如果 `tauri:dev` 报 Cargo.toml/plugin 相关错误，先把原生模板复制过去：
+> ```bash
+> cd apps/desktop
+> mkdir -p src-tauri/capabilities
+> cp native-templates/tauri.conf.json src-tauri/
+> cp native-templates/lib.rs src-tauri/src/
+> cp native-templates/Cargo.toml src-tauri/
+> cp native-templates/capabilities/default.json src-tauri/capabilities/
+> ```
+> 然后重新跑 `npm run tauri:dev`。
 
 ### 其他命令
 
