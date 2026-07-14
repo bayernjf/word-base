@@ -43,6 +43,16 @@
     "copyright": "Copyright © 2026 WordBase"
   },
   "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/bayernjf/word-base/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "windows": {
+        "installMode": "passive"
+      }
+    },
     "shell": {
       "open": true
     }

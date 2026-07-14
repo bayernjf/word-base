@@ -1,4 +1,4 @@
-import { createCachedKV, type PlatformAPI, type SpeakOptions } from '@wordbase/shared/platform';
+import { createCachedKV, type PlatformAPI, type SpeakOptions, type UpdateService, type UpdateProgress } from '@wordbase/shared/platform';
 
 /**
  * 桌面端（Tauri）平台实现。
@@ -143,6 +143,71 @@ async function removeKv(k: string): Promise<void> {
   localStorage.removeItem(k);
 }
 
+// -------- Updater（仅 Tauri 桌面端） --------
+
+let pendingUpdate: { version: string; body?: string; date?: string } | null = null;
+let downloaded = false;
+
+const desktopUpdater: UpdateService = {
+  channel: 'desktop-binary',
+  isReady: false,
+
+  async check() {
+    if (!isTauri()) return { hasUpdate: false };
+    try {
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const update = await check();
+      if (!update?.available) {
+        pendingUpdate = null;
+        return { hasUpdate: false };
+      }
+      pendingUpdate = {
+        version: update.version,
+        body: update.body,
+        date: update.date,
+      };
+      return {
+        hasUpdate: true,
+        version: update.version,
+        body: update.body,
+        date: update.date,
+      };
+    } catch (err) {
+      console.warn('[updater] check failed:', err);
+      return { hasUpdate: false };
+    }
+  },
+
+  async download(onProgress?: (p: UpdateProgress) => void) {
+    if (!isTauri() || !pendingUpdate) return;
+    const { check } = await import('@tauri-apps/plugin-updater');
+    const update = await check();
+    if (!update?.available) return;
+    let accumulated = 0;
+    let total: number | undefined;
+    await update.download((event) => {
+      if (event.event === 'Started') {
+        total = event.data.contentLength;
+        onProgress?.({ percentage: 0, downloaded: 0, total });
+      } else if (event.event === 'Progress') {
+        accumulated += event.data.chunkLength;
+        const pct = total ? Math.round((accumulated / total) * 100) : undefined;
+        onProgress?.({ percentage: pct, downloaded: accumulated, total });
+      } else if (event.event === 'Finished') {
+        onProgress?.({ percentage: 100, downloaded: accumulated, total });
+      }
+    });
+    downloaded = true;
+    desktopUpdater.isReady = true;
+  },
+
+  async apply() {
+    if (!isTauri() || !downloaded) return;
+    const { relaunch } = await import('@tauri-apps/plugin-process');
+    await relaunch();
+  },
+};
+
 // -------- 导出 --------
 
 export const desktopPlatform: PlatformAPI = {
@@ -195,13 +260,14 @@ export const desktopPlatform: PlatformAPI = {
     save: saveKv,
     remove: removeKv,
     readMiss: async (k) => {
-      // Tauri 壳下，缓存 miss 时回退读 localStorage（一次性迁移老数据到 Tauri Store）
       if (isTauri() && typeof localStorage !== 'undefined') {
         return localStorage.getItem(k);
       }
       return null;
     },
   }),
+
+  updater: desktopUpdater,
 
   getPlatform() { return 'desktop'; },
 };
