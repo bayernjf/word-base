@@ -66,15 +66,14 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-        # Deploy from repo ROOT so shared/ and packages/ are all uploaded.
-        # The Vercel project's "Root Directory" dashboard setting points to apps/web,
-        # so Vercel runs the build from apps/web and auto-detects Next.js.
-        # API routes are handled by Next.js App Router at src/app/api/[[...all]]/route.ts.
+        # Deploy from repo root (so shared/ packages are uploaded) but use
+        # --cwd apps/web to tell Vercel the Next.js project lives there.
+        # Vercel will npm install from root (workspaces include shared/api),
+        # run the build in apps/web, and find .next there.
         run: |
-          mkdir -p .vercel
-          echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
+          mkdir -p apps/web/.vercel
+          echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > apps/web/.vercel/project.json
 
-          # --prod for main branch (fixed URL), preview for dev (random URL)
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             DEPLOY_FLAGS="--prod"
           else
@@ -82,7 +81,7 @@ jobs:
           fi
 
           set +e
-          DEPLOY_OUTPUT=$(vercel deploy --token=$VERCEL_TOKEN --yes $DEPLOY_FLAGS \
+          DEPLOY_OUTPUT=$(vercel deploy --cwd apps/web --token=$VERCEL_TOKEN --yes $DEPLOY_FLAGS \
             --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
             --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
             --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
