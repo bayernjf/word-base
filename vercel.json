@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "npm -w @wordbase/api run build && npm -w @wordbase/web run build",
+  "outputDirectory": "apps/web/.next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)apps/desktop' ':(exclude)apps/mobile' ':(exclude).github/workflows/desktop-release.yml' ':(exclude).github/workflows/mobile-ota.yml'"
+}
