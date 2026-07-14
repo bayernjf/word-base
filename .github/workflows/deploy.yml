@@ -137,18 +137,20 @@ jobs:
 
       - name: Prepare Cloudflare deployment files
         run: |
-          cp -R apps/web/.next/static apps/web/.next/standalone/apps/web/
-          cp -r apps/web/.next/server apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/paths.json apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/prerender-manifest.js apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/server-reference-manifest.js apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/build-manifest.json apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/react-loadable-manifest.json apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/export-marker.json apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/images-manifest.json apps/web/.next/standalone/apps/web/
-          cp apps/web/.next/next-font-manifest.json apps/web/.next/standalone/apps/web/
-          cp apps/web/package.json apps/web/.next/standalone/apps/web/
-          sed -i 's/"scripts": {/"scripts": {},/' apps/web/.next/standalone/apps/web/package.json
+          set -e
+          # Copy static/server assets into standalone output
+          if [ -d apps/web/.next/standalone ]; then
+            cp -R apps/web/.next/static apps/web/.next/standalone/apps/web/.next/ 2>/dev/null || true
+            cp -r apps/web/.next/server apps/web/.next/standalone/apps/web/.next/ 2>/dev/null || true
+            # Copy manifest files that exist (Next.js 15 doesn't generate all of them)
+            for f in paths.json prerender-manifest.js server-reference-manifest.js build-manifest.json react-loadable-manifest.json export-marker.json images-manifest.json next-font-manifest.json; do
+              [ -f "apps/web/.next/$f" ] && cp "apps/web/.next/$f" "apps/web/.next/standalone/apps/web/.next/" || true
+            done
+          fi
+          cp apps/web/package.json apps/web/.next/standalone/apps/web/ 2>/dev/null || true
+          if [ -f apps/web/.next/standalone/apps/web/package.json ]; then
+            sed -i 's/"scripts": {/"scripts": {},/' apps/web/.next/standalone/apps/web/package.json || true
+          fi
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
