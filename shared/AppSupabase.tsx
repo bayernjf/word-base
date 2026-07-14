@@ -30,6 +30,7 @@ import {
   AIModelsView,
   AddNewModelView,
   SyncStorageView,
+  AboutSettingsView,
 } from './components/views';
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
@@ -903,6 +904,7 @@ export default function AppSupabase() {
         case 'settings-appearance':
         case 'settings-aimodels':
         case 'settings-autoai':
+        case 'settings-about':
         case 'settings-addmodel':
         case 'settings-sync':
           return (
@@ -967,6 +969,7 @@ export default function AppSupabase() {
                 />
               )}
               {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
+              {activeView === 'settings-about' && <AboutSettingsView themeStyles={themeStyles} language={language} />}
             </SettingsLayout>
           );
         default:

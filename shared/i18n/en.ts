@@ -47,6 +47,7 @@ export const en = {
     aiModels: 'AI Engine Models',
     autoAi: 'Auto AI Analysis',
     sync: 'Sync & Storage',
+    about: 'About',
     title: 'Settings Configuration',
     subtitle: 'Review credentials and select screen elements.',
     preferences: 'Preferences',

@@ -49,6 +49,7 @@ export const zh: LocaleDict = {
     aiModels: 'AI 模型',
     autoAi: 'AI 自动分析',
     sync: '同步与存储',
+    about: '关于',
     title: '设置中心',
     subtitle: '查看凭据、调整界面。',
     preferences: '偏好设置',

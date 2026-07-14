@@ -16,3 +16,4 @@ export { AutoAiSettingsView } from './settings/AutoAiSettingsView';
 export { AIModelsView } from './settings/AIModelsView';
 export { AddNewModelView } from './settings/AddNewModelView';
 export { SyncStorageView } from './settings/SyncStorageView';
+export { AboutSettingsView } from './settings/AboutSettingsView';
