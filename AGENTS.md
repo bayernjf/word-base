@@ -227,6 +227,37 @@ Closes #<issue号>
 - 正式 release（vX.Y.Z）保留历史文件，不删除旧 assets
 - `scripts/set-version.cjs` 是版本注入的唯一入口，snapshot 模式输出 `0.0.0-dev`
 
+### 部署架构（Cloudflare + Vercel 双部署）
+
+```
+用户 / word-picker 插件
+  │
+  ▼
+Cloudflare Pages (word-base.pages.dev)        ← CDN + 统一入口
+  │
+  ├─ /app/*  → Next.js standalone 前端（静态 + SSR）
+  └─ /api/*  → _worker.js 反向代理 ──→ Vercel Serverless Functions
+                                            │
+                                            ▼
+                                         Hono API → Supabase
+```
+
+| 平台 | 职责 | 说明 |
+|------|------|------|
+| **Vercel** | API 后端 + Next.js SSR | Hono 通过 `hono/vercel` 运行在 Serverless Functions 中，处理 `/api/v1/*`（单词同步、认证、AI）；Next.js SSR 也在 Vercel 上原生运行 |
+| **Cloudflare Pages** | CDN + 静态前端 + API 代理 | 全球边缘节点分发静态资源，绑定公开域名 `word-base.pages.dev`；`_worker.js`（放在部署输出根目录）将 `/api/*` 代理到 Vercel，避免跨域；dev 分支自动部署到 `dev.word-base.pages.dev` |
+
+**为什么不用单平台**：
+- Vercel 免费版 Serverless Function 调用次数/带宽有限，国内访问不稳定，且 preview URL 每次变化无法给 word-picker 插件固定使用
+- Cloudflare Pages 不支持 Node.js server 原生运行（Hono API 无法直接跑），但 CDN 流量免费、preview URL 固定（`<branch>.word-base.pages.dev`）
+- 两者互补：Cloudflare 做门面（CDN + 域名 + 固定 preview URL），Vercel 做后端（API + SSR）
+
+**环境隔离**：
+- `main` 分支 → Cloudflare production `word-base.pages.dev` + Vercel production（`--prod` 标志）
+- `dev` 分支 → Cloudflare preview `dev.word-base.pages.dev` + Vercel preview（每次生成临时 URL，由 `_worker.js` 运行时读取绑定）
+- word-picker dev snapshot 插件 `SYNC_BASE_URL` 指向 `https://dev.word-base.pages.dev`，生产插件指向 `https://word-base.pages.dev`
+- 两个环境共用同一个 Supabase 数据库（暂不做数据库级隔离，dev 为开发者自测）
+
 ---
 
 ## 关键文件索引
