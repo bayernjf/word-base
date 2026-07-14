@@ -6,6 +6,14 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -33,11 +41,11 @@
         "POST_NOTIFICATIONS",
         "SCHEDULE_EXACT_ALARM",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "WAKE_LOCK"
+        "VIBRATE"
       ]
     },
     "plugins": [
+      "expo-updates",
       [
         "expo-notifications",
         {
