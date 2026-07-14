@@ -24,7 +24,10 @@
       "supportsTablet": true,
       "buildNumber": "1",
       "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
         "NSUserNotificationsUsageDescription": "WordBase 需要发送通知来提醒你复习单词。",
         "NSSpeechRecognitionUsageDescription": "WordBase 使用语音识别来进行单词发音练习。",
         "NSMicrophoneUsageDescription": "WordBase 需要麦克风权限来进行发音练习。"
@@ -52,7 +55,9 @@
           "icon": "./assets/notification-icon.png",
           "color": "#2563eb"
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font"
     ]
   }
 }
