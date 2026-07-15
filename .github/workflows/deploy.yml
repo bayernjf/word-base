@@ -23,7 +23,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Build web frontend
+      - name: Build web frontend (standalone for Cloudflare)
         working-directory: apps/web
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -31,6 +31,7 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
+          USE_STANDALONE: "true"
         run: npm run build
 
       - name: Upload web build artifact
@@ -69,19 +70,16 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-        # Deploy from repo root: root vercel.json declares framework=nextjs,
-        # buildCommand runs npm -w @wordbase/web run build, outputDirectory=apps/web/.next.
-        # This ensures shared/ and packages/ are uploaded and Next.js resolves
-        # workspace dependencies correctly.
         run: |
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
 
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            DEPLOY_FLAGS="--prod"
-          else
-            DEPLOY_FLAGS=""
-          fi
+          # Always deploy to production (--prod) so the Vercel production
+          # alias (word-base-six.vercel.app) stays up-to-date. The Cloudflare
+          # _worker.js proxies /api/* to this alias, so it must always point
+          # to the latest deployment with API routes. Vercel preview URLs are
+          # unique per-run and cannot be used as a stable API base URL.
+          DEPLOY_FLAGS="--prod"
 
           set +e
           DEPLOY_OUTPUT=$(vercel deploy --token=$VERCEL_TOKEN --yes $DEPLOY_FLAGS \
@@ -101,7 +99,6 @@ jobs:
             exit $DEPLOY_EXIT
           fi
 
-          # Vercel prints the preview URL as the last https://*.vercel.app line
           DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[^ ]*\.vercel\.app' | tail -1)
 
           if [ -n "$DEPLOY_URL" ]; then
@@ -109,7 +106,7 @@ jobs:
             echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
             echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
             echo "| Status | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
-            echo "| Preview URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Production URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> $GITHUB_STEP_SUMMARY
             echo "vercel-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
           else
             echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
@@ -152,38 +149,12 @@ jobs:
             node -e "const fs=require('fs');const p='apps/web/.next/standalone/apps/web/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.scripts={};fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')" || true
           fi
           # Copy _worker.js to deployment root so Cloudflare Pages runs it as an Advanced mode Worker.
-          # Next.js copies public/ assets into .next/standalone/apps/web/public/, but Cloudflare Pages
-          # only picks up _worker.js from the output root, not from public/.
           cp apps/web/public/_worker.js apps/web/.next/standalone/apps/web/_worker.js 2>/dev/null || true
-          # Also copy wrangler.toml so wrangler pages deploy knows the project name.
-          cp apps/web/wrangler.toml apps/web/.next/standalone/apps/web/wrangler.toml 2>/dev/null || true
 
       - name: Deploy to Cloudflare Pages
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ needs.deploy-vercel.outputs.vercel-url }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-          CF_PAGES_BRANCH: ${{ github.ref == 'refs/heads/main' && 'main' || 'dev' }}
-        run: |
-          set -e
-          cd apps/web/.next/standalone/apps/web
-          # Install wrangler (Cloudflare's official CLI) locally so we can use
-          # `wrangler pages deploy`, which honours the project's existing
-          # settings from the dashboard AND accepts --env overrides for
-          # build-time vars. cloudflare/pages-action@v1 silently dropped the
-          # `var:` field, which is why the dashboard's stale
-          # NEXT_PUBLIC_API_BASE_URL was winning.
-          npm i --no-save --no-audit --no-fund wrangler@^3 2>&1 | tail -3
-          npx wrangler pages deploy . \
-            --project-name=word-base \
-            --branch="${CF_PAGES_BRANCH}" \
-            --commit-dirty=true \
-            --env "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" \
-            --env "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
-            --env "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" \
-            --env "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" \
-            --env "AI_CONFIG_ENCRYPTION_KEY=${AI_CONFIG_ENCRYPTION_KEY}" 2>&1 | tail -40
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: word-base
+          directory: apps/web/.next/standalone/apps/web

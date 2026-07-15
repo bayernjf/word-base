@@ -6,7 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: 'standalone',
+  output: process.env.USE_STANDALONE === 'true' ? 'standalone' : undefined,
   transpilePackages: ['@wordbase/shared'],
   experimental: {
     optimizeCss: false,
