@@ -72,6 +72,7 @@ export default {
       }
 
       const targetUrl = new URL(url.pathname + url.search, apiBase)
+      console.log('[worker] apiBase =', apiBase, '| env.NEXT_PUBLIC_API_BASE_URL =', env.NEXT_PUBLIC_API_BASE_URL)
 
       // Build upstream headers, dropping any header whose name or value
       // contains non-ASCII characters. The Vercel/Node fetch implementation
@@ -161,6 +162,7 @@ export default {
           previewHead: String(preview).slice(0, 200),
         })
         try {
+          newHeaders.set('X-Worker-Debug-ApiBase', String(apiBase))
           newHeaders.set('X-Worker-Debug-Target', String(targetUrl))
           newHeaders.set('X-Worker-Debug-Status', String(response.status))
           newHeaders.set('X-Worker-Debug-CT', response.headers.get('content-type') || '')
