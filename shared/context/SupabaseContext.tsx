@@ -72,10 +72,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string, remember?: boolean) => {
     logger.debug('signIn', { email, remember });
-    const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env as Record<string, string | undefined> : {};
-    const proc = (typeof process !== 'undefined' && process.env) ? process.env as Record<string, string | undefined> : {};
-    const apiBaseUrl = env.NEXT_PUBLIC_API_BASE_URL || env.VITE_API_BASE_URL || proc.NEXT_PUBLIC_API_BASE_URL || '';
-    if (apiBaseUrl) {
+    // Web 平台走同源 /api/v1/* (由 Cloudflare _worker.js 代理到 Vercel),
+    // 避免跨源 CORS 问题。desktop/mobile 平台通过 apiBase.ts 拿到绝对 URL。
+    const { getApiBaseUrl, API_PLATFORM } = await import('../lib/apiBase');
+    const rawBase = API_PLATFORM === 'web' ? '' : getApiBaseUrl();
+    const apiBaseUrl = rawBase.replace(/\/+$/, '');
+    if (API_PLATFORM === 'web' || apiBaseUrl) {
       try {
         const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
           method: 'POST',
