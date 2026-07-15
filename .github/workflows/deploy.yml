@@ -74,12 +74,16 @@ jobs:
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
 
-          # Always deploy to production (--prod) so the Vercel production
-          # alias (word-base-six.vercel.app) stays up-to-date. The Cloudflare
-          # _worker.js proxies /api/* to this alias, so it must always point
-          # to the latest deployment with API routes. Vercel preview URLs are
-          # unique per-run and cannot be used as a stable API base URL.
-          DEPLOY_FLAGS="--prod"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            # main -> production deployment (updates word-base-six.vercel.app)
+            DEPLOY_FLAGS="--prod"
+            ALIAS_NAME=""
+          else
+            # dev -> preview deployment, then set stable alias
+            # (dev-word-base.vercel.app) so Cloudflare _worker.js can proxy to it
+            DEPLOY_FLAGS=""
+            ALIAS_NAME="dev-word-base"
+          fi
 
           set +e
           DEPLOY_OUTPUT=$(vercel deploy --token=$VERCEL_TOKEN --yes $DEPLOY_FLAGS \
@@ -101,13 +105,27 @@ jobs:
 
           DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[^ ]*\.vercel\.app' | tail -1)
 
+          # For non-main branches, set a stable alias so the URL doesn't
+          # change every deploy. Cloudflare Preview env will point to this alias.
+          if [ -n "$ALIAS_NAME" ] && [ -n "$DEPLOY_URL" ]; then
+            echo "Setting alias $ALIAS_NAME -> $DEPLOY_URL"
+            vercel alias set "$DEPLOY_URL" "$ALIAS_NAME" --token=$VERCEL_TOKEN 2>&1 || true
+            # The stable URL for downstream consumers
+            STABLE_URL="https://${ALIAS_NAME}.vercel.app"
+            echo "vercel-url=$STABLE_URL" >> $GITHUB_OUTPUT
+          else
+            echo "vercel-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          fi
+
           if [ -n "$DEPLOY_URL" ]; then
             echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
             echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
             echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
             echo "| Status | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
-            echo "| Production URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> $GITHUB_STEP_SUMMARY
-            echo "vercel-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+            echo "| Deployment URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> $GITHUB_STEP_SUMMARY
+            if [ -n "$ALIAS_NAME" ]; then
+              echo "| Stable Alias | [https://${ALIAS_NAME}.vercel.app](https://${ALIAS_NAME}.vercel.app) |" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
             echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
@@ -158,3 +176,4 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: word-base
           directory: apps/web/.next/standalone/apps/web
+          branch: ${{ github.ref == 'refs/heads/main' && 'main' || 'dev' }}
