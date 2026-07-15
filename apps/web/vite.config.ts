@@ -59,6 +59,7 @@ export default defineConfig(() => {
       },
     ],
     envDir: path.resolve(__dirname, '../..'),
+    envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
     resolve: {
       alias: {
         '@wordbase/shared': path.resolve(__dirname, '../../shared'),
