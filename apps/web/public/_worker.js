@@ -29,6 +29,26 @@ async function readResponsePreview(response, maxBytes = 500) {
 
 export default {
   async fetch(request, env, ctx) {
+    try {
+      return await this._handle(request, env, ctx);
+    } catch (e) {
+      // Surface worker-side exceptions to the client so we can debug without
+      // needing CF Dashboard → Logs access.
+      return new Response(JSON.stringify({
+        error: 'worker_exception',
+        message: String(e?.message || e),
+        stack: String(e?.stack || '').slice(0, 800),
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
+        },
+      });
+    }
+  },
+
+  async _handle(request, env, ctx) {
     const url = new URL(request.url)
 
     if (shouldProxyApi(url)) {
@@ -59,7 +79,7 @@ export default {
       // CF Worker log: visible in Dashboard → Workers & Pages → word-base → Logs
       console.log('[worker] proxy', {
         incoming: url.pathname + url.search,
-        target: targetUrl.toString(),
+        target: String(targetUrl),
         method: request.method,
         hasAuth: Boolean(headers.get('Authorization')),
       })
@@ -93,13 +113,13 @@ export default {
           ctype: response.headers.get('content-type'),
           xVercelCache: response.headers.get('x-vercel-cache'),
           xVercelId: response.headers.get('x-vercel-id'),
-          previewHead: preview.slice(0, 200),
+          previewHead: String(preview).slice(0, 200),
         })
-        newHeaders.set('X-Worker-Debug-Target', targetUrl.toString())
+        newHeaders.set('X-Worker-Debug-Target', String(targetUrl))
         newHeaders.set('X-Worker-Debug-Status', String(response.status))
         newHeaders.set('X-Worker-Debug-CT', response.headers.get('content-type') || '')
         newHeaders.set('X-Worker-Debug-VercelCache', response.headers.get('x-vercel-cache') || '')
-        newHeaders.set('X-Worker-Debug-Preview', preview.slice(0, 300))
+        newHeaders.set('X-Worker-Debug-Preview', String(preview).slice(0, 300))
       }
 
       return new Response(response.body, {
