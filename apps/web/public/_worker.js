@@ -89,22 +89,40 @@ export default {
         response = await fetch(proxyRequest)
       } catch (e) {
         console.error('[worker] upstream fetch failed', e?.message || e)
-        return new Response(JSON.stringify({
+        const errBody = JSON.stringify({
           error: 'upstream_fetch_failed',
           message: String(e?.message || e),
-          target: targetUrl.toString(),
-        }), {
+          target: String(targetUrl),
+        })
+        return new Response(errBody, {
           status: 502,
           headers: { 'Content-Type': 'application/json' },
         })
       }
 
-      const newHeaders = new Headers(response.headers)
+      // Build outgoing headers, tolerating upstream's potentially-malformed
+      // values (e.g. multi-value set-cookie collapsed into a comma-separated
+      // string by Headers init). Iterate and set individually so a single
+      // bad header name/value doesn't kill the whole response.
+      const newHeaders = new Headers()
+      for (const [name, value] of response.headers.entries()) {
+        try {
+          // Skip hop-by-hop headers we already handle separately.
+          if (name.toLowerCase() === 'content-encoding') continue;
+          if (name.toLowerCase() === 'set-cookie') {
+            // Multi-value cookies must be appended, not set.
+            newHeaders.append('set-cookie', value);
+            continue;
+          }
+          newHeaders.set(name, value);
+        } catch (e) {
+          console.warn('[worker] skip bad header', name, e?.message || e);
+        }
+      }
       newHeaders.set('Access-Control-Allow-Origin', request.headers.get('Origin') || '*')
       newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
       newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
       newHeaders.set('Access-Control-Allow-Credentials', 'true')
-      newHeaders.delete('content-encoding')
 
       if (DEBUG) {
         const preview = await readResponsePreview(response, 500)
@@ -115,11 +133,15 @@ export default {
           xVercelId: response.headers.get('x-vercel-id'),
           previewHead: String(preview).slice(0, 200),
         })
-        newHeaders.set('X-Worker-Debug-Target', String(targetUrl))
-        newHeaders.set('X-Worker-Debug-Status', String(response.status))
-        newHeaders.set('X-Worker-Debug-CT', response.headers.get('content-type') || '')
-        newHeaders.set('X-Worker-Debug-VercelCache', response.headers.get('x-vercel-cache') || '')
-        newHeaders.set('X-Worker-Debug-Preview', String(preview).slice(0, 300))
+        try {
+          newHeaders.set('X-Worker-Debug-Target', String(targetUrl))
+          newHeaders.set('X-Worker-Debug-Status', String(response.status))
+          newHeaders.set('X-Worker-Debug-CT', response.headers.get('content-type') || '')
+          newHeaders.set('X-Worker-Debug-VercelCache', response.headers.get('x-vercel-cache') || '')
+          newHeaders.set('X-Worker-Debug-Preview', String(preview).slice(0, 300))
+        } catch (e) {
+          console.warn('[worker] skip debug header', e?.message || e)
+        }
       }
 
       return new Response(response.body, {
