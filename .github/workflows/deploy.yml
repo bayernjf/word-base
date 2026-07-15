@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Web
+    name: Build Web (Vite)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,27 +23,30 @@ jobs:
 
       - run: npm ci
 
-      - name: Build web frontend (standalone for Cloudflare)
+      - name: Build web frontend (Vite)
         working-directory: apps/web
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
-          USE_STANDALONE: "true"
         run: npm run build
 
-      - name: Upload web build artifact
+      - name: Copy _worker.js into Vite dist
+        # Vite already copies public/_worker.js into dist/, but overwrite with
+        # the canonical version from apps/web/public/ in case a stale one exists.
+        run: |
+          cp apps/web/public/_worker.js apps/web/dist/_worker.js 2>/dev/null || true
+
+      - name: Upload web dist artifact
         uses: actions/upload-artifact@v5
         with:
-          name: web-build
-          path: apps/web/.next
+          name: web-dist
+          path: apps/web/dist
           if-no-files-found: error
           include-hidden-files: true
 
   deploy-vercel:
-    name: Deploy to Vercel
+    name: Deploy to Vercel (API only)
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
@@ -60,7 +63,7 @@ jobs:
       - name: Install Vercel CLI
         run: npm i -g vercel@latest
 
-      - name: Deploy to Vercel
+      - name: Deploy Next.js API to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -75,12 +78,9 @@ jobs:
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
 
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            # main -> production deployment (updates word-base-six.vercel.app)
             DEPLOY_FLAGS="--prod"
             ALIAS_NAME=""
           else
-            # dev -> preview deployment, then set stable alias
-            # (dev-word-base.vercel.app) so Cloudflare _worker.js can proxy to it
             DEPLOY_FLAGS=""
             ALIAS_NAME="dev-word-base"
           fi
@@ -105,12 +105,9 @@ jobs:
 
           DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[^ ]*\.vercel\.app' | tail -1)
 
-          # For non-main branches, set a stable alias so the URL doesn't
-          # change every deploy. Cloudflare Preview env will point to this alias.
           if [ -n "$ALIAS_NAME" ] && [ -n "$DEPLOY_URL" ]; then
             echo "Setting alias $ALIAS_NAME -> $DEPLOY_URL"
             vercel alias set "$DEPLOY_URL" "$ALIAS_NAME" --token=$VERCEL_TOKEN 2>&1 || true
-            # The stable URL for downstream consumers
             STABLE_URL="https://${ALIAS_NAME}.vercel.app"
             echo "vercel-url=$STABLE_URL" >> $GITHUB_OUTPUT
           else
@@ -137,37 +134,18 @@ jobs:
         id: vercel-deploy
 
   deploy-cloudflare:
-    name: Deploy to Cloudflare Pages
+    name: Deploy to Cloudflare Pages (Vite static)
     runs-on: ubuntu-latest
     needs: [build, deploy-vercel]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download web build
+      - name: Download web dist
         uses: actions/download-artifact@v5
         with:
-          name: web-build
-          path: apps/web/.next
-
-      - name: Prepare Cloudflare deployment files
-        run: |
-          set -e
-          # Copy static/server assets into standalone output
-          if [ -d apps/web/.next/standalone ]; then
-            cp -R apps/web/.next/static apps/web/.next/standalone/apps/web/.next/ 2>/dev/null || true
-            cp -r apps/web/.next/server apps/web/.next/standalone/apps/web/.next/ 2>/dev/null || true
-            # Copy manifest files that exist (Next.js 15 doesn't generate all of them)
-            for f in paths.json prerender-manifest.js server-reference-manifest.js build-manifest.json react-loadable-manifest.json export-marker.json images-manifest.json next-font-manifest.json; do
-              [ -f "apps/web/.next/$f" ] && cp "apps/web/.next/$f" "apps/web/.next/standalone/apps/web/.next/" || true
-            done
-          fi
-          cp apps/web/package.json apps/web/.next/standalone/apps/web/ 2>/dev/null || true
-          if [ -f apps/web/.next/standalone/apps/web/package.json ]; then
-            node -e "const fs=require('fs');const p='apps/web/.next/standalone/apps/web/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.scripts={};fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')" || true
-          fi
-          # Copy _worker.js to deployment root so Cloudflare Pages runs it as an Advanced mode Worker.
-          cp apps/web/public/_worker.js apps/web/.next/standalone/apps/web/_worker.js 2>/dev/null || true
+          name: web-dist
+          path: apps/web/dist
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
@@ -175,5 +153,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: word-base
-          directory: apps/web/.next/standalone/apps/web
+          directory: apps/web/dist
           branch: ${{ github.ref == 'refs/heads/main' && 'main' || 'dev' }}
