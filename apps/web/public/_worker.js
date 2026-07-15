@@ -16,6 +16,17 @@ function shouldProxyApi(url) {
   return url.pathname.startsWith('/api/')
 }
 
+// Header names/values must be printable ASCII (RFC 7230). Browsers and
+// extensions sometimes include non-ASCII in headers (e.g. Cookie with
+// unicode characters, Referer with escaped paths). Filter them out before
+// passing to the upstream fetch.
+function isAscii(s) {
+  for (let i = 0; i < s.length; i++) {
+    if (s.charCodeAt(i) > 0x7e || s.charCodeAt(i) < 0x20) return false
+  }
+  return true
+}
+
 async function readResponsePreview(response, maxBytes = 500) {
   try {
     const clone = response.clone();
@@ -62,7 +73,23 @@ export default {
 
       const targetUrl = new URL(url.pathname + url.search, apiBase)
 
-      const headers = new Headers(request.headers)
+      // Build upstream headers, dropping any header whose name or value
+      // contains non-ASCII characters. The Vercel/Node fetch implementation
+      // rejects headers with bytes outside the printable-ASCII range with
+      // "TypeError: Invalid header value.", and certain browser/User-Agent
+      // strings can include such characters.
+      const headers = new Headers()
+      for (const [name, value] of request.headers.entries()) {
+        try {
+          if (isAscii(name) && isAscii(value)) {
+            headers.append(name, value)
+          } else {
+            console.warn('[worker] drop non-ASCII header', name)
+          }
+        } catch (e) {
+          console.warn('[worker] drop bad header', name, e?.message || e)
+        }
+      }
       headers.delete('host')
       headers.delete('cf-connecting-ip')
       headers.delete('cf-ray')
