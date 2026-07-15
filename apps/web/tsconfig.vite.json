@@ -5,7 +5,7 @@
     "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["node", "vite/client"],
+    "types": ["node"],
     "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -25,11 +25,11 @@
   },
   "include": [
     "../../shared/**/*",
-    "src/**/*",
-    "vite.config.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "src/app/api"
+    "src/app/api",
+    "vite.config.ts"
   ]
 }
