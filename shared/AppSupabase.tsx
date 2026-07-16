@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createLogger } from './lib/logger';
+import { apiUrl } from './lib/apiBase';
 import { AppLanguage, ThemeType, Word } from './types';
 import { getPlatform } from './platform';
 
@@ -135,23 +136,6 @@ export default function AppSupabase() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [autoEnrich, setAutoEnrich] = useState<boolean>(false);
   const [autoExplain, setAutoExplain] = useState<boolean>(false);
-  const syncServerBaseUrl = (() => {
-    const env = import.meta.env;
-    if (env?.NEXT_PUBLIC_SYNC_SERVER_URL || env?.VITE_SYNC_SERVER_URL) {
-      return (env?.NEXT_PUBLIC_SYNC_SERVER_URL || env?.VITE_SYNC_SERVER_URL) as string;
-    }
-    if (typeof window === 'undefined') {
-      // SSR 时返回空字符串，由上层处理
-      return '';
-    }
-    // 非标准 web 协议（tauri: / capacitor: / file:）时 window.location 不能直接用，
-    // 回退到 localhost；生产环境应通过 VITE_SYNC_SERVER_URL 显式注入。
-    const { protocol, hostname } = window.location;
-    if (protocol !== 'http:' && protocol !== 'https:') {
-      return 'http://localhost:3001';
-    }
-    return `${protocol}//${hostname}:3001`;
-  })();
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
   const isMobile = useIsMobile();
@@ -474,7 +458,7 @@ export default function AppSupabase() {
     }
 
     try {
-      const response = await fetch(`${syncServerBaseUrl}/api/v1/auth/delete-account`, {
+      const response = await fetch(apiUrl('/api/v1/auth/delete-account'), {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${accessToken}`,
