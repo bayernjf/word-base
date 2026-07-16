@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Info, Download, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Info, Download, RefreshCw, CheckCircle, AlertCircle, Shield, ExternalLink } from 'lucide-react';
 import { ThemeClasses } from '../../ThemeStyles';
 import { getPlatform } from '@wordbase/shared/platform';
 import type { AppLanguage } from '../../../types';
@@ -8,6 +8,7 @@ import type { UpdateProgress } from '@wordbase/shared/platform';
 interface AboutSettingsProps {
   themeStyles: ThemeClasses;
   language: AppLanguage;
+  onPrivacyPolicyClick?: () => void;
 }
 
 type UpdateState =
@@ -48,6 +49,9 @@ const COPY = {
     notSupported: '当前环境不支持自动更新',
     channelDesktop: '桌面端二进制更新',
     channelMobile: 'OTA 热更新',
+    privacyTitle: '隐私政策',
+    privacyDesc: '了解我们如何收集、使用和保护你的个人信息',
+    privacyAction: '查看隐私政策',
   },
   en: {
     title: 'About WordBase',
@@ -76,12 +80,15 @@ const COPY = {
     notSupported: 'Auto-update is not available in this environment',
     channelDesktop: 'Desktop binary updates',
     channelMobile: 'OTA hot updates',
+    privacyTitle: 'Privacy Policy',
+    privacyDesc: 'Learn how we collect, use, and protect your personal information',
+    privacyAction: 'View Privacy Policy',
   },
 } as const;
 
 const DESKTOP_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, language }) => {
+export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, language, onPrivacyPolicyClick }) => {
   const c = COPY[language] || COPY.en;
   const isGlass = themeStyles.name === 'glass';
 
@@ -351,6 +358,30 @@ export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, l
           </div>
         </div>
       </div>
+
+      {/* 隐私政策卡片 */}
+      {onPrivacyPolicyClick && (
+        <div className={`${cardBase} overflow-hidden`}>
+          <div className="flex items-start gap-4 p-5">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${iconWrap}`}>
+              <Shield className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className={`text-sm font-bold ${headingText}`}>{c.privacyTitle}</h4>
+              <p className={`text-xs ${mutedText} mt-0.5`}>{c.privacyDesc}</p>
+              <div className="mt-4">
+                <button
+                  onClick={onPrivacyPolicyClick}
+                  className={`${btnSecondary} px-4 py-2 text-xs font-semibold flex items-center gap-1.5 cursor-pointer`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  {c.privacyAction}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

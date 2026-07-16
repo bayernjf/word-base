@@ -32,6 +32,7 @@ import {
   AddNewModelView,
   SyncStorageView,
   AboutSettingsView,
+  PrivacyPolicyView,
 } from './components/views';
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
@@ -953,7 +954,20 @@ export default function AppSupabase() {
                 />
               )}
               {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
-              {activeView === 'settings-about' && <AboutSettingsView themeStyles={themeStyles} language={language} />}
+              {activeView === 'settings-about' && (
+                <AboutSettingsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  onPrivacyPolicyClick={() => setActiveView('settings-privacy')}
+                />
+              )}
+              {activeView === 'settings-privacy' && (
+                <PrivacyPolicyView
+                  themeStyles={themeStyles}
+                  language={language}
+                  onBack={() => setActiveView('settings-about')}
+                />
+              )}
             </SettingsLayout>
           );
         default:

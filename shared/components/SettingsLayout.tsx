@@ -105,7 +105,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   if (isMobile) {
     const visibleMenus = settingsMenus.filter(m => !m.hidden);
     const currentMenu = visibleMenus.find(m => m.id === activeSettingsTab);
-    const isSubPage = activeView === 'settings-addmodel' || activeView?.startsWith('settings-editmodel-');
+    const isSubPage = activeView === 'settings-addmodel' || activeView?.startsWith('settings-editmodel-') || activeView === 'settings-privacy';
 
     // 子页面（添加/编辑模型）不渲染外层标题栏和卡片包裹，子组件自己处理
     if (isSubPage) {
