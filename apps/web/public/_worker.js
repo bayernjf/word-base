@@ -1,5 +1,3 @@
-const API_BASE_URL = (globalThis.__ENV || {}).NEXT_PUBLIC_API_BASE_URL || ''
-
 function shouldProxyApi(url) {
   return url.pathname.startsWith('/api/')
 }
@@ -17,7 +15,7 @@ export default {
       const url = new URL(request.url)
 
       if (shouldProxyApi(url)) {
-        const apiBase = env.NEXT_PUBLIC_API_BASE_URL || API_BASE_URL
+        const apiBase = env.NEXT_PUBLIC_API_BASE_URL
         if (!apiBase) {
           return new Response(JSON.stringify({ error: 'API base URL not configured' }), {
             status: 500,
@@ -55,20 +53,13 @@ export default {
         const newHeaders = new Headers()
         for (const [name, value] of response.headers.entries()) {
           try {
-            if (name.toLowerCase() === 'content-encoding') continue
-            if (name.toLowerCase() === 'set-cookie') {
-              newHeaders.append('set-cookie', value)
-              continue
-            }
+            const lowerName = name.toLowerCase()
+            if (lowerName === 'content-encoding' || lowerName === 'set-cookie' || lowerName === 'access-control-allow-credentials') continue
             newHeaders.set(name, value)
           } catch (e) {
             // skip bad header
           }
         }
-        newHeaders.set('Access-Control-Allow-Origin', request.headers.get('Origin') || '*')
-        newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
-        newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        newHeaders.set('Access-Control-Allow-Credentials', 'true')
 
         return new Response(response.body, {
           status: response.status,
@@ -86,7 +77,6 @@ export default {
         status: 500,
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
         },
       })
     }

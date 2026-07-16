@@ -45,6 +45,10 @@ function getEnvValue(key: string): string | undefined {
 const platform = detectPlatform()
 
 function resolveBaseUrl(): string {
+  if (platform === 'web') {
+    return ''
+  }
+
   let rawBase = getEnvValue('NEXT_PUBLIC_API_BASE_URL') || ''
 
   if (!rawBase) {

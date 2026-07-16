@@ -30,7 +30,6 @@ app.use(async (c, next) => {
   const origin = c.req.header('Origin');
   if (origin) {
     c.res.headers.set('Access-Control-Allow-Origin', origin);
-    c.res.headers.set('Access-Control-Allow-Credentials', 'true');
   }
   c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -67,36 +66,12 @@ const getRequestContext = async (c: { req: { header: (key: string) => string | u
     return { token: '', user: null, db: null }
   }
 
-  const db = createUserSupabaseClient(token)
-  
-  // 直接解析 JWT 获取用户信息，避免每次请求都查数据库
-  let user = null
-  try {
-    const jwtParts = token.split('.')
-    if (jwtParts.length === 3) {
-      const payload = JSON.parse(Buffer.from(jwtParts[1], 'base64').toString('utf-8'))
-      if (payload?.sub) {
-        user = {
-          id: payload.sub,
-          email: payload?.email || '',
-          user_metadata: payload?.user_metadata || {}
-        }
-      }
-    }
-  } catch {
-    // JWT 解析失败，降级为查数据库
-    const { data: { user: dbUser }, error } = await db.auth.getUser(token)
-    if (error || !dbUser) {
-      return { token, user: null, db }
-    }
-    user = dbUser
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) {
+    return { token, user: null, db: null }
   }
 
-  if (!user) {
-    return { token, user: null, db }
-  }
-
-  return { token, user, db }
+  return { token, user, db: createUserSupabaseClient(token) }
 }
 
 const buildAuthResponse = (session: { access_token: string; refresh_token: string; user: { id: string; email?: string; user_metadata?: { display_name?: string } } | null }) => ({
@@ -419,7 +394,9 @@ app.post('/api/v1/auth/refresh', async (c) => {
   }
 })
 
-app.post('/api/v1/auth/logout', (c) => {
+app.post('/api/v1/auth/logout', async (c) => {
+  const { user } = await getRequestContext(c)
+  if (!user) return c.json({ error: 'Unauthorized' }, 401)
   return c.json({ ok: true })
 })
 
@@ -656,8 +633,8 @@ app.post('/api/v1/books', async (c) => {
 
     const body = await c.req.json()
     const book = {
-      user_id: user.id,
       ...body,
+      user_id: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       sync_version: 1,
@@ -702,10 +679,11 @@ app.put('/api/v1/books/:id', async (c) => {
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
     const body = await c.req.json()
+    const { id: _id, user_id: _userId, created_at: _createdAt, updated_at: _updatedAt, sync_version: _syncVersion, is_deleted: _isDeleted, ...updates } = body
     const { data, error } = await db
       .from('vocabulary_books')
       .update({
-        ...body,
+        ...updates,
         updated_at: new Date().toISOString()
       })
       .eq('id', c.req.param('id'))
@@ -773,8 +751,8 @@ app.post('/api/v1/words', async (c) => {
 
     const body = await c.req.json()
     const word = {
-      user_id: user.id,
       ...body,
+      user_id: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       sync_version: 1,
@@ -872,9 +850,10 @@ app.post('/api/v1/words/batch', async (c) => {
     const body = await c.req.json()
     const now = new Date().toISOString()
     const words = (body.words?.map((word: any) => {
+      const { user_id: _userId, created_at: _createdAt, updated_at: _updatedAt, is_deleted: _isDeleted, ...input } = word
       const mapped = {
+        ...input,
         user_id: user.id,
-        ...word,
         created_at: now,
         updated_at: now,
         sync_version: (word.sync_version || 0) + 1,

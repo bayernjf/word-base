@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../lib/logger';
+import { apiUrl } from '../lib/apiBase';
 
 const logger = createLogger('SupabaseContext');
 
@@ -73,40 +74,31 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string, remember?: boolean) => {
     logger.debug('signIn', { email, remember });
     // Web 平台走同源 /api/v1/* (由 Cloudflare _worker.js 代理到 Vercel),
-    // 避免跨源 CORS 问题。desktop/mobile 平台通过 apiBase.ts 拿到绝对 URL。
-    const { getApiBaseUrl, API_PLATFORM } = await import('../lib/apiBase');
-    const rawBase = API_PLATFORM === 'web' ? '' : getApiBaseUrl();
-    const apiBaseUrl = rawBase.replace(/\/+$/, '');
-    if (API_PLATFORM === 'web' || apiBaseUrl) {
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, remember }),
-        });
-        const result = await response.json();
-        if (!response.ok) {
-          const error = new Error(result.error || 'Login failed');
-          logger.error('signIn failed via API', { error: error.message });
-          return { error };
-        }
-        if (result.accessToken) {
-          await supabase.auth.setSession({
-            access_token: result.accessToken,
-            refresh_token: result.refreshToken,
-          });
-        }
-        logger.info('signIn success via API');
-        return { error: null };
-      } catch (apiError: any) {
-        logger.error('signIn API error', { error: apiError.message });
-        return { error: apiError };
+    // desktop/mobile 平台由 apiUrl 解析绝对 URL。
+    try {
+      const response = await fetch(apiUrl('/api/v1/auth/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, remember }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        const error = new Error(result.error || 'Login failed');
+        logger.error('signIn failed via API', { error: error.message });
+        return { error };
       }
+      if (result.accessToken) {
+        await supabase.auth.setSession({
+          access_token: result.accessToken,
+          refresh_token: result.refreshToken,
+        });
+      }
+      logger.info('signIn success via API');
+      return { error: null };
+    } catch (apiError: any) {
+      logger.error('signIn API error', { error: apiError.message });
+      return { error: apiError };
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) logger.error('signIn failed', { error: error.message });
-    else logger.info('signIn success');
-    return { error };
   };
 
   const signOut = async () => {
