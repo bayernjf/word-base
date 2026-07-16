@@ -28,7 +28,6 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
         run: npm run build
 
       - name: Copy _worker.js into Vite dist
@@ -64,6 +63,7 @@ jobs:
         run: npm i -g vercel@latest
 
       - name: Deploy Next.js API to Vercel
+        id: vercel-deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -86,7 +86,7 @@ jobs:
           fi
 
           set +e
-          DEPLOY_OUTPUT=$(vercel deploy --token=$VERCEL_TOKEN --yes $DEPLOY_FLAGS \
+          DEPLOY_OUTPUT=$(vercel deploy --token="$VERCEL_TOKEN" --yes $DEPLOY_FLAGS \
             --env NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
             --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
             --env NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
@@ -98,40 +98,58 @@ jobs:
 
           echo "$DEPLOY_OUTPUT"
 
-          if [ $DEPLOY_EXIT -ne 0 ]; then
+          if [ "$DEPLOY_EXIT" -ne 0 ]; then
             echo "::error::Vercel deploy failed with exit code $DEPLOY_EXIT"
-            exit $DEPLOY_EXIT
+            exit "$DEPLOY_EXIT"
           fi
 
           DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[^ ]*\.vercel\.app' | tail -1)
-
-          if [ -n "$ALIAS_NAME" ] && [ -n "$DEPLOY_URL" ]; then
-            echo "Setting alias $ALIAS_NAME -> $DEPLOY_URL"
-            vercel alias set "$DEPLOY_URL" "$ALIAS_NAME" --token=$VERCEL_TOKEN 2>&1 || true
-            STABLE_URL="https://${ALIAS_NAME}.vercel.app"
-            echo "vercel-url=$STABLE_URL" >> $GITHUB_OUTPUT
-          else
-            echo "vercel-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-          fi
-
-          if [ -n "$DEPLOY_URL" ]; then
-            echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
-            echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Status | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
-            echo "| Deployment URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> $GITHUB_STEP_SUMMARY
-            if [ -n "$ALIAS_NAME" ]; then
-              echo "| Stable Alias | [https://${ALIAS_NAME}.vercel.app](https://${ALIAS_NAME}.vercel.app) |" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "## Vercel Deployment Summary" >> $GITHUB_STEP_SUMMARY
-            echo "| Name | Result |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Status | ❌ URL not detected in output |" >> $GITHUB_STEP_SUMMARY
+          if [ -z "$DEPLOY_URL" ]; then
             echo "::error::Could not detect deployment URL in Vercel output"
             exit 1
           fi
-        id: vercel-deploy
+
+          if [ -n "$ALIAS_NAME" ]; then
+            echo "Setting alias $ALIAS_NAME -> $DEPLOY_URL"
+            vercel alias set "$DEPLOY_URL" "$ALIAS_NAME" --token="$VERCEL_TOKEN"
+            STABLE_URL="https://${ALIAS_NAME}.vercel.app"
+          elif [ -n "$NEXT_PUBLIC_API_BASE_URL" ]; then
+            STABLE_URL="${NEXT_PUBLIC_API_BASE_URL%/}"
+          else
+            STABLE_URL="$DEPLOY_URL"
+          fi
+
+          echo "vercel-url=$STABLE_URL" >> "$GITHUB_OUTPUT"
+          echo "## Vercel Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Name | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | ✅ Deployed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Deployment URL | [${DEPLOY_URL}](${DEPLOY_URL}) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Health Gate URL | [${STABLE_URL}](${STABLE_URL}) |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Vercel API health
+        env:
+          API_BASE_URL: ${{ steps.vercel-deploy.outputs.vercel-url }}
+        run: |
+          for attempt in $(seq 1 12); do
+            BODY_FILE=$(mktemp)
+            RESULT=$(curl --silent --show-error --location --output "$BODY_FILE" --write-out '%{http_code}|%{content_type}' "$API_BASE_URL/api/v1/health" || true)
+            STATUS=${RESULT%%|*}
+            CONTENT_TYPE=${RESULT#*|}
+            BODY=$(<"$BODY_FILE")
+            rm -f "$BODY_FILE"
+
+            if [ "$STATUS" = "200" ] && [[ "$CONTENT_TYPE" == application/json* ]] && [[ "$BODY" == *'"ok":true'* ]]; then
+              echo "Vercel API health check passed on attempt $attempt"
+              exit 0
+            fi
+
+            echo "Attempt $attempt failed: status=$STATUS content-type=$CONTENT_TYPE body=$BODY"
+            sleep 10
+          done
+
+          echo "::error::Vercel API health check failed"
+          exit 1
 
   deploy-cloudflare:
     name: Deploy to Cloudflare Pages (Vite static)
@@ -155,3 +173,49 @@ jobs:
           projectName: word-base
           directory: apps/web/dist
           branch: ${{ github.ref == 'refs/heads/main' && 'main' || 'dev' }}
+
+      - name: Verify Cloudflare deployment
+        env:
+          SITE_BASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://word-base.pages.dev' || 'https://dev.word-base.pages.dev' }}
+        run: |
+          check_status() {
+            local path="$1"
+            local expected="$2"
+            local status
+            status=$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "$SITE_BASE_URL$path" || true)
+            [ "$status" = "$expected" ]
+          }
+
+          check_json() {
+            local path="$1"
+            local expected_status="$2"
+            local expected_body="$3"
+            local body_file
+            local result
+            local status
+            local content_type
+            local body
+            body_file=$(mktemp)
+            result=$(curl --silent --show-error --location --output "$body_file" --write-out '%{http_code}|%{content_type}' "$SITE_BASE_URL$path" || true)
+            status=${result%%|*}
+            content_type=${result#*|}
+            body=$(<"$body_file")
+            rm -f "$body_file"
+            [ "$status" = "$expected_status" ] && [[ "$content_type" == application/json* ]] && [[ "$body" == *"$expected_body"* ]]
+          }
+
+          for attempt in $(seq 1 12); do
+            if check_status "/" "200" \
+              && check_status "/app" "200" \
+              && check_json "/api/v1/health" "200" '"ok":true' \
+              && check_json "/api/v1/words" "401" '"error":"Unauthorized"'; then
+              echo "Cloudflare deployment verification passed on attempt $attempt"
+              exit 0
+            fi
+
+            echo "Cloudflare verification attempt $attempt failed"
+            sleep 10
+          done
+
+          echo "::error::Cloudflare deployment verification failed"
+          exit 1
