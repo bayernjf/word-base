@@ -9,6 +9,7 @@ import { LearningSection } from './components/LearningSection';
 import { MultiPlatformSection } from './components/MultiPlatformSection';
 import { FinalCTA } from './components/FinalCTA';
 import { MacInstallGuide } from './components/MacInstallGuide';
+import { LandingFooter } from './components/LandingFooter';
 
 export type LandingTheme = 'dark' | 'light';
 
@@ -48,6 +49,7 @@ export function Landing() {
         <MultiPlatformSection theme={theme} />
         <FinalCTA theme={theme} onMacDownload={openMacGuide} />
       </main>
+      <LandingFooter theme={theme} />
       <MacInstallGuide open={macGuideOpen} onClose={() => setMacGuideOpen(false)} theme={theme} />
     </div>
   );
