@@ -33,8 +33,12 @@ import {
   SyncStorageView,
   AboutSettingsView,
   PrivacyPolicyView,
+  AnnouncementsView,
 } from './components/views';
 import { useSupabase } from './context/SupabaseContext';
+import { useAnnouncements } from './context/AnnouncementContext';
+import { AnnouncementBanner } from './components/announcement/AnnouncementBanner';
+import { AnnouncementModal } from './components/announcement/AnnouncementModal';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
 import { useStories } from './hooks/useStories';
 import { useIsMobile } from './hooks/useIsMobile';
@@ -140,6 +144,25 @@ export default function AppSupabase() {
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
   const isMobile = useIsMobile();
+
+  // ============ 公告系统 ============
+  const { announcements, dismissBanner, markRead, unreadCount } = useAnnouncements();
+  const [dismissedModalIds, setDismissedModalIds] = useState<Set<string>>(new Set());
+  const activeBanner = announcements.find(
+    (a) => a.severity === 'warning' && !a.read && !a.dismissed
+  );
+  const activeModal = announcements.find(
+    (a) => a.severity === 'critical' && !a.read && !dismissedModalIds.has(a.id)
+  );
+  const handleModalClose = () => {
+    if (!activeModal) return;
+    const id = activeModal.id;
+    setDismissedModalIds((prev) => new Set(prev).add(id));
+    void markRead(id);
+  };
+  const handleBannerDismiss = (id: string) => {
+    void dismissBanner(id);
+  };
 
   useEffect(() => {
     void getPlatform().kv.set('wordbase_language', language);
@@ -864,6 +887,8 @@ export default function AppSupabase() {
           return <ReadingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
         case 'practice-writing':
           return <WritingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+        case 'announcements':
+          return <AnnouncementsView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
         case 'profile':
           return (
             <AccountSettingsView
@@ -1016,7 +1041,18 @@ export default function AppSupabase() {
         activeView={activeView}
         user={currentUser}
         isMobile={isMobile}
+        announcementUnreadCount={unreadCount}
       />
+
+      {user && activeBanner && (
+        <AnnouncementBanner
+          announcement={activeBanner}
+          theme={theme}
+          language={language}
+          onDismiss={handleBannerDismiss}
+          onOpenList={() => setActiveView('announcements')}
+        />
+      )}
 
       <main className={`flex-grow w-full ${isMobile ? 'px-4 py-4 pb-24' : 'max-w-7xl mx-auto ' + (isCompactMode ? 'p-3 my-4' : 'px-6 py-8 my-6')}`}>
         {!user ? (
@@ -1061,6 +1097,7 @@ export default function AppSupabase() {
                 themeStyles={themeStyles}
                 language={language}
                 user={currentUser}
+                announcementUnreadCount={unreadCount}
               />
             </div>
             <div className="lg:col-span-3">
@@ -1087,6 +1124,15 @@ export default function AppSupabase() {
           onNavigate={setActiveView}
           themeStyles={themeStyles}
           language={language}
+        />
+      )}
+
+      {user && activeModal && (
+        <AnnouncementModal
+          announcement={activeModal}
+          theme={theme}
+          language={language}
+          onClose={handleModalClose}
         />
       )}
     </div>

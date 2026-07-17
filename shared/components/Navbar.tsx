@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown, Languages } from 'lucide-react';
+import { LogIn, LogOut, Settings as SettingsIcon, User, ChevronDown, Languages, Megaphone } from 'lucide-react';
 
 const WordBaseFullLogo: React.FC<{ className?: string }> = ({ className }) => (
   <svg viewBox="0 0 340 128" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -48,10 +48,11 @@ interface NavbarProps {
   activeView: string;
   user?: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
   isMobile?: boolean;
+  announcementUnreadCount?: number;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ 
-  theme, language, onThemeChange, onLanguageChange, themeStyles, isLoggedIn, onLogout, onNavigate, activeView, user, isMobile = false
+export const Navbar: React.FC<NavbarProps> = ({
+  theme, language, onThemeChange, onLanguageChange, themeStyles, isLoggedIn, onLogout, onNavigate, activeView, user, isMobile = false, announcementUnreadCount = 0
 }) => {
   const isGlass = theme === 'glass';
   const [showDropdown, setShowDropdown] = useState(false);
@@ -214,6 +215,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div className="flex items-center space-x-2">
                           <User className="w-3.5 h-3.5" />
                           <span>{copy.profile}</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => { setShowDropdown(false); onNavigate('announcements'); }}
+                        className={`w-full text-left px-4 py-2 text-xs ${dropdownItemClass} ${themeStyles.textPrimary}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Megaphone className="w-3.5 h-3.5" />
+                            <span>{t('sidebar.announcements' as any)}</span>
+                          </div>
+                          {announcementUnreadCount > 0 && (
+                            <span className={`min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                              isGlass
+                                ? 'bg-rose-500/90 text-white'
+                                : 'bg-[#e88080] text-white'
+                            }`}>
+                              {announcementUnreadCount > 99 ? '99+' : announcementUnreadCount}
+                            </span>
+                          )}
                         </div>
                       </button>
                       <button
