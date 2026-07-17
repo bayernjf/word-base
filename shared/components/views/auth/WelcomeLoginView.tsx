@@ -71,6 +71,7 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -112,6 +113,10 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
     }
     if (password.length < 6) {
       setMessage({ text: t('login.passwordTooShort'), type: 'error' });
+      return;
+    }
+    if (!agreedToTerms) {
+      setMessage({ text: t('login.agreeToTermsRequired'), type: 'error' });
       return;
     }
     setIsLoading(true);
@@ -293,6 +298,26 @@ export const WelcomeLoginView: React.FC<LoginProps> = ({
                 required
                 minLength={6}
               />
+            </div>
+
+            <div className="flex items-start space-x-2">
+              <input
+                type="checkbox"
+                id="agree-terms"
+                checked={agreedToTerms}
+                onChange={() => setAgreedToTerms(!agreedToTerms)}
+                className="mt-0.5 rounded border-neutral-300Accent focus:ring-0 cursor-pointer"
+              />
+              <div className={`text-xs leading-relaxed ${themeStyles.textSecondary}`}>
+                <label htmlFor="agree-terms" className="cursor-pointer select-none">{t('login.agreeToTermsPrefix')}</label>
+                <button type="button" onClick={() => void getPlatform().openUrl('https://word-base.pages.dev/privacy')} className="text-indigo-650 dark:text-indigo-400 font-medium hover:underline">
+                  {t('login.privacyPolicy')}
+                </button>
+                <span>{t('login.agreeToTermsAnd')}</span>
+                <button type="button" onClick={() => void getPlatform().openUrl('https://word-base.pages.dev/terms')} className="text-indigo-650 dark:text-indigo-400 font-medium hover:underline">
+                  {t('login.termsOfService')}
+                </button>
+              </div>
             </div>
 
             <button type="submit" className={`w-full ${themeStyles.btnPrimary} py-2.5 flex items-center justify-center space-x-2`} disabled={isLoading}>

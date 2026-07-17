@@ -104,6 +104,32 @@ export function LandingFooter({ theme }: Props) {
                   隐私政策
                 </a>
               </li>
+              <li>
+                <a
+                  href="/terms"
+                  className={cn(
+                    'text-sm transition-colors',
+                    theme === 'dark'
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  服务条款
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/delete-account"
+                  className={cn(
+                    'text-sm transition-colors',
+                    theme === 'dark'
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  账号删除
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -122,17 +148,30 @@ export function LandingFooter({ theme }: Props) {
           >
             © {new Date().getFullYear()} WordBase. All rights reserved.
           </p>
-          <a
-            href="/privacy"
-            className={cn(
-              'text-xs transition-colors',
-              theme === 'dark'
-                ? 'text-slate-500 hover:text-slate-300'
-                : 'text-slate-400 hover:text-slate-600',
-            )}
-          >
-            隐私政策
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="/privacy"
+              className={cn(
+                'text-xs transition-colors',
+                theme === 'dark'
+                  ? 'text-slate-500 hover:text-slate-300'
+                  : 'text-slate-400 hover:text-slate-600',
+              )}
+            >
+              隐私政策
+            </a>
+            <a
+              href="/terms"
+              className={cn(
+                'text-xs transition-colors',
+                theme === 'dark'
+                  ? 'text-slate-500 hover:text-slate-300'
+                  : 'text-slate-400 hover:text-slate-600',
+              )}
+            >
+              服务条款
+            </a>
+          </div>
         </div>
       </div>
     </footer>

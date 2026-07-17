@@ -79,6 +79,11 @@ export const zh: LocaleDict = {
     enterEmail: '请输入邮箱地址',
     recoverySent: '恢复邮件已发送，请检查邮箱并点击邮件中的恢复链接完成密码重置。',
     sendFailed: '发送失败',
+    agreeToTermsPrefix: '我已阅读并同意',
+    privacyPolicy: '《隐私政策》',
+    agreeToTermsAnd: '和',
+    termsOfService: '《服务条款》',
+    agreeToTermsRequired: '请阅读并同意隐私政策和服务条款',
   },
   dashboard: {
     welcome: '欢迎回来',

@@ -77,6 +77,11 @@ export const en = {
     enterEmail: 'Please enter your email address',
     recoverySent: 'Recovery email sent. Please check your inbox and follow the recovery link to reset your password.',
     sendFailed: 'Failed to send',
+    agreeToTermsPrefix: 'I have read and agree to the ',
+    privacyPolicy: 'Privacy Policy',
+    agreeToTermsAnd: ' and ',
+    termsOfService: 'Terms of Service',
+    agreeToTermsRequired: 'Please read and agree to the Privacy Policy and Terms of Service',
   },
   dashboard: {
     welcome: 'Welcome back',
