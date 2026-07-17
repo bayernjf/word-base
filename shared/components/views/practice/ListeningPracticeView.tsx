@@ -18,7 +18,7 @@ export const ListeningPracticeView: React.FC<ListeningPracticeProps> = ({ themeS
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [revealedExplanations, setRevealedExplanations] = useState<Record<number, boolean>>({});
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (isPlaying) {

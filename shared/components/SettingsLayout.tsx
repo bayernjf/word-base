@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Sliders, Sparkles, Database, Wand2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { User, Sliders, Sparkles, Database, Wand2, Info, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
 import { AppLanguage } from '../types';
 import { createTranslator } from '../i18n';
@@ -25,6 +25,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     aiModels: t('settingsLayout.aiModels'),
     autoAi: t('settingsLayout.autoAi'),
     sync: t('settingsLayout.sync'),
+    about: t('settingsLayout.about'),
+    feedback: t('settingsLayout.feedback'),
     title: t('settingsLayout.title'),
     subtitle: t('settingsLayout.subtitle'),
     preferences: t('settingsLayout.preferences'),
@@ -35,7 +37,9 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     { id: 'settings-appearance', label: copy.appearance, icon: Sliders },
     { id: 'settings-aimodels', label: copy.aiModels, icon: Sparkles },
     { id: 'settings-autoai', label: copy.autoAi, icon: Wand2 },
-    { id: 'settings-sync', label: copy.sync, icon: Database, hidden: true }
+    { id: 'settings-sync', label: copy.sync, icon: Database, hidden: true },
+    { id: 'settings-feedback', label: copy.feedback, icon: MessageSquare },
+    { id: 'settings-about', label: copy.about, icon: Info },
   ];
 
   const isGlass = themeStyles.name === 'glass';
@@ -103,7 +107,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   if (isMobile) {
     const visibleMenus = settingsMenus.filter(m => !m.hidden);
     const currentMenu = visibleMenus.find(m => m.id === activeSettingsTab);
-    const isSubPage = activeView === 'settings-addmodel' || activeView?.startsWith('settings-editmodel-');
+    const isSubPage = activeView === 'settings-addmodel' || activeView?.startsWith('settings-editmodel-') || activeView === 'settings-privacy';
 
     // 子页面（添加/编辑模型）不渲染外层标题栏和卡片包裹，子组件自己处理
     if (isSubPage) {

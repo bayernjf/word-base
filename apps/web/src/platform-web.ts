@@ -1,6 +1,6 @@
-import { createCachedKV, type PlatformAPI, type SpeakOptions } from '@wordbase/shared/platform';
+import { createCachedKV, type PlatformAPI, type SpeakOptions, type SystemInfo, type PlatformLogData } from '@wordbase/shared/platform';
 
-function pickEnglishVoice(voices: SpeechSynthesisVoice[], preferred?: string): SpeechSynthesisVoice | null {
+function pickEnglishVoice(voices: any[], preferred?: string): any {
   if (!voices.length) return null;
   if (preferred) {
     const byName = voices.find(v => v.name === preferred);
@@ -71,6 +71,14 @@ export const webPlatform: PlatformAPI = {
     if (Notification.permission === 'granted') new Notification(title, { body });
   },
 
+  async openUrl(url: string): Promise<void> {
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      /* ignore */
+    }
+  },
+
   kv: createCachedKV({
     loadAll: async () => loadAllFromLocalStorage(),
     save: async (k, v) => { localStorage.setItem(k, v); },
@@ -78,4 +86,26 @@ export const webPlatform: PlatformAPI = {
   }),
 
   getPlatform() { return 'web'; },
+
+  async getSystemInfo(): Promise<SystemInfo> {
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    let osVersion: string | undefined;
+    if (/Windows NT ([\d.]+)/.test(ua)) osVersion = `Windows ${RegExp.$1}`;
+    else if (/Mac OS X ([\d_]+)/.test(ua)) osVersion = `macOS ${RegExp.$1.replace(/_/g, '.')}`;
+    else if (/Android ([\d.]+)/.test(ua)) osVersion = `Android ${RegExp.$1}`;
+    else if (/(?:iPhone|iPad|iPod).*?OS ([\d_]+)/.test(ua)) osVersion = `iOS ${RegExp.$1.replace(/_/g, '.')}`;
+
+    const g = globalThis as any;
+    const appVersion = g.__APP_VERSION__ || (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_APP_VERSION) || 'unknown';
+
+    return {
+      appVersion: String(appVersion),
+      platform: 'web',
+      osVersion,
+    };
+  },
+
+  async getRecentLogs(): Promise<PlatformLogData | null> {
+    return null;
+  },
 };

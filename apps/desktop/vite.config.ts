@@ -17,16 +17,12 @@ const manualChunks: ManualChunksOption = (id) => {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss({
-      content: [
-        path.resolve(__dirname, '../../shared/**/*.{ts,tsx}'),
-        path.resolve(__dirname, './**/*.{ts,tsx,html}'),
-      ],
-    })],
+    plugins: [react(), tailwindcss()],
     envDir: path.resolve(__dirname, '../..'),
     resolve: {
       alias: {
         '@wordbase/shared': path.resolve(__dirname, '../../shared'),
+        '@wordbase/web-primitives': path.resolve(__dirname, '../web/src/primitives'),
       },
     },
     build: {
@@ -34,15 +30,25 @@ export default defineConfig(() => {
         output: { manualChunks },
       },
       target: ['es2022', 'chrome120', 'safari17'],
-      minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
+      minify: process.env.TAURI_DEBUG ? false : ('esbuild' as const),
       sourcemap: !!process.env.TAURI_DEBUG,
       chunkSizeWarningLimit: 600,
     },
     server: {
       port: 3002,
       strictPort: true,
+      host: 'localhost',
+      hmr: {
+        protocol: 'ws',
+        host: 'localhost',
+        port: 3002,
+      },
       watch: {
         ignored: ['**/.data/**', '**/src-tauri/**'],
+      },
+      fs: {
+        // Allow serving files from the monorepo root (needed for shared/ and web primitives)
+        allow: [path.resolve(__dirname, '../..')],
       },
     },
     clearScreen: false,

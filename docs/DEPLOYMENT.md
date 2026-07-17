@@ -1,233 +1,234 @@
-# Web 端部署指南（Vercel + Cloudflare Pages 双平台）
+# 部署架构（Cloudflare Pages + Vercel）
 
-WordBase Web 端支持同时部署到 Vercel 和 Cloudflare Pages，互为备份，统一由 GitHub Actions 自动完成。
+WordBase 采用 Cloudflare Pages + Vercel 双平台部署，由 GitHub Actions 自动完成。
 
 ---
 
 ## 架构总览
 
 ```
-代码推送到 main 分支
-        │
-        ▼
-GitHub Actions（统一构建）
-        │
-        ├──► 部署到 Cloudflare Pages（主生产环境）
-        └──► 部署到 Vercel（备用/演示环境）
+用户 / word-picker 插件
+  │
+  ▼
+Cloudflare Pages (word-base.pages.dev)        ← CDN + 静态前端 + API 代理
+  │
+  ├─ /  /app  /assets/*  → Vite 静态资源（CDN 直接返回）
+  └─ /api/*               → _worker.js 反向代理 ──→ Vercel Serverless Functions
+                                                    │
+                                                    ▼
+                                                 Hono API → Supabase
 ```
 
-- **一次构建，两份部署**：CI 里只构建一次，产物同时发布到两个平台
-- **互不依赖**：两个平台独立运行，一个挂了另一个正常服务
-- **DNS 智能切换**：通过 Cloudflare DNS Failover 实现自动故障转移
+### 两个平台的职责
+
+| 平台 | 职责 | 说明 |
+|------|------|------|
+| **Cloudflare Pages** | CDN + 静态前端 + API 代理 | 全球边缘节点分发 Vite 构建产物（`apps/web/dist/`），绑定公开域名 `word-base.pages.dev`；`_worker.js`（Advanced Mode Worker，放在部署根目录）拦截 `/api/*` 请求代理到 Vercel |
+| **Vercel** | Next.js API-only 后端 | Hono 通过 `hono/vercel` 挂载在 Next.js App Router 的 catch-all route（`src/app/api/[[...all]]/route.ts`）上，Vercel 只 build API 部分，前端页面全部由 Cloudflare 提供 |
+
+### 前端与 API 分离的原因
+
+- **前端**：Vite 静态构建（landing + word-picker web app）本质是 CSR，不需要 SSR，用 CDN 分发最快
+- **API**：Hono 需要 Node.js 运行时（访问 Supabase），走 Vercel Serverless Functions 最省心
+- **Cloudflare Pages 不支持 Node.js server**（如果把 Hono 放在这，无法直接跑）
+- **只用 Vercel** 的话，前端资源国内访问不稳定、preview URL 每次变化
+
+### 请求链路
+
+1. 浏览器/插件请求 `https://word-base.pages.dev/api/v1/words/batch`
+2. Cloudflare Pages 边缘节点收到请求，`_worker.js` 判断路径以 `/api/` 开头
+3. Worker 读取 `env.NEXT_PUBLIC_API_BASE_URL`（Cloudflare Dashboard 环境变量，指向 Vercel URL），转发请求
+4. Vercel Serverless Function 运行 Hono API，访问 Supabase 数据库
+5. 响应经 Worker 返回，Worker 补齐 CORS 头、过滤非法 header
+
+静态资源（`/`、`/app`、`/assets/*`）由 `env.ASSETS.fetch(request)` 直接从 Cloudflare CDN 返回，不出边缘节点。
 
 ---
 
-## 配置文件清单
+## 环境隔离
 
-| 文件 | 用途 | 适用平台 |
-|------|------|---------|
-| `.github/workflows/deploy.yml` | GitHub Actions 部署工作流 | 两者共用 |
-| `apps/web/vercel.json` | Vercel 路由重写配置 | Vercel |
-| `apps/web/wrangler.toml` | Cloudflare Pages CLI 配置 | Cloudflare |
-| `apps/web/public/_redirects` | Cloudflare Pages SPA 路由 | Cloudflare |
+| 维度 | production（main 分支） | dev preview（dev 分支） |
+|------|------------------------|------------------------|
+| Cloudflare URL | `word-base.pages.dev` | `dev.word-base.pages.dev`（固定，分支名作子域） |
+| Vercel 部署 | `--prod`（production alias `word-base-six.vercel.app`） | preview deployment + `vercel alias set dev-word-base` |
+| `_worker.js` API 代理目标 | `word-base-six.vercel.app` | `dev-word-base.vercel.app` |
+| Cloudflare env var `NEXT_PUBLIC_API_BASE_URL` | Production 环境：`https://word-base-six.vercel.app` | Preview 环境：`https://dev-word-base.vercel.app` |
+| word-picker 插件 | `SYNC_BASE_URL=https://word-base.pages.dev` | `SYNC_BASE_URL=https://dev.word-base.pages.dev` |
+| 数据库 | Supabase production | Supabase production（暂不做数据库级隔离） |
+
+> **关键**：dev 和 main 通过 Cloudflare Pages 的 Production / Preview 两个环境变量作用域隔离，Vercel 通过 `--prod` 与 `vercel alias set` 生成两个不同的固定 alias。两条链路互不干扰。
+>
+> **注**：两个环境共用同一个 Supabase 数据库。dev 为开发者自测，测试数据进自己账号，不存在污染他人数据的问题。后续如需数据库级隔离可加 staging Supabase 项目。
 
 ---
 
-## 部署步骤
+## 部署流程（CI）
 
-### Step 1：创建 Cloudflare Pages 项目
+`.github/workflows/deploy.yml` 在 push main/dev 时触发：
 
-1. 登录 [dash.cloudflare.com](https://dash.cloudflare.com)
-2. 左侧菜单 → **Workers & Pages** → **Create** → **Pages** → Connect to Git**
-3. 选择你的 word-base GitHub 仓库
-4. 配置构建设置：
-   - **Project name**：`wordbase`（或自定义，需与 `wrangler.toml` 里的 name 一致）
-   - **Production branch**：`main`
-   - **Framework preset**：`None`
-   - **Build command**：留空（CI 里已经构建好了）
-   - **Build output directory**：留空
-5. 点击 **Save and Deploy**
-   > 第一次部署会失败（因为还没配 CI，正常），项目创建好就行
+```
+1. Build Web (Vite)
+      npm run build     # apps/web → vite build → dist/
+      cp _worker.js → dist/                  # _worker.js 归位到部署根
+      上传 dist/ 为 artifact
+      │
+      ├──► deploy-vercel: Next.js API 部署
+      │     npm run build:api  → next build（只 build API route）
+      │     main → vercel deploy --prod（更新 word-base-six.vercel.app）
+      │     dev  → vercel deploy + vercel alias set dev-word-base
+      │
+      └──► deploy-cloudflare: Cloudflare Pages 部署
+            cloudflare/pages-action@v1 上传 apps/web/dist/
+            branch: main / dev（决定 Production / Preview 环境）
+```
 
-### Step 2：获取 Cloudflare 凭证
+### 关键文件
 
-**API Token：**
-1. 右上角头像 → **My Profile** → **API Tokens**
-2. 点击 **Create Token**
-3. 找到最上面的 **Custom token** → 点击 **Get started**
-   > 注意：Cloudflare 没有现成的 Pages 模板，需要手动创建
-4. 填写 Token 名称：`GitHub Actions`
-5. 在 **Permissions** 区域添加一条：
-   - 第一列选 **Account**（不是 Zone）
-   - 第二列选 **Pages**
-   - 第三列选 **Edit**
-6. **Account Resources** 保持默认（All accounts）
-7. 其他选项不用改，拉到最下面点 **Continue to summary**
-8. 点 **Create Token**
-9. 复制 Token（只显示一次，保存好）
+| 文件 | 用途 |
+|------|------|
+| `.github/workflows/deploy.yml` | 部署工作流（Vite build → Vercel API 部署 → Cloudflare Pages 部署） |
+| `apps/web/vite.config.ts` | Vite 前端构建配置（landing + app 双入口） |
+| `apps/web/index.html` / `apps/web/app.html` | 两个入口 HTML |
+| `apps/web/src/landing.main.tsx` / `apps/web/src/app.main.tsx` | Vite 入口脚本 |
+| `apps/web/next.config.ts` | Next.js API-only 配置（**不含前端页面**） |
+| `apps/web/src/app/api/[[...all]]/route.ts` | Next.js App Router catch-all，挂载 Hono API |
+| `apps/web/src/app/layout.tsx` | Next.js 最小 root layout（只是满足框架要求） |
+| `apps/web/public/_worker.js` | Cloudflare Pages Advanced Mode Worker，反向代理 `/api/*` |
+| `apps/web/vercel.json` | Vercel `framework: nextjs` 声明 |
+| `apps/web/wrangler.toml` | Cloudflare Pages 项目名配置 |
+| `apps/web/tsconfig.json` | Next.js API build 用的 tsconfig（`jsx: preserve` + next plugin） |
+| `apps/web/tsconfig.vite.json` | Vite build 用的 tsconfig（`jsx: react-jsx`） |
+| `vercel.json` | 根目录 Vercel 配置，`buildCommand: npm -w @wordbase/web run build:api` |
 
-**Account ID：**
-- Cloudflare Dashboard 首页右下角 → **Account ID**，复制
+### `_worker.js` 工作原理
 
-### Step 3：创建 Vercel 项目
+Cloudflare Pages Advanced Mode 允许在输出根目录放一个 `_worker.js`，拦截所有请求：
 
-1. 登录 [vercel.com](https://vercel.com)（用 GitHub 登录）
-2. **Add New** → **Project** → 导入 word-base 仓库
-3. 配置：
-   - **Framework Preset**：`Other`
-   - **Build Command**：留空
-   - **Output Directory**：留空
-   - **Install Command**：留空
-4. 点击 **Deploy**
-   > 第一次部署可能失败，没关系，项目创建好就行
-5. 进入项目 → **Settings** → **General**：
-   - 复制 **Project ID**
-   - 复制 **Organization ID**（个人账号一般是你的用户名）
+- `/api/*` → 代理到 `env.NEXT_PUBLIC_API_BASE_URL`（Cloudflare Dashboard 按环境注入 Vercel URL）
+- 其他路径 → `env.ASSETS.fetch(request)` 交给 Cloudflare Pages 静态资源服务处理
 
-### Step 4：获取 Vercel Token
+Worker 会：
+- 过滤请求 header 中的非 ASCII 字符（避免 `TypeError: Invalid header value`）
+- 清除 Cloudflare 特有 header（`cf-connecting-ip`、`cf-ray` 等）
+- 逐个复制响应 header，非法 header 单独跳过
+- 补齐 CORS 头，回显 Origin
+- 删除上游 `content-encoding` 避免 double-encoding
 
-1. 右上角头像 → **Settings** → **Tokens**
-2. 输入 Token 名称：`GitHub Actions`
-3. Scope 选择你的团队/个人账号
-4. 点击 **Create Token** → 复制 Token
+---
 
-### Step 5：配置 GitHub Secrets
+## 部署前提（首次配置）
 
-进入 GitHub 仓库 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+### 1. Cloudflare Pages 项目
 
-逐个添加以下 Secrets：
+1. 登录 [dash.cloudflare.com](https://dash.cloudflare.com) → Workers & Pages → Create → Pages → Connect to Git
+2. 选择 word-base 仓库
+3. 构建设置：Framework preset = `None`，Build command 留空，Output directory 留空（CI 已构建好）
+4. Production branch 设为 `main`
+5. **Settings → Variables and secrets** 分环境配置 `NEXT_PUBLIC_API_BASE_URL`：
+   - **Production**: `https://word-base-six.vercel.app`
+   - **Preview**: `https://dev-word-base.vercel.app`
 
-| Secret 名称 | 值 | 必填 |
-|-------------|-----|------|
-| `CLOUDFLARE_API_TOKEN` | Step 2 的 Cloudflare API Token | ✅ |
-| `CLOUDFLARE_ACCOUNT_ID` | Step 2 的 Cloudflare Account ID | ✅ |
-| `VERCEL_TOKEN` | Step 4 的 Vercel Token | ✅ |
-| `VERCEL_ORG_ID` | Step 3 的 Vercel Organization ID | ✅ |
-| `VERCEL_PROJECT_ID` | Step 3 的 Vercel Project ID | ✅ |
-| `VITE_SUPABASE_URL` | Supabase 项目 URL | ✅ |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key | ✅ |
+### 2. Vercel 项目
 
-> 注意：`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY` 如果 CI 工作流里已经配过就不用重复加。
+1. 登录 [vercel.com](https://vercel.com) → Add New → Project → 导入 word-base
+2. Framework Preset = `Other`，所有命令留空（走根 `vercel.json` 的 `buildCommand: npm -w @wordbase/web run build:api`）
+3. Settings → General 复制 Project ID 和 Organization ID
+4. **Settings → Deployment Protection** 关闭 Vercel Authentication（否则 preview URL 需要登录才能访问，Cloudflare Worker 代理会拿到 SSO 登录页）
 
-### Step 6：推送触发部署
+### 3. GitHub Secrets
+
+进入仓库 Settings → Secrets and variables → Actions：
+
+| Secret | 用途 |
+|--------|------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（Account > Pages > Edit） |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
+| `VERCEL_TOKEN` | Vercel 个人 Token |
+| `VERCEL_ORG_ID` | Vercel Organization ID |
+| `VERCEL_PROJECT_ID` | Vercel Project ID |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `NEXT_PUBLIC_API_BASE_URL` | Vercel URL（构建期 Vite 打包时替换 `SYNC_BASE_URL` 用） |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key（仅 API 使用） |
+| `AI_CONFIG_ENCRYPTION_KEY` | AI 配置加密密钥 |
+
+### 4. 推送触发
 
 ```bash
-git add .
-git commit -m "feat: add dual deployment workflow"
-git push origin main
+# dev preview
+git checkout dev && git push origin dev
+
+# production（通过 PR 合并到 main）
 ```
 
-然后去 GitHub 仓库 → **Actions** → **Deploy Web** 工作流查看进度。
-
 部署成功后：
-- Cloudflare Pages 地址：`https://wordbase.pages.dev`
-- Vercel 地址：`https://xxx.vercel.app`
+- Production: `https://word-base.pages.dev`
+- Dev preview: `https://dev.word-base.pages.dev`
 
 ---
 
-## DNS 配置（可选，自定义域名）
+## word-picker 插件联动
 
-### 方案一：Cloudflare DNS + Failover（推荐）
+word-picker 的 `SYNC_BASE_URL` 在 CI 构建时按分支注入（见 word-picker 的 `.github/workflows/release.yml`）：
 
-用 Cloudflare DNS 管理域名，主站指向 Cloudflare Pages，备用指向 Vercel，自动故障切换。
+| word-picker 版本 | SYNC_BASE_URL | 对应 word-base 环境 |
+|-----------------|---------------|-------------------|
+| dev snapshot（`0.0.0.0`） | `https://dev.word-base.pages.dev` | dev preview |
+| 正式版（`x.y.z`） | `https://word-base.pages.dev` | production |
 
-1. 确保你的域名 NS 已切换到 Cloudflare
-2. 添加 CNAME 记录：
-
-| Type | Name | Content | Proxy status |
-|------|------|---------|--------------|
-| CNAME | `@` (或 www) | `wordbase.pages.dev` | Proxied |
-
-3. 启用 **Failover**（需要企业版以上套餐，或用 Load Balancer）
-   - 免费版可以手动切换
-
-### 方案二：双 CNAME 轮询
-
-两个平台各绑一个子域名，简单直接：
-
-| Type | Name | Content | Proxy |
-|------|------|---------|-----|
-| CNAME | `www` | `wordbase.pages.dev` | Proxied |
-| CNAME | `vercel` | `xxx.vercel.app` | Proxied |
-
----
-
-## 环境变量管理
-
-构建时使用的环境变量统一在 GitHub Secrets 中配置，两个平台共用。
-
-| 变量名 | 说明 |
-|--------|------|
-| `VITE_SUPABASE_URL` | Supabase 项目 URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
-
-> 落地页（`/`）不需要 Supabase，只有产品页（`/app`）才需要。
-
-如果以后需要加埋点等新变量：
-1. 在 GitHub Secrets 中添加
-2. 在 `.github/workflows/deploy.yml` 的 build job 的 env 中引用
-3. 重新触发部署
+本地开发时在 word-picker 的 `.env.local` 中设 `SYNC_BASE_URL=http://localhost:3001` 直连本地 API server。
 
 ---
 
 ## 手动部署
 
-### 手动部署到 Cloudflare Pages
-
 ```bash
-# 安装 wrangler CLI
-npm install -g wrangler
+# 构建 Vite 前端
+npm -w @wordbase/web run build          # → apps/web/dist/
 
-# 登录
-wrangler login
+# 构建 Next.js API
+npm -w @wordbase/web run build:api      # → apps/web/.next/
 
-# 构建
-npm run build
+# Vercel API 部署
+npm i -g vercel
+vercel deploy --prod                    # main -> production alias
+vercel deploy                           # dev  -> preview URL
+vercel alias set <preview-url> dev-word-base  # 只 dev 分支需要
 
-# 部署
-cd apps/web
-wrangler pages deploy dist --project-name=wordbase
-```
-
-### 手动部署到 Vercel
-
-```bash
-# 安装 Vercel CLI
-npm install -g vercel
-
-# 登录
-vercel login
-
-# 构建
-npm run build
-
-# 部署
-cd apps/web
-vercel --prod
+# Cloudflare Pages 静态部署
+cp apps/web/public/_worker.js apps/web/dist/_worker.js
+npx wrangler pages deploy apps/web/dist --project-name=word-base --branch=<main|dev>
 ```
 
 ---
 
 ## 常见问题
 
-### Q: 部署后访问 /app 404？
+### Q: `/api/*` 返回 HTML 而不是 JSON？
 
-A: 路由重写没生效。检查：
-- Vercel：确认 `apps/web/vercel.json` 里的 rewrites 配置
-- Cloudflare Pages：确认 `apps/web/public/_redirects` 文件在 dist 目录里
+`_worker.js` 没有生效，或代理到的 Vercel deployment 上没有 API routes。确认：
+- `_worker.js` 在 Cloudflare Pages 部署输出的**根目录**（不是 `public/` 子目录）
+- Cloudflare Dashboard 的 `NEXT_PUBLIC_API_BASE_URL` 指向**最新的**、有 API routes 的 Vercel deployment
+- Vercel deployment 关闭了 Deployment Protection（否则会拦截返回 SSO 登录页 HTML）
 
-### Q: 两个平台构建结果不一样？
+### Q: dev 版插件无法同步？
 
-A: CI 模式下不会，因为只构建一次，产物相同。如果用平台各自构建才可能不一样。
+检查 `https://dev.word-base.pages.dev/api/v1/health` 返回是否是 `{"ok":true}`。如果返回 HTML：
+- 确认 Cloudflare Dashboard **Preview 环境**的 `NEXT_PUBLIC_API_BASE_URL` 是 `https://dev-word-base.vercel.app`
+- 确认 dev 分支最后一次部署有跑 `vercel alias set dev-word-base`（看 CI 日志 `Setting alias ...`）
 
-### Q: 怎么只更新一个平台？
+### Q: Cloudflare error 1101？
 
-A: 去 GitHub Actions 手动触发，或者用 CLI 手动部署单个平台。
+`_worker.js` JS 抛异常。最常见是 `new Headers(request.headers)` 遇到非 ASCII header 值。当前 `_worker.js` 已用逐 header 复制 + `isAscii` 过滤修复，若再出现走 `X-Worker-Debug-*` 响应头查具体 header。
 
-### Q: PR 会自动部署吗？
+### Q: 两个平台构建结果不一致？
 
-A: 不会。目前配置是只有 push 到 main 才部署。PR 只跑 CI 构建验证，不部署。
+不会。Cloudflare 部署的是 `apps/web/dist/`（Vite build 产物），Vercel 部署的是 `apps/web/.next/`（Next.js API-only build 产物），两个 build 独立执行、职责不同。
 
-### Q: 落地页和产品页是分开的吗？
+---
 
-A: 是的。落地页在 `/`，产品页在 `/app`，两个是独立的 HTML 入口。落地页不加载 Supabase SDK，首屏更轻量。
+## 演进方向
+
+如果未来 API 跨洋延迟成为瓶颈，可以把 Hono 从 Vercel 迁到 **Cloudflare Workers**（独立 Worker，绑到 word-base 子路径），这样 API 也在 Cloudflare 边缘运行，跟静态资源同源，跨洋 hop 完全消除。Hono 天然支持 Cloudflare Workers runtime，改动主要是把 `process.env` 改成 `env`、去掉 Node.js 特有 API、用 `wrangler` 部署。
+
+**当前架构完全够用。如果哪天 API 真的成瓶颈了再迁到 Cloudflare Workers。**

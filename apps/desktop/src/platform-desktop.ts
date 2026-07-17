@@ -1,4 +1,4 @@
-import { createCachedKV, type PlatformAPI, type SpeakOptions } from '@wordbase/shared/platform';
+import { createCachedKV, type PlatformAPI, type SpeakOptions, type UpdateService, type UpdateProgress, type SystemInfo, type PlatformLogData } from '@wordbase/shared/platform';
 
 /**
  * 桌面端（Tauri）平台实现。
@@ -143,6 +143,71 @@ async function removeKv(k: string): Promise<void> {
   localStorage.removeItem(k);
 }
 
+// -------- Updater（仅 Tauri 桌面端） --------
+
+let pendingUpdate: { version: string; body?: string; date?: string } | null = null;
+let downloaded = false;
+
+const desktopUpdater: UpdateService = {
+  channel: 'desktop-binary',
+  isReady: false,
+
+  async check() {
+    if (!isTauri()) return { hasUpdate: false };
+    try {
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const update = await check();
+      if (!update?.available) {
+        pendingUpdate = null;
+        return { hasUpdate: false };
+      }
+      pendingUpdate = {
+        version: update.version,
+        body: update.body,
+        date: update.date,
+      };
+      return {
+        hasUpdate: true,
+        version: update.version,
+        body: update.body,
+        date: update.date,
+      };
+    } catch (err) {
+      console.warn('[updater] check failed:', err);
+      return { hasUpdate: false };
+    }
+  },
+
+  async download(onProgress?: (p: UpdateProgress) => void) {
+    if (!isTauri() || !pendingUpdate) return;
+    const { check } = await import('@tauri-apps/plugin-updater');
+    const update = await check();
+    if (!update?.available) return;
+    let accumulated = 0;
+    let total: number | undefined;
+    await update.download((event) => {
+      if (event.event === 'Started') {
+        total = event.data.contentLength;
+        onProgress?.({ percentage: 0, downloaded: 0, total });
+      } else if (event.event === 'Progress') {
+        accumulated += event.data.chunkLength;
+        const pct = total ? Math.round((accumulated / total) * 100) : undefined;
+        onProgress?.({ percentage: pct, downloaded: accumulated, total });
+      } else if (event.event === 'Finished') {
+        onProgress?.({ percentage: 100, downloaded: accumulated, total });
+      }
+    });
+    downloaded = true;
+    desktopUpdater.isReady = true;
+  },
+
+  async apply() {
+    if (!isTauri() || !downloaded) return;
+    const { relaunch } = await import('@tauri-apps/plugin-process');
+    await relaunch();
+  },
+};
+
 // -------- 导出 --------
 
 export const desktopPlatform: PlatformAPI = {
@@ -190,12 +255,26 @@ export const desktopPlatform: PlatformAPI = {
     if (Notification.permission === 'granted') new Notification(title, { body });
   },
 
+  async openUrl(url) {
+    if (isTauri()) {
+      try {
+        const { open } = await import('@tauri-apps/plugin-shell');
+        await open(url);
+        return;
+      } catch { /* fallthrough to window.open */ }
+    }
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      /* ignore */
+    }
+  },
+
   kv: createCachedKV({
     loadAll: loadAllKv,
     save: saveKv,
     remove: removeKv,
     readMiss: async (k) => {
-      // Tauri 壳下，缓存 miss 时回退读 localStorage（一次性迁移老数据到 Tauri Store）
       if (isTauri() && typeof localStorage !== 'undefined') {
         return localStorage.getItem(k);
       }
@@ -203,5 +282,53 @@ export const desktopPlatform: PlatformAPI = {
     },
   }),
 
+  updater: desktopUpdater,
+
   getPlatform() { return 'desktop'; },
+
+  async getSystemInfo(): Promise<SystemInfo> {
+    let appVersion = 'unknown';
+    let osVersion: string | undefined;
+    let deviceModel: string | undefined;
+
+    if (isTauri()) {
+      try {
+        const { getVersion } = await import('@tauri-apps/api/app');
+        appVersion = await getVersion();
+      } catch { /* keep default */ }
+    }
+
+    // OS 信息：优先用 UA 解析（Tauri WebView 仍带 UA）
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    if (/Windows NT ([\d.]+)/.test(ua)) {
+      osVersion = `Windows ${RegExp.$1}`;
+      deviceModel = 'x86_64';
+    } else if (/Mac OS X ([\d_]+)/.test(ua)) {
+      osVersion = `macOS ${RegExp.$1.replace(/_/g, '.')}`;
+      deviceModel = ua.includes('ARM') ? 'arm64' : 'x86_64';
+    } else if (/Android ([\d.]+)/.test(ua)) {
+      osVersion = `Android ${RegExp.$1}`;
+    } else if (/(?:iPhone|iPad|iPod).*?OS ([\d_]+)/.test(ua)) {
+      osVersion = `iOS ${RegExp.$1.replace(/_/g, '.')}`;
+    }
+
+    return {
+      appVersion,
+      platform: 'desktop',
+      osVersion,
+      deviceModel,
+    };
+  },
+
+  async getRecentLogs(minutes: number): Promise<PlatformLogData | null> {
+    if (!isTauri()) return null;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<PlatformLogData>('get_recent_logs', { minutes });
+      return result;
+    } catch (err) {
+      console.warn('[desktop] getRecentLogs failed:', err);
+      return null;
+    }
+  },
 };

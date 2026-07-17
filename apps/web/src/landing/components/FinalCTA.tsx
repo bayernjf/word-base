@@ -1,8 +1,9 @@
 import { ArrowRight, Download } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
-import { WordBaseFullLogo } from './LandingNav';
+import { trackEvent } from '@wordbase/shared/lib/analytics';
 import { useDownloadUrls } from '../hooks/useDownloadUrls';
+import { UnavailablePlatformButton } from './UnavailablePlatformButton';
 
 interface Props {
   theme: LandingTheme;
@@ -10,7 +11,7 @@ interface Props {
 
 export function FinalCTA({ theme }: Props) {
   const t = themeVars(theme);
-  const { downloadMac, downloadWin, downloadAndroid, downloadIos, downloadChrome } = useDownloadUrls();
+  const { downloadChrome } = useDownloadUrls();
 
   return (
     <>
@@ -39,7 +40,7 @@ export function FinalCTA({ theme }: Props) {
               现在安装浏览器扩展，让每一次英文阅读都成为词汇积累的机会。
             </p>
             <div className="flex flex-col items-center justify-center gap-3">
-              <div className="flex flex-wrap items-center justify-center gap-2">
+              <div className="inline-flex flex-wrap items-center justify-center gap-2">
                 <button
                   onClick={downloadChrome}
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
@@ -47,55 +48,26 @@ export function FinalCTA({ theme }: Props) {
                   <Download className="w-4 h-4" />
                   安装浏览器插件
                 </button>
-                <button
-                  onClick={downloadMac}
-                  className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
-                  )}
-                >
-                  安装 Mac
-                </button>
-                <button
-                  onClick={downloadWin}
-                  className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
-                  )}
-                >
-                  安装 Win
-                </button>
-                <button
-                  onClick={downloadIos}
-                  className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
-                  )}
-                >
-                  安装 iOS
-                </button>
-                <button
-                  onClick={downloadAndroid}
-                  className={cn(
-                    'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
-                    theme === 'dark'
-                      ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
-                  )}
-                >
-                  安装 Android
-                </button>
+                {['Mac', 'Win', 'iOS', 'Android'].map((platform) => (
+                  <UnavailablePlatformButton
+                    key={platform}
+                    theme={theme}
+                    className={cn(
+                      'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
+                      theme === 'dark'
+                        ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
+                        : 'bg-white border-slate-200 text-slate-700',
+                    )}
+                  >
+                    安装 {platform}
+                  </UnavailablePlatformButton>
+                ))}
               </div>
               <a
                 href="/app"
+                onClick={() => trackEvent('web_app_open', { source: 'landing_cta' })}
                 className={cn(
-                  'w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
+                  'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                   theme === 'dark'
                     ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
                     : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
@@ -109,29 +81,6 @@ export function FinalCTA({ theme }: Props) {
         </div>
       </section>
 
-      <footer className={cn('px-4 sm:px-6 py-8 border-t', t.border)}>
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <WordBaseFullLogo className="h-16 w-auto" />
-              <span className={cn('text-xs ml-1', t.textSubtle)}>添忆：添加记忆；浏览即学习</span>
-            </div>
-            <div className="flex items-center gap-5">
-              <a
-                href="/app"
-                className={cn(
-                  'text-xs transition-colors',
-                  t.textSubtle,
-                  theme === 'dark' ? 'hover:text-white' : 'hover:text-slate-700',
-                )}
-              >
-                Web 版
-              </a>
-            </div>
-            <p className={cn('text-xs', t.textSubtle)}>© 2026 WordBase. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </>
   );
 }

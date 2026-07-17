@@ -1,4 +1,8 @@
+'use client';
+
 import { useState, useEffect } from 'react';
+import { trackPageView } from '@wordbase/shared/lib/analytics';
+import { AnalyticsConsentBanner } from '@wordbase/shared/components/AnalyticsConsentBanner';
 import { LandingNav } from './components/LandingNav';
 import { Hero } from './components/Hero';
 import { WorkflowSection } from './components/WorkflowSection';
@@ -6,6 +10,7 @@ import { ExtensionSection } from './components/ExtensionSection';
 import { LearningSection } from './components/LearningSection';
 import { MultiPlatformSection } from './components/MultiPlatformSection';
 import { FinalCTA } from './components/FinalCTA';
+import { LandingFooter } from './components/LandingFooter';
 
 export type LandingTheme = 'dark' | 'light';
 
@@ -29,6 +34,10 @@ export function Landing() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    trackPageView('WordBase - 浏览即学习的 AI 词汇工作台');
+  }, []);
+
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   return (
@@ -42,6 +51,8 @@ export function Landing() {
         <MultiPlatformSection theme={theme} />
         <FinalCTA theme={theme} />
       </main>
+      <LandingFooter theme={theme} />
+      <AnalyticsConsentBanner />
     </div>
   );
 }

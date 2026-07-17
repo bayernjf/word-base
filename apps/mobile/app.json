@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "WordBase",
+    "slug": "word-base",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.wordbase.mobile",
+      "supportsTablet": true,
+      "buildNumber": "0",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
+        "NSUserNotificationsUsageDescription": "WordBase 需要发送通知来提醒你复习单词。",
+        "NSSpeechRecognitionUsageDescription": "WordBase 使用语音识别来进行单词发音练习。",
+        "NSMicrophoneUsageDescription": "WordBase 需要麦克风权限来进行发音练习。"
+      }
+    },
+    "android": {
+      "package": "com.wordbase.mobile",
+      "versionCode": 0,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      "./plugins/with-cxx-std",
+      "expo-updates",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2563eb"
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}

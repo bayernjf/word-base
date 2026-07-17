@@ -59,6 +59,7 @@ export default defineConfig(() => {
       },
     ],
     envDir: path.resolve(__dirname, '../..'),
+    envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
     resolve: {
       alias: {
         '@wordbase/shared': path.resolve(__dirname, '../../shared'),
@@ -69,6 +70,9 @@ export default defineConfig(() => {
         input: {
           main: path.resolve(__dirname, 'index.html'),
           app: path.resolve(__dirname, 'app.html'),
+          privacy: path.resolve(__dirname, 'privacy.html'),
+          terms: path.resolve(__dirname, 'terms.html'),
+          deleteAccount: path.resolve(__dirname, 'delete-account.html'),
         },
         output: { manualChunks },
       },

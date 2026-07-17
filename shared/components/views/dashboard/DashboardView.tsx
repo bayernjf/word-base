@@ -12,6 +12,13 @@ interface DashboardProps {
   onNavigate: (view: string) => void;
   books: VocabularyBook[];
   words: Word[];
+  user?: {
+    id: string;
+    email: string;
+    nickname?: string;
+    avatar?: number;
+    createdAt?: number;
+  } | null;
 }
 
 export const DashboardView: React.FC<DashboardProps> = ({ themeStyles, language, onNavigate, books, words, user }) => {

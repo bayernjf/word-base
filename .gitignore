@@ -2,22 +2,28 @@ node_modules/
 build/
 dist/
 coverage/
+.next/
+.turbo/
 .DS_Store
 *.log
+*.tsbuildinfo
 .env*
 !.env.example
 
 # Tauri
 apps/desktop/src-tauri/target/
 
-# Capacitor (前端资源同步产物，会由 cap sync 自动再生成)
-apps/mobile/ios/App/App/public/
-apps/mobile/android/app/src/main/assets/public/
-apps/mobile/ios/capacitor.config.json
-apps/mobile/android/app/src/main/assets/capacitor.config.json
+# Expo (原生项目由 expo prebuild 自动生成)
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/.expo/
 
 # IDE
 .idea/
 .vscode/
 *.iml
 *.xcuserstate
+
+# TRAE local notes (persistent across sessions, never committed)
+.trae/
+!.trae/rules/

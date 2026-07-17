@@ -4,14 +4,39 @@ import { getPlatform, hasPlatform } from '../platform'
 
 const logger = createLogger('supabase')
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
+function getEnvValue(key: string): string | undefined {
+  // 1. Try global injected env (for Next.js where shared package isn't processed by DefinePlugin)
+  const g = globalThis as any
+  if (g.__APP_ENV__ && g.__APP_ENV__[key] !== undefined) {
+    return g.__APP_ENV__[key]
+  }
+  // Normalize: try NEXT_PUBLIC_ prefix for Next.js, then bare key, then VITE_ fallback
+  const bareKey = key.replace(/^NEXT_PUBLIC_/, '')
+  // Next.js/Webpack has process.env
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key] || process.env[bareKey] || process.env[`VITE_${bareKey}`]
+  }
+  // Vite/Expo has import.meta.env
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    const env = import.meta.env as Record<string, string | undefined>
+    return env[key] || env[bareKey] || env[`VITE_${bareKey}`]
+  }
+  return undefined
+}
 
 let _client: SupabaseClient | null = null
 
 function buildClient(): SupabaseClient {
-  // setPlatform() 之后才会调用 buildClient；
-  // 若意外在平台注入前调用（如单测、SSR），则回退到默认 localStorage。
+  const supabaseUrl = getEnvValue('NEXT_PUBLIC_SUPABASE_URL') || ''
+  const supabaseAnonKey = getEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || ''
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      `Missing Supabase config. URL=${!!supabaseUrl}, KEY=${!!supabaseAnonKey}. ` +
+      `Check NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local`
+    )
+  }
+
   const kv = hasPlatform() ? getPlatform().kv : null
 
   return createClient(supabaseUrl, supabaseAnonKey, {

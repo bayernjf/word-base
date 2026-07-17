@@ -9,6 +9,7 @@
       "DOM",
       "DOM.Iterable"
     ],
+    "types": ["node"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
@@ -18,6 +19,9 @@
     "paths": {
       "@wordbase/shared/*": [
         "./shared/*"
+      ],
+      "@wordbase/web-primitives": [
+        "./apps/web/src/primitives"
       ]
     },
     "allowImportingTsExtensions": true,
@@ -25,7 +29,13 @@
   },
   "include": [
     "shared/**/*",
-    "apps/**/*"
+    "apps/web/**/*",
+    "apps/desktop/**/*",
+    "packages/**/*"
+  ],
+  "exclude": [
+    "apps/mobile/**/*",
+    "node_modules"
   ],
   "references": [
     { "path": "./tsconfig.node.json" }

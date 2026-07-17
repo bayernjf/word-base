@@ -8,8 +8,8 @@
 
 2. **确保 .env 文件已配置**
    ```
-   VITE_SUPABASE_URL=你的_supabase_url
-   VITE_SUPABASE_ANON_KEY=你的_anon_key
+   NEXT_PUBLIC_SUPABASE_URL=你的_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=你的_anon_key
    PORT=3001
    ```
 

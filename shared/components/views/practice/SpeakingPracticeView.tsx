@@ -18,7 +18,7 @@ export const SpeakingPracticeView: React.FC<SpeakingPracticeProps> = ({ themeSty
   const [gradeResult, setGradeResult] = useState<{ score: number; text: string; details: string } | null>(null);
   const t = createTranslator(language);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const practiceItems = {
     speak1: {

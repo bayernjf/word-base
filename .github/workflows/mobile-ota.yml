@@ -1,0 +1,72 @@
+name: Mobile OTA Update
+
+on:
+  push:
+    branches: [main, dev]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ota-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-ota:
+    name: Publish OTA update
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check for EXPO_TOKEN
+        id: check-token
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "::warning::EXPO_TOKEN secret not configured. Skipping OTA publish. Set EXPO_TOKEN in repo secrets to enable OTA updates."
+          else
+            echo "available=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Expo and EAS
+        if: steps.check-token.outputs.available == 'true'
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Resolve channel from ref
+        id: channel
+        run: |
+          REF="${{ github.ref }}"
+          if echo "$REF" | grep -q '^refs/tags/v'; then
+            CHANNEL="production"
+          elif [ "$REF" = "refs/heads/main" ]; then
+            CHANNEL="production"
+          elif [ "$REF" = "refs/heads/dev" ]; then
+            CHANNEL="preview"
+          else
+            CHANNEL="preview"
+          fi
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "Publishing to channel: $CHANNEL"
+
+      - name: Publish OTA update
+        if: steps.check-token.outputs.available == 'true'
+        working-directory: apps/mobile
+        run: |
+          npx eas update --channel ${{ steps.channel.outputs.channel }} --non-interactive --message "${{ github.event.head_commit.message || 'OTA update' }}"
+
+      - name: OTA skipped (no token)
+        if: steps.check-token.outputs.available != 'true'
+        run: echo "OTA publish skipped — configure EXPO_TOKEN secret to enable."

@@ -19,3 +19,38 @@ export { zh } from './i18n/zh.ts';
 export { listeningQuizzes } from './mockData.ts';
 export { setPlatform, getPlatform, hasPlatform } from './platform.ts';
 export type { PlatformAPI, SpeakOptions } from './platform.ts';
+
+// Primitive UI system
+export {
+  setPrimitives,
+  usePrimitives,
+  usePrimitiveTheme,
+  PrimitiveThemeProvider,
+} from './primitives/index';
+export type {
+  PrimitiveComponents,
+  ViewProps,
+  TextProps,
+  ButtonProps,
+  InputProps,
+  TextAreaProps,
+  BadgeProps,
+  DividerProps,
+  ScrollViewProps,
+  ImageProps,
+  LayoutStyle,
+  TextStyle,
+  ThemeContextValue,
+  ThemeProviderProps,
+} from './primitives/types';
+
+// Design Tokens
+export {
+  getColorTokens,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  layoutTokens,
+} from './tokens/index';
+export type { ColorTokens } from './tokens/index';

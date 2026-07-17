@@ -5,17 +5,39 @@
     "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "paths": {
       "@wordbase/shared/*": ["../../shared/*"]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "plugins": [{ "name": "next" }],
+    "strict": false,
+    "incremental": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
-  "include": ["src/**/*", "../../shared/**/*"]
+  "include": [
+    "next-env.d.ts",
+    "next.config.ts",
+    "src/app/api/**/*",
+    "src/app/layout.tsx",
+    "../../packages/api/src/**/*",
+    ".next/types/**/*",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "vite.config.ts",
+    "src/**/*",
+    "!src/app/api/**/*",
+    "!src/app/layout.tsx"
+  ]
 }

@@ -57,7 +57,11 @@ export function useDownloadUrls() {
     fetchWordPickerReleases();
   }, []);
 
-  const download = (url: string, fallback: string) => {
+  const download = (platform: string, url: string, fallback: string) => {
+    trackEvent('download_click', {
+      platform,
+      destination: url ? 'release_asset' : 'github_releases',
+    });
     if (url) {
       window.location.href = url;
     } else {
@@ -67,10 +71,10 @@ export function useDownloadUrls() {
 
   return {
     urls,
-    downloadMac: () => download(urls.mac, 'https://github.com/bayernjf/word-base/releases'),
-    downloadWin: () => download(urls.win, 'https://github.com/bayernjf/word-base/releases'),
-    downloadAndroid: () => download(urls.android, 'https://github.com/bayernjf/word-base/releases'),
-    downloadIos: () => download(urls.ios, 'https://github.com/bayernjf/word-base/releases'),
-    downloadChrome: () => download(urls.chrome, 'https://github.com/bayernjf/word-picker/releases'),
+    downloadMac: () => download('mac', urls.mac, 'https://github.com/bayernjf/word-base/releases'),
+    downloadWin: () => download('windows', urls.win, 'https://github.com/bayernjf/word-base/releases'),
+    downloadAndroid: () => download('android', urls.android, 'https://github.com/bayernjf/word-base/releases'),
+    downloadIos: () => download('ios', urls.ios, 'https://github.com/bayernjf/word-base/releases'),
+    downloadChrome: () => download('browser_extension', urls.chrome, 'https://github.com/bayernjf/word-picker/releases'),
   };
 }
