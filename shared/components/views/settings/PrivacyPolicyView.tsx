@@ -78,11 +78,13 @@ const PRIVACY_CONTENT = {
         ],
       },
       {
-        heading: '七、Cookie 与本地存储',
+        heading: '七、Cookie、本地存储与数据分析',
         paragraphs: [
-          '1. 本应用使用浏览器本地存储（localStorage / IndexedDB）来保存你的主题偏好、语言设置、登录状态等非敏感信息，以便提升使用体验。',
-          '2. 这些数据仅存储在你的设备本地，不会上传到服务器。',
-          '3. 你可以随时在浏览器设置中清除这些数据。',
+          '1. Web 应用使用浏览器本地存储（localStorage / IndexedDB）保存主题偏好、语言设置、登录状态和分析授权选择，以便提供核心功能并提升使用体验。',
+          '2. 在你主动同意后，Web 应用会加载 Google Analytics 4（流量与使用分析）和 Microsoft Clarity（热力图与会话回放）。它们可能使用 Cookie、本地存储及类似技术处理页面访问、设备与浏览器类型、大致地区、点击和滚动等交互信息。',
+          '3. 我们不会主动向这些分析服务发送你的邮箱、密码、单词、学习内容、AI 对话或 API Key。',
+          '4. 分析功能默认为关闭。你可以在首次访问时拒绝，也可以随时在 Web 应用的「设置」-「关于」中更改选择。拒绝分析不影响核心功能。',
+          '5. Desktop 和 Mobile 应用当前不会加载 Google Analytics 或 Microsoft Clarity。',
         ],
       },
       {

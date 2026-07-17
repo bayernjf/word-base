@@ -176,11 +176,14 @@ const PRIVACY_CONTENT = {
         ],
       },
       {
-        heading: '7. Cookies and Local Storage',
+        heading: '7. Cookies, Local Storage, and Analytics',
         paragraphs: [
-          '1. This App uses browser local storage (localStorage / IndexedDB) to store non-sensitive information such as theme preference, language setting, and login state to improve your experience.',
-          '2. This data is stored only on your device and is not uploaded to the server.',
-          '3. You can clear this data at any time in your browser settings.',
+          '1. This App uses browser storage (localStorage / IndexedDB) for theme and language preferences, login state, and analytics consent choices to provide core functionality and improve your experience.',
+          '2. After you actively consent, we load Google Analytics 4 (traffic and usage analytics) and Microsoft Clarity (heatmaps and session replay). They may use cookies, local storage, and similar technologies to process page visits, device and browser type, approximate region, clicks, scrolling, and similar interaction data.',
+          '3. We do not intentionally send your email, password, words, learning content, AI conversations, or API keys to these analytics services. Clarity session replay is used to analyze interface interactions, not to read your learning content.',
+          '4. Analytics data is processed by Google and Microsoft under their respective privacy policies and may be stored outside your country or region.',
+          '5. Analytics is disabled by default. You may decline on first visit or change your choice at any time under "Settings" - "About" in the Web app. After withdrawal, we stop future analytics and attempt to remove related analytics cookies on the current domain.',
+          '6. Declining analytics does not affect core learning, synchronization, or account features.',
         ],
       },
       {

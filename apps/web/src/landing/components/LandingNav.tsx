@@ -1,6 +1,7 @@
 import { Moon, Sun, Github, ArrowRight } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
+import { trackEvent } from '@wordbase/shared/lib/analytics';
 
 export const WordBaseFullLogo = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 340 128" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -101,6 +102,7 @@ export function LandingNav({ theme, toggleTheme }: Props) {
           </a>
           <a
             href="/app"
+            onClick={() => trackEvent('web_app_open', { source: 'landing_nav' })}
             className={cn(
               'hidden sm:inline-flex text-sm transition-colors px-3 py-1.5',
               t.textMuted,

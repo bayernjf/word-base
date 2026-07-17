@@ -46,6 +46,8 @@ import { useIsMobile } from './hooks/useIsMobile';
 import { profileApi, supabase } from './lib/supabase';
 import { createTranslator } from './i18n';
 import { enqueueAutoAi, type BatchAiType } from './lib/batchAiStore';
+import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
+import { trackEvent, trackPageView } from './lib/analytics';
 import {
   AiProviderConfig,
   AiProviderInput,
@@ -171,6 +173,10 @@ export default function AppSupabase() {
 
   useEffect(() => {
     void getPlatform().kv.set('wordbase_activeView', activeView);
+    const pageName = activeView
+      .replace(/^vocabulary-.+$/, 'vocabulary')
+      .replace(/^settings-editmodel-.+$/, 'settings-editmodel');
+    trackPageView(`WordBase - ${pageName}`);
   }, [activeView]);
 
   useEffect(() => {
@@ -369,6 +375,7 @@ export default function AppSupabase() {
     } else {
       await getPlatform().kv.remove('wordbase_remember_email');
     }
+    trackEvent('login', { method: 'password', remember_me: remember });
     return true;
   };
 
@@ -398,10 +405,12 @@ export default function AppSupabase() {
       setAuthError(error.message);
       return false;
     }
+    trackEvent('sign_up', { method: 'email' });
     return true;
   };
 
   const handleSignOut = async () => {
+    trackEvent('logout');
     await signOut();
   };
 
@@ -503,6 +512,7 @@ export default function AppSupabase() {
       }
 
       await signOut();
+      trackEvent('delete_account');
       return { ok: true };
     } catch {
       return { ok: false, error: '无法连接 3001 服务，请先启动后端服务后再试' };
@@ -1027,6 +1037,7 @@ export default function AppSupabase() {
 
   return (
     <div
+      data-clarity-mask="True"
       className={`${themeStyles.bodyBg} flex flex-col justify-between transition-colors duration-500`}
       style={
         theme === 'glass'
@@ -1146,6 +1157,7 @@ export default function AppSupabase() {
           onClose={handleModalClose}
         />
       )}
+      {getPlatform().getPlatform() === 'web' && <AnalyticsConsentBanner />}
     </div>
   );
 }

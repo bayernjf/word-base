@@ -2,6 +2,7 @@ import { ArrowRight, Download } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
 import { WordBaseFullLogo } from './LandingNav';
+import { trackEvent } from '@wordbase/shared/lib/analytics';
 import { useDownloadUrls } from '../hooks/useDownloadUrls';
 import { UnavailablePlatformButton } from './UnavailablePlatformButton';
 
@@ -65,6 +66,7 @@ export function FinalCTA({ theme }: Props) {
               </div>
               <a
                 href="/app"
+                onClick={() => trackEvent('web_app_open', { source: 'landing_cta' })}
                 className={cn(
                   'inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-sm font-semibold transition-colors border',
                   theme === 'dark'

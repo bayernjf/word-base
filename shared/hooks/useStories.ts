@@ -4,6 +4,7 @@ import { createLogger } from '../lib/logger';
 import { useSupabase } from '../context/SupabaseContext';
 import { requestStoryGenerate, type StoryGenerateRequest } from '../lib/aiEnrich';
 import type { Story } from '../types';
+import { trackEvent } from '../lib/analytics';
 
 const logger = createLogger('useStories');
 
@@ -78,6 +79,11 @@ export function useStories() {
       setIsGenerating(true);
       try {
         const { story } = await requestStoryGenerate(input, accessToken);
+        trackEvent('generate_story', {
+          generation_mode: input.sourceWordIds?.length ? 'wordbook' : 'topic',
+          difficulty: input.difficulty,
+          selected_word_count: input.sourceWordIds?.length ?? 0,
+        });
         // 新故事置顶插入本地列表
         setStories((prev) => [story as Story, ...prev]);
         return story as Story;

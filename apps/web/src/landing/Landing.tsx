@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { trackPageView } from '@wordbase/shared/lib/analytics';
+import { AnalyticsConsentBanner } from '@wordbase/shared/components/AnalyticsConsentBanner';
 import { LandingNav } from './components/LandingNav';
 import { Hero } from './components/Hero';
 import { WorkflowSection } from './components/WorkflowSection';
@@ -32,6 +34,10 @@ export function Landing() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    trackPageView('WordBase - 浏览即学习的 AI 词汇工作台');
+  }, []);
+
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   return (
@@ -46,6 +52,7 @@ export function Landing() {
         <FinalCTA theme={theme} />
       </main>
       <LandingFooter theme={theme} />
+      <AnalyticsConsentBanner />
     </div>
   );
 }
