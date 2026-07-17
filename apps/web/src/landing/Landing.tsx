@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { trackPageView } from '@wordbase/shared/lib/analytics';
+import { initAnalytics, trackPageView } from '@wordbase/shared/lib/analytics';
 import { AnalyticsConsentBanner } from '@wordbase/shared/components/AnalyticsConsentBanner';
 import { LandingNav } from './components/LandingNav';
 import { Hero } from './components/Hero';
@@ -35,7 +35,18 @@ export function Landing() {
   }, [theme]);
 
   useEffect(() => {
-    trackPageView('WordBase - 浏览即学习的 AI 词汇工作台');
+    initAnalytics();
+    let attempts = 0;
+    const tryTrack = () => {
+      const w = window as any;
+      if (typeof w.gtag === 'function') {
+        trackPageView('WordBase - 浏览即学习的 AI 词汇工作台');
+      } else if (attempts < 20) {
+        attempts++;
+        setTimeout(tryTrack, 500);
+      }
+    };
+    tryTrack();
   }, []);
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
