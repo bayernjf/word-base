@@ -32,6 +32,7 @@ import {
   AddNewModelView,
   SyncStorageView,
   AboutSettingsView,
+  PrivacyPolicyView,
 } from './components/views';
 import { useSupabase } from './context/SupabaseContext';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
@@ -891,11 +892,12 @@ export default function AppSupabase() {
         case 'settings-about':
         case 'settings-addmodel':
         case 'settings-sync':
+        case 'settings-privacy':
           return (
             <SettingsLayout
               themeStyles={themeStyles}
               language={language}
-              activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
+              activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView === 'settings-privacy' ? 'settings-about' : activeView}
               activeView={activeView}
               onNavigateSettings={setActiveView}
             >
@@ -953,7 +955,20 @@ export default function AppSupabase() {
                 />
               )}
               {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
-              {activeView === 'settings-about' && <AboutSettingsView themeStyles={themeStyles} language={language} />}
+              {activeView === 'settings-about' && (
+                <AboutSettingsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  onPrivacyPolicyClick={() => setActiveView('settings-privacy')}
+                />
+              )}
+              {activeView === 'settings-privacy' && (
+                <PrivacyPolicyView
+                  themeStyles={themeStyles}
+                  language={language}
+                  onBack={() => setActiveView('settings-about')}
+                />
+              )}
             </SettingsLayout>
           );
         default:

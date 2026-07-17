@@ -70,6 +70,7 @@ export default defineConfig(() => {
         input: {
           main: path.resolve(__dirname, 'index.html'),
           app: path.resolve(__dirname, 'app.html'),
+          privacy: path.resolve(__dirname, 'privacy.html'),
         },
         output: { manualChunks },
       },
