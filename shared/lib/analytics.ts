@@ -17,11 +17,26 @@ export function setConsent(state: ConsentState): void {
     localStorage.setItem(CONSENT_KEY, state);
   } catch {}
   if (state === 'granted') {
-    _loadAnalytics();
+    const w = typeof window === 'undefined' ? undefined : window as any;
+    if (_initialized) {
+      if (typeof w?.gtag === 'function') {
+        w.gtag('consent', 'update', { analytics_storage: 'granted' });
+      }
+      if (typeof w?.clarity === 'function') {
+        w.clarity('consent', true);
+      }
+    } else {
+      _loadAnalytics();
+    }
     trackPageView();
   } else {
     _disableAnalytics();
   }
+}
+
+export function openAnalyticsConsent(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('wordbase:open-analytics-consent'));
 }
 
 function _deleteAnalyticsCookies(): void {
