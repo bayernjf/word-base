@@ -188,6 +188,15 @@ export const mobilePlatform: PlatformAPI = {
     return expoShowNotification(title, body);
   },
 
+  async openUrl(url: string): Promise<void> {
+    try {
+      const { Linking } = await import('react-native');
+      await Linking.openURL(url);
+    } catch {
+      /* ignore */
+    }
+  },
+
   kv: createCachedKV({
     loadAll: loadAllKv,
     save: saveKv,

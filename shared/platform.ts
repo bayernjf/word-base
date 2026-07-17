@@ -74,6 +74,9 @@ export interface PlatformAPI {
 
   showNotification(title: string, body: string): Promise<void>;
 
+  /** 用系统浏览器/系统处理器打开外部 URL。用于公告 action_url 等外链跳转。 */
+  openUrl(url: string): Promise<void>;
+
   /** 平台键值存储。Web=localStorage, Desktop=Tauri Store, Mobile=AsyncStorage。 */
   kv: PlatformKV;
 

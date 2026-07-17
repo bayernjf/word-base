@@ -71,6 +71,14 @@ export const webPlatform: PlatformAPI = {
     if (Notification.permission === 'granted') new Notification(title, { body });
   },
 
+  async openUrl(url: string): Promise<void> {
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      /* ignore */
+    }
+  },
+
   kv: createCachedKV({
     loadAll: async () => loadAllFromLocalStorage(),
     save: async (k, v) => { localStorage.setItem(k, v); },

@@ -28,6 +28,7 @@
     "store:allow-save",
 
     "shell:default",
+    "shell:allow-open",
     {
       "identifier": "shell:allow-spawn",
       "allow": [

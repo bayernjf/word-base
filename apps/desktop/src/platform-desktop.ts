@@ -255,6 +255,21 @@ export const desktopPlatform: PlatformAPI = {
     if (Notification.permission === 'granted') new Notification(title, { body });
   },
 
+  async openUrl(url) {
+    if (isTauri()) {
+      try {
+        const { open } = await import('@tauri-apps/plugin-shell');
+        await open(url);
+        return;
+      } catch { /* fallthrough to window.open */ }
+    }
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      /* ignore */
+    }
+  },
+
   kv: createCachedKV({
     loadAll: loadAllKv,
     save: saveKv,
