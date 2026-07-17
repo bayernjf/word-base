@@ -33,6 +33,7 @@ import {
   SyncStorageView,
   AboutSettingsView,
   PrivacyPolicyView,
+  FeedbackSettingsView,
   AnnouncementsView,
 } from './components/views';
 import { useSupabase } from './context/SupabaseContext';
@@ -917,6 +918,7 @@ export default function AppSupabase() {
         case 'settings-about':
         case 'settings-addmodel':
         case 'settings-sync':
+        case 'settings-feedback':
         case 'settings-privacy':
           return (
             <SettingsLayout
@@ -980,6 +982,15 @@ export default function AppSupabase() {
                 />
               )}
               {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
+              {activeView === 'settings-feedback' && (
+                <FeedbackSettingsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  userId={currentUser?.id ?? null}
+                  accessToken={session?.access_token ?? null}
+                  onSignInClick={() => setActiveView('login')}
+                />
+              )}
               {activeView === 'settings-about' && (
                 <AboutSettingsView
                   themeStyles={themeStyles}

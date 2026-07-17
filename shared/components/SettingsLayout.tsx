@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Sliders, Sparkles, Database, Wand2, Info, ChevronRight, ChevronLeft } from 'lucide-react';
+import { User, Sliders, Sparkles, Database, Wand2, Info, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
 import { AppLanguage } from '../types';
 import { createTranslator } from '../i18n';
@@ -26,6 +26,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     autoAi: t('settingsLayout.autoAi'),
     sync: t('settingsLayout.sync'),
     about: t('settingsLayout.about'),
+    feedback: t('settingsLayout.feedback'),
     title: t('settingsLayout.title'),
     subtitle: t('settingsLayout.subtitle'),
     preferences: t('settingsLayout.preferences'),
@@ -37,6 +38,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     { id: 'settings-aimodels', label: copy.aiModels, icon: Sparkles },
     { id: 'settings-autoai', label: copy.autoAi, icon: Wand2 },
     { id: 'settings-sync', label: copy.sync, icon: Database, hidden: true },
+    { id: 'settings-feedback', label: copy.feedback, icon: MessageSquare },
     { id: 'settings-about', label: copy.about, icon: Info },
   ];
 
