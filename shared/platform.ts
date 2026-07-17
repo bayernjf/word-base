@@ -63,6 +63,29 @@ export interface UpdateService {
   isReady: boolean;
 }
 
+/**
+ * 系统环境信息快照（反馈系统提交时附带）。
+ * 由各端 platform 实现采集，字段尽力而为，缺失填 'unknown'。
+ */
+export interface SystemInfo {
+  appVersion: string;
+  platform: string;       // web / desktop / ios / android
+  osVersion?: string;
+  deviceModel?: string;
+}
+
+/**
+ * 平台主进程诊断日志（仅桌面端 Tauri 提供；web/mobile 返回 null）。
+ * 主进程负责脱敏，前端只透传。
+ */
+export interface PlatformLogData {
+  content: string;
+  lineCount: number;
+  startedAt?: string;
+  endedAt?: string;
+  truncated: boolean;
+}
+
 export interface PlatformAPI {
   readonly name: string;
 
@@ -84,6 +107,12 @@ export interface PlatformAPI {
 
   /** 桌面端二进制更新 / 移动端 OTA 热更新。web 不实现。 */
   updater?: UpdateService;
+
+  /** 采集系统环境信息（反馈系统用）。各端必须实现。 */
+  getSystemInfo?(): Promise<SystemInfo>;
+
+  /** 获取最近 N 分钟的主进程日志（仅桌面端 Tauri 实现，web/mobile 返回 null）。 */
+  getRecentLogs?(minutes: number): Promise<PlatformLogData | null>;
 }
 
 let _platform: PlatformAPI | null = null;
