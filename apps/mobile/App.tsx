@@ -5,11 +5,13 @@ import { SupabaseProvider } from '@wordbase/shared/context/SupabaseContext';
 import { AnnouncementProvider } from '@wordbase/shared/context/AnnouncementContext';
 import { getPlatform, setPlatform } from '@wordbase/shared/platform';
 import { setPrimitives, PrimitiveThemeProvider } from '@wordbase/shared/primitives';
+import { installGlobalErrorHandlers } from '@wordbase/shared/lib/feedbackLogger';
 import { rnPrimitives } from './src/primitives';
 import { mobilePlatform } from './src/platform-expo';
 
 setPlatform(mobilePlatform);
 setPrimitives(rnPrimitives);
+installGlobalErrorHandlers();
 
 export default function App() {
   return (

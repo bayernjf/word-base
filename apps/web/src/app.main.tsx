@@ -5,9 +5,11 @@ import { SupabaseProvider } from '@wordbase/shared/context/SupabaseContext';
 import { AnnouncementProvider } from '@wordbase/shared/context/AnnouncementContext';
 import '@wordbase/shared/index.css';
 import { getPlatform, setPlatform } from '@wordbase/shared/platform';
+import { installGlobalErrorHandlers } from '@wordbase/shared/lib/feedbackLogger';
 import { webPlatform } from './platform-web';
 
 setPlatform(webPlatform);
+installGlobalErrorHandlers();
 
 const root = createRoot(document.getElementById('root')!);
 getPlatform().kv.init().then(() => {

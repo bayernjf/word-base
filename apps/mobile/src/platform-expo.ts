@@ -4,7 +4,8 @@ import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createCachedKV, type PlatformAPI, type SpeakOptions, type UpdateService, type UpdateProgress, type UpdateCheckResult } from '@wordbase/shared/platform';
+import Constants from 'expo-constants';
+import { createCachedKV, type PlatformAPI, type SpeakOptions, type UpdateService, type UpdateProgress, type UpdateCheckResult, type SystemInfo, type PlatformLogData } from '@wordbase/shared/platform';
 
 async function expoSpeak(text: string, options: SpeakOptions): Promise<void> {
   try {
@@ -208,5 +209,21 @@ export const mobilePlatform: PlatformAPI = {
 
   getPlatform() {
     return Platform.OS === 'ios' ? 'ios' : 'android';
+  },
+
+  async getSystemInfo(): Promise<SystemInfo> {
+    const appVersion = (Constants.expoConfig?.version as string | undefined) || 'unknown';
+    const osVersion = String(Platform.Version ?? '');
+    const deviceModel = Platform.OS === 'ios' ? 'iOS device' : 'Android device';
+    return {
+      appVersion,
+      platform: Platform.OS === 'ios' ? 'ios' : 'android',
+      osVersion,
+      deviceModel,
+    };
+  },
+
+  async getRecentLogs(): Promise<PlatformLogData | null> {
+    return null;
   },
 };
