@@ -4,6 +4,7 @@ import { ThemeClasses } from '../../ThemeStyles';
 import { getPlatform } from '@wordbase/shared/platform';
 import type { AppLanguage } from '../../../types';
 import type { UpdateProgress } from '@wordbase/shared/platform';
+import { AnalyticsConsentToggle } from '../../AnalyticsConsentBanner';
 
 interface AboutSettingsProps {
   themeStyles: ThemeClasses;
@@ -378,6 +379,11 @@ export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, l
                   {c.privacyAction}
                 </button>
               </div>
+              {platform.getPlatform() === 'web' && (
+                <div className={`mt-5 pt-4 border-t ${isGlass ? 'border-white/10' : 'border-[#bad8b7]'}`}>
+                  <AnalyticsConsentToggle />
+                </div>
+              )}
             </div>
           </div>
         </div>

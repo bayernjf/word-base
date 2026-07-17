@@ -1,6 +1,6 @@
 import React from 'react';
-import { 
-  Home, BookOpen, Layers, Sparkles, Activity, Settings, ChevronRight
+import {
+  Home, BookOpen, Layers, Sparkles, Activity, Settings, ChevronRight, Megaphone
 } from 'lucide-react';
 import { ThemeClasses } from './ThemeStyles';
 import { AVATARS } from '../avatars';
@@ -13,16 +13,18 @@ interface SidebarProps {
   themeStyles: ThemeClasses;
   language: AppLanguage;
   user?: { id: string; email: string; nickname?: string; avatar?: number; createdAt: number } | null;
+  announcementUnreadCount?: number;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles, language, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeStyles, language, user, announcementUnreadCount = 0 }) => {
   const t = createTranslator(language);
-  const menuItems: { id: string; label: string; icon: typeof Home; hidden?: boolean }[] = [
+  const menuItems: { id: string; label: string; icon: typeof Home; hidden?: boolean; badge?: number }[] = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: Home },
     { id: 'vocabulary', label: t('sidebar.vocabulary'), icon: BookOpen },
     { id: 'mylists', label: t('sidebar.mylists'), icon: Layers },
     { id: 'stories', label: t('sidebar.stories'), icon: Sparkles },
     { id: 'practice', label: t('sidebar.practice'), icon: Activity },
+    { id: 'announcements', label: t('sidebar.announcements'), icon: Megaphone, badge: announcementUnreadCount },
     { id: 'settings-account', label: t('sidebar.settings'), icon: Settings }
   ];
 
@@ -73,6 +75,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, themeS
                 <div className="flex items-center space-x-2.5">
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span>{item.label}</span>
+                  {!!item.badge && item.badge > 0 && (
+                    <span className={`ml-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                      isGlass
+                        ? 'bg-rose-500/90 text-white'
+                        : 'bg-[#e88080] text-white'
+                    }`}>
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
                 </div>
                 <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSelected ? 'rotate-90' : 'opacity-30'}`} />
               </button>

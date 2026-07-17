@@ -1,4 +1,4 @@
-import { createCachedKV, type PlatformAPI, type SpeakOptions, type UpdateService, type UpdateProgress } from '@wordbase/shared/platform';
+import { createCachedKV, type PlatformAPI, type SpeakOptions, type UpdateService, type UpdateProgress, type SystemInfo, type PlatformLogData } from '@wordbase/shared/platform';
 
 /**
  * 桌面端（Tauri）平台实现。
@@ -255,6 +255,21 @@ export const desktopPlatform: PlatformAPI = {
     if (Notification.permission === 'granted') new Notification(title, { body });
   },
 
+  async openUrl(url) {
+    if (isTauri()) {
+      try {
+        const { open } = await import('@tauri-apps/plugin-shell');
+        await open(url);
+        return;
+      } catch { /* fallthrough to window.open */ }
+    }
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      /* ignore */
+    }
+  },
+
   kv: createCachedKV({
     loadAll: loadAllKv,
     save: saveKv,
@@ -270,4 +285,50 @@ export const desktopPlatform: PlatformAPI = {
   updater: desktopUpdater,
 
   getPlatform() { return 'desktop'; },
+
+  async getSystemInfo(): Promise<SystemInfo> {
+    let appVersion = 'unknown';
+    let osVersion: string | undefined;
+    let deviceModel: string | undefined;
+
+    if (isTauri()) {
+      try {
+        const { getVersion } = await import('@tauri-apps/api/app');
+        appVersion = await getVersion();
+      } catch { /* keep default */ }
+    }
+
+    // OS 信息：优先用 UA 解析（Tauri WebView 仍带 UA）
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    if (/Windows NT ([\d.]+)/.test(ua)) {
+      osVersion = `Windows ${RegExp.$1}`;
+      deviceModel = 'x86_64';
+    } else if (/Mac OS X ([\d_]+)/.test(ua)) {
+      osVersion = `macOS ${RegExp.$1.replace(/_/g, '.')}`;
+      deviceModel = ua.includes('ARM') ? 'arm64' : 'x86_64';
+    } else if (/Android ([\d.]+)/.test(ua)) {
+      osVersion = `Android ${RegExp.$1}`;
+    } else if (/(?:iPhone|iPad|iPod).*?OS ([\d_]+)/.test(ua)) {
+      osVersion = `iOS ${RegExp.$1.replace(/_/g, '.')}`;
+    }
+
+    return {
+      appVersion,
+      platform: 'desktop',
+      osVersion,
+      deviceModel,
+    };
+  },
+
+  async getRecentLogs(minutes: number): Promise<PlatformLogData | null> {
+    if (!isTauri()) return null;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<PlatformLogData>('get_recent_logs', { minutes });
+      return result;
+    } catch (err) {
+      console.warn('[desktop] getRecentLogs failed:', err);
+      return null;
+    }
+  },
 };

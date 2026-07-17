@@ -33,14 +33,21 @@ import {
   SyncStorageView,
   AboutSettingsView,
   PrivacyPolicyView,
+  FeedbackSettingsView,
+  AnnouncementsView,
 } from './components/views';
 import { useSupabase } from './context/SupabaseContext';
+import { useAnnouncements } from './context/AnnouncementContext';
+import { AnnouncementBanner } from './components/announcement/AnnouncementBanner';
+import { AnnouncementModal } from './components/announcement/AnnouncementModal';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
 import { useStories } from './hooks/useStories';
 import { useIsMobile } from './hooks/useIsMobile';
 import { profileApi, supabase } from './lib/supabase';
 import { createTranslator } from './i18n';
 import { enqueueAutoAi, type BatchAiType } from './lib/batchAiStore';
+import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
+import { trackEvent, trackPageView } from './lib/analytics';
 import {
   AiProviderConfig,
   AiProviderInput,
@@ -141,12 +148,35 @@ export default function AppSupabase() {
   const themeStyles = getThemeClasses(theme, isSmallTypography);
   const isMobile = useIsMobile();
 
+  // ============ 公告系统 ============
+  const { announcements, dismissBanner, markRead, unreadCount } = useAnnouncements();
+  const [dismissedModalIds, setDismissedModalIds] = useState<Set<string>>(new Set());
+  const activeBanner = announcements.find(
+    (a) => a.severity === 'warning' && !a.read && !a.dismissed
+  );
+  const activeModal = announcements.find(
+    (a) => a.severity === 'critical' && !a.read && !dismissedModalIds.has(a.id)
+  );
+  const handleModalClose = () => {
+    if (!activeModal) return;
+    const id = activeModal.id;
+    setDismissedModalIds((prev) => new Set(prev).add(id));
+    void markRead(id);
+  };
+  const handleBannerDismiss = (id: string) => {
+    void dismissBanner(id);
+  };
+
   useEffect(() => {
     void getPlatform().kv.set('wordbase_language', language);
   }, [language]);
 
   useEffect(() => {
     void getPlatform().kv.set('wordbase_activeView', activeView);
+    const pageName = activeView
+      .replace(/^vocabulary-.+$/, 'vocabulary')
+      .replace(/^settings-editmodel-.+$/, 'settings-editmodel');
+    trackPageView(`WordBase - ${pageName}`);
   }, [activeView]);
 
   useEffect(() => {
@@ -345,6 +375,7 @@ export default function AppSupabase() {
     } else {
       await getPlatform().kv.remove('wordbase_remember_email');
     }
+    trackEvent('login', { method: 'password', remember_me: remember });
     return true;
   };
 
@@ -374,10 +405,12 @@ export default function AppSupabase() {
       setAuthError(error.message);
       return false;
     }
+    trackEvent('sign_up', { method: 'email' });
     return true;
   };
 
   const handleSignOut = async () => {
+    trackEvent('logout');
     await signOut();
   };
 
@@ -479,6 +512,7 @@ export default function AppSupabase() {
       }
 
       await signOut();
+      trackEvent('delete_account');
       return { ok: true };
     } catch {
       return { ok: false, error: '无法连接 3001 服务，请先启动后端服务后再试' };
@@ -864,6 +898,8 @@ export default function AppSupabase() {
           return <ReadingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
         case 'practice-writing':
           return <WritingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+        case 'announcements':
+          return <AnnouncementsView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
         case 'profile':
           return (
             <AccountSettingsView
@@ -892,6 +928,7 @@ export default function AppSupabase() {
         case 'settings-about':
         case 'settings-addmodel':
         case 'settings-sync':
+        case 'settings-feedback':
         case 'settings-privacy':
           return (
             <SettingsLayout
@@ -955,6 +992,15 @@ export default function AppSupabase() {
                 />
               )}
               {activeView === 'settings-sync' && <SyncStorageView themeStyles={themeStyles} language={language} />}
+              {activeView === 'settings-feedback' && (
+                <FeedbackSettingsView
+                  themeStyles={themeStyles}
+                  language={language}
+                  userId={currentUser?.id ?? null}
+                  accessToken={session?.access_token ?? null}
+                  onSignInClick={() => setActiveView('login')}
+                />
+              )}
               {activeView === 'settings-about' && (
                 <AboutSettingsView
                   themeStyles={themeStyles}
@@ -991,6 +1037,7 @@ export default function AppSupabase() {
 
   return (
     <div
+      data-clarity-mask="True"
       className={`${themeStyles.bodyBg} flex flex-col justify-between transition-colors duration-500`}
       style={
         theme === 'glass'
@@ -1016,7 +1063,18 @@ export default function AppSupabase() {
         activeView={activeView}
         user={currentUser}
         isMobile={isMobile}
+        announcementUnreadCount={unreadCount}
       />
+
+      {user && activeBanner && (
+        <AnnouncementBanner
+          announcement={activeBanner}
+          theme={theme}
+          language={language}
+          onDismiss={handleBannerDismiss}
+          onOpenList={() => setActiveView('announcements')}
+        />
+      )}
 
       <main className={`flex-grow w-full ${isMobile ? 'px-4 py-4 pb-24' : 'max-w-7xl mx-auto ' + (isCompactMode ? 'p-3 my-4' : 'px-6 py-8 my-6')}`}>
         {!user ? (
@@ -1061,6 +1119,7 @@ export default function AppSupabase() {
                 themeStyles={themeStyles}
                 language={language}
                 user={currentUser}
+                announcementUnreadCount={unreadCount}
               />
             </div>
             <div className="lg:col-span-3">
@@ -1089,6 +1148,16 @@ export default function AppSupabase() {
           language={language}
         />
       )}
+
+      {user && activeModal && (
+        <AnnouncementModal
+          announcement={activeModal}
+          theme={theme}
+          language={language}
+          onClose={handleModalClose}
+        />
+      )}
+      {getPlatform().getPlatform() === 'web' && <AnalyticsConsentBanner />}
     </div>
   );
 }

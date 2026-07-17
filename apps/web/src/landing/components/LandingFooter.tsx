@@ -21,31 +21,12 @@ export function LandingFooter({ theme }: Props) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
           <div className="col-span-2">
-            <a href="/" className="inline-block">
-              <WordBaseFullLogo className="h-14 w-auto -ml-1" />
-            </a>
-            <p
-              className={cn(
-                'text-xs mt-3 max-w-sm leading-relaxed',
-                theme === 'dark' ? 'text-slate-400' : 'text-slate-500',
-              )}
-            >
-              AI 驱动的英语词汇学习与复习工作台。浏览即学习，让每个生词都不流失。
-            </p>
-            <a
-              href="https://github.com/bayernjf/word-base"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                'inline-flex items-center gap-1.5 mt-4 text-xs transition-colors',
-                theme === 'dark'
-                  ? 'text-slate-400 hover:text-white'
-                  : 'text-slate-500 hover:text-slate-900',
-              )}
-            >
-              <Github className="w-4 h-4" />
-              GitHub
-            </a>
+            <div className="flex items-center gap-3">
+              <a href="/">
+                <WordBaseFullLogo className="h-16 w-auto" />
+              </a>
+              <span className={cn('text-xs ml-1', t.textSubtle)}>添忆：添加记忆；浏览即学习</span>
+            </div>
           </div>
 
           <div>
@@ -123,6 +104,32 @@ export function LandingFooter({ theme }: Props) {
                   隐私政策
                 </a>
               </li>
+              <li>
+                <a
+                  href="/terms"
+                  className={cn(
+                    'text-sm transition-colors',
+                    theme === 'dark'
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  服务条款
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/delete-account"
+                  className={cn(
+                    'text-sm transition-colors',
+                    theme === 'dark'
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  账号删除
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -141,17 +148,30 @@ export function LandingFooter({ theme }: Props) {
           >
             © {new Date().getFullYear()} WordBase. All rights reserved.
           </p>
-          <a
-            href="/privacy"
-            className={cn(
-              'text-xs transition-colors',
-              theme === 'dark'
-                ? 'text-slate-500 hover:text-slate-300'
-                : 'text-slate-400 hover:text-slate-600',
-            )}
-          >
-            隐私政策
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="/privacy"
+              className={cn(
+                'text-xs transition-colors',
+                theme === 'dark'
+                  ? 'text-slate-500 hover:text-slate-300'
+                  : 'text-slate-400 hover:text-slate-600',
+              )}
+            >
+              隐私政策
+            </a>
+            <a
+              href="/terms"
+              className={cn(
+                'text-xs transition-colors',
+                theme === 'dark'
+                  ? 'text-slate-500 hover:text-slate-300'
+                  : 'text-slate-400 hover:text-slate-600',
+              )}
+            >
+              服务条款
+            </a>
+          </div>
         </div>
       </div>
     </footer>

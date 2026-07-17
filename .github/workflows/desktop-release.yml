@@ -330,9 +330,9 @@ jobs:
         run: npx expo prebuild --platform ios --clean
 
       - name: Install CocoaPods
-        working-directory: apps/mobile/ios
+        working-directory: apps/mobile
         run: |
-          pod install --repo-update
+          pod install --repo-update --project-directory=ios
 
       - name: Build iOS app for simulator
         working-directory: apps/mobile/ios

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { trackPageView } from '@wordbase/shared/lib/analytics';
+import { AnalyticsConsentBanner } from '@wordbase/shared/components/AnalyticsConsentBanner';
 import { LandingNav } from './components/LandingNav';
 import { Hero } from './components/Hero';
 import { WorkflowSection } from './components/WorkflowSection';
@@ -8,7 +10,6 @@ import { ExtensionSection } from './components/ExtensionSection';
 import { LearningSection } from './components/LearningSection';
 import { MultiPlatformSection } from './components/MultiPlatformSection';
 import { FinalCTA } from './components/FinalCTA';
-import { MacInstallGuide } from './components/MacInstallGuide';
 import { LandingFooter } from './components/LandingFooter';
 
 export type LandingTheme = 'dark' | 'light';
@@ -33,24 +34,25 @@ export function Landing() {
     }
   }, [theme]);
 
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  useEffect(() => {
+    trackPageView('WordBase - 浏览即学习的 AI 词汇工作台');
+  }, []);
 
-  const [macGuideOpen, setMacGuideOpen] = useState(false);
-  const openMacGuide = () => setMacGuideOpen(true);
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   return (
     <div className="min-h-screen">
       <LandingNav theme={theme} toggleTheme={toggleTheme} />
       <main>
-        <Hero theme={theme} onMacDownload={openMacGuide} />
+        <Hero theme={theme} />
         <WorkflowSection theme={theme} />
         <ExtensionSection theme={theme} />
         <LearningSection theme={theme} />
         <MultiPlatformSection theme={theme} />
-        <FinalCTA theme={theme} onMacDownload={openMacGuide} />
+        <FinalCTA theme={theme} />
       </main>
       <LandingFooter theme={theme} />
-      <MacInstallGuide open={macGuideOpen} onClose={() => setMacGuideOpen(false)} theme={theme} />
+      <AnalyticsConsentBanner />
     </div>
   );
 }
