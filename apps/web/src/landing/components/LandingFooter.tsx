@@ -1,6 +1,7 @@
 import { cn, themeVars } from '../theme';
 import type { LandingTheme } from '../Landing';
 import { WordBaseFullLogo } from './LandingNav';
+import { openAnalyticsConsent } from '@wordbase/shared/lib/analytics';
 
 interface Props {
   theme: LandingTheme;
@@ -128,6 +129,20 @@ export function LandingFooter({ theme }: Props) {
                 >
                   账号删除
                 </a>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={openAnalyticsConsent}
+                  className={cn(
+                    'text-sm transition-colors cursor-pointer',
+                    theme === 'dark'
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  分析偏好
+                </button>
               </li>
             </ul>
           </div>
