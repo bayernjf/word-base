@@ -2,6 +2,7 @@ import { ArrowRight, Sparkles, Check, Globe, Monitor, Smartphone } from 'lucide-
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
 import { useDownloadUrls } from '../hooks/useDownloadUrls';
+import { UnavailablePlatformButton } from './UnavailablePlatformButton';
 
 interface Props {
   theme: LandingTheme;
@@ -67,54 +68,20 @@ export function Hero({ theme }: Props) {
               安装浏览器插件
               <ArrowRight className="w-4 h-4" />
             </button>
-            <button
-              disabled
-              title="该平台紧急更新上架中"
-              className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
-                theme === 'dark'
-                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
-                  : 'bg-white border-slate-200 text-slate-700',
-              )}
-            >
-              安装 Mac
-            </button>
-            <button
-              disabled
-              title="该平台紧急更新上架中"
-              className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
-                theme === 'dark'
-                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
-                  : 'bg-white border-slate-200 text-slate-700',
-              )}
-            >
-              安装 Win
-            </button>
-            <button
-              disabled
-              title="该平台紧急更新上架中"
-              className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
-                theme === 'dark'
-                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
-                  : 'bg-white border-slate-200 text-slate-700',
-              )}
-            >
-              安装 iOS
-            </button>
-            <button
-              disabled
-              title="该平台紧急更新上架中"
-              className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
-                theme === 'dark'
-                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
-                  : 'bg-white border-slate-200 text-slate-700',
-              )}
-            >
-              安装 Android
-            </button>
+            {['Mac', 'Win', 'iOS', 'Android'].map((platform) => (
+              <UnavailablePlatformButton
+                key={platform}
+                theme={theme}
+                className={cn(
+                  'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
+                  theme === 'dark'
+                    ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
+                    : 'bg-white border-slate-200 text-slate-700',
+                )}
+              >
+                安装 {platform}
+              </UnavailablePlatformButton>
+            ))}
           </div>
           <a
             href="/app"
