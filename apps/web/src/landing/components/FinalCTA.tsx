@@ -115,29 +115,6 @@ export function FinalCTA({ theme, onMacDownload }: Props) {
         </div>
       </section>
 
-      <footer className={cn('px-4 sm:px-6 py-8 border-t', t.border)}>
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <WordBaseFullLogo className="h-16 w-auto" />
-              <span className={cn('text-xs ml-1', t.textSubtle)}>添忆：添加记忆；浏览即学习</span>
-            </div>
-            <div className="flex items-center gap-5">
-              <a
-                href="/app"
-                className={cn(
-                  'text-xs transition-colors',
-                  t.textSubtle,
-                  theme === 'dark' ? 'hover:text-white' : 'hover:text-slate-700',
-                )}
-              >
-                Web 版
-              </a>
-            </div>
-            <p className={cn('text-xs', t.textSubtle)}>© 2026 WordBase. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </>
   );
 }
