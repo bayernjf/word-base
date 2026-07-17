@@ -1,4 +1,3 @@
-import { Github } from 'lucide-react';
 import { cn, themeVars } from '../theme';
 import type { LandingTheme } from '../Landing';
 import { WordBaseFullLogo } from './LandingNav';
@@ -26,26 +25,12 @@ export function LandingFooter({ theme }: Props) {
             </a>
             <p
               className={cn(
-                'text-xs mt-3 max-w-sm leading-relaxed',
+                'text-xs mt-3',
                 theme === 'dark' ? 'text-slate-400' : 'text-slate-500',
               )}
             >
-              AI 驱动的英语词汇学习与复习工作台。浏览即学习，让每个生词都不流失。
+              添忆：添加记忆；浏览即学习
             </p>
-            <a
-              href="https://github.com/bayernjf/word-base"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                'inline-flex items-center gap-1.5 mt-4 text-xs transition-colors',
-                theme === 'dark'
-                  ? 'text-slate-400 hover:text-white'
-                  : 'text-slate-500 hover:text-slate-900',
-              )}
-            >
-              <Github className="w-4 h-4" />
-              GitHub
-            </a>
           </div>
 
           <div>
