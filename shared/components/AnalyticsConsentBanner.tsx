@@ -7,10 +7,16 @@ export function AnalyticsConsentBanner() {
 
   useEffect(() => {
     const consent = getConsent();
+    const handleOpen = () => setVisible(true);
+    window.addEventListener('wordbase:open-analytics-consent', handleOpen);
     if (consent === null) {
       const timer = setTimeout(() => setVisible(true), 1000);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('wordbase:open-analytics-consent', handleOpen);
+      };
     }
+    return () => window.removeEventListener('wordbase:open-analytics-consent', handleOpen);
   }, []);
 
   const handleAccept = () => {
