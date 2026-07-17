@@ -3,6 +3,7 @@ const CONSENT_KEY = 'wordbase_analytics_consent';
 export type ConsentState = 'granted' | 'denied';
 
 let _initialized = false;
+let _storageListenerInstalled = false;
 
 export function getConsent(): ConsentState | null {
   try {
@@ -10,6 +11,33 @@ export function getConsent(): ConsentState | null {
     if (v === 'granted' || v === 'denied') return v;
   } catch {}
   return null;
+}
+
+function _installStorageListener(): void {
+  if (_storageListenerInstalled) return;
+  if (typeof window === 'undefined') return;
+  _storageListenerInstalled = true;
+  window.addEventListener('storage', (e) => {
+    if (e.key === CONSENT_KEY) {
+      const newVal = e.newValue as ConsentState | null;
+      if (newVal === 'granted') {
+        if (!_initialized) {
+          _loadAnalytics();
+        } else {
+          const w = window as any;
+          if (typeof w?.gtag === 'function') {
+            w.gtag('consent', 'update', { analytics_storage: 'granted' });
+          }
+          if (typeof w?.clarity === 'function') {
+            w.clarity('consent', true);
+          }
+        }
+        trackPageView();
+      } else if (newVal === 'denied') {
+        _disableAnalytics();
+      }
+    }
+  });
 }
 
 export function setConsent(state: ConsentState): void {
@@ -151,11 +179,19 @@ function _loadAnalytics(): void {
 }
 
 export function initAnalytics(): void {
-  const consent = getConsent();
-  if (consent === 'granted') {
-    _loadAnalytics();
-  } else if (consent === null) {
-    _initialized = false;
+  _installStorageListener();
+  const init = () => {
+    const consent = getConsent();
+    if (consent === 'granted') {
+      _loadAnalytics();
+    } else if (consent === null) {
+      _initialized = false;
+    }
+  };
+  if (typeof document === 'undefined' || document.readyState !== 'loading') {
+    init();
+  } else {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
   }
 }
 
