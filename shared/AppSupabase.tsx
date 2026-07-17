@@ -892,11 +892,12 @@ export default function AppSupabase() {
         case 'settings-about':
         case 'settings-addmodel':
         case 'settings-sync':
+        case 'settings-privacy':
           return (
             <SettingsLayout
               themeStyles={themeStyles}
               language={language}
-              activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView}
+              activeSettingsTab={activeView === 'settings-addmodel' ? 'settings-aimodels' : activeView === 'settings-privacy' ? 'settings-about' : activeView}
               activeView={activeView}
               onNavigateSettings={setActiveView}
             >
