@@ -5,17 +5,12 @@ import { useDownloadUrls } from '../hooks/useDownloadUrls';
 
 interface Props {
   theme: LandingTheme;
-  onMacDownload?: () => void;
 }
 
-export function Hero({ theme, onMacDownload }: Props) {
+export function Hero({ theme }: Props) {
   const t = themeVars(theme);
-  const { downloadMac, downloadWin, downloadAndroid, downloadIos, downloadChrome } = useDownloadUrls();
+  const { downloadChrome } = useDownloadUrls();
 
-  const handleDownloadMac = () => {
-    downloadMac();
-    onMacDownload?.();
-  };
 
   return (
     <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 px-4 sm:px-6 overflow-hidden">
@@ -73,45 +68,49 @@ export function Hero({ theme, onMacDownload }: Props) {
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
-              onClick={handleDownloadMac}
+              disabled
+              title="该平台紧急更新上架中"
               className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
                 theme === 'dark'
-                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
+                  : 'bg-white border-slate-200 text-slate-700',
               )}
             >
               安装 Mac
             </button>
             <button
-              onClick={downloadWin}
+              disabled
+              title="该平台紧急更新上架中"
               className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
                 theme === 'dark'
-                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
+                  : 'bg-white border-slate-200 text-slate-700',
               )}
             >
               安装 Win
             </button>
             <button
-              onClick={downloadIos}
+              disabled
+              title="该平台紧急更新上架中"
               className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
                 theme === 'dark'
-                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
+                  : 'bg-white border-slate-200 text-slate-700',
               )}
             >
               安装 iOS
             </button>
             <button
-              onClick={downloadAndroid}
+              disabled
+              title="该平台紧急更新上架中"
               className={cn(
-                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border',
+                'inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold transition-colors border opacity-50 cursor-not-allowed',
                 theme === 'dark'
-                  ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-200'
-                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700',
+                  ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
+                  : 'bg-white border-slate-200 text-slate-700',
               )}
             >
               安装 Android

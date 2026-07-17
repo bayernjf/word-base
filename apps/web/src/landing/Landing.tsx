@@ -8,7 +8,6 @@ import { ExtensionSection } from './components/ExtensionSection';
 import { LearningSection } from './components/LearningSection';
 import { MultiPlatformSection } from './components/MultiPlatformSection';
 import { FinalCTA } from './components/FinalCTA';
-import { MacInstallGuide } from './components/MacInstallGuide';
 import { LandingFooter } from './components/LandingFooter';
 
 export type LandingTheme = 'dark' | 'light';
@@ -35,22 +34,18 @@ export function Landing() {
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
-  const [macGuideOpen, setMacGuideOpen] = useState(false);
-  const openMacGuide = () => setMacGuideOpen(true);
-
   return (
     <div className="min-h-screen">
       <LandingNav theme={theme} toggleTheme={toggleTheme} />
       <main>
-        <Hero theme={theme} onMacDownload={openMacGuide} />
+        <Hero theme={theme} />
         <WorkflowSection theme={theme} />
         <ExtensionSection theme={theme} />
         <LearningSection theme={theme} />
         <MultiPlatformSection theme={theme} />
-        <FinalCTA theme={theme} onMacDownload={openMacGuide} />
+        <FinalCTA theme={theme} />
       </main>
       <LandingFooter theme={theme} />
-      <MacInstallGuide open={macGuideOpen} onClose={() => setMacGuideOpen(false)} theme={theme} />
     </div>
   );
 }
