@@ -1,7 +1,6 @@
 import { ArrowRight, Download } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
-import { WordBaseFullLogo } from './LandingNav';
 import { trackEvent } from '@wordbase/shared/lib/analytics';
 import { useDownloadUrls } from '../hooks/useDownloadUrls';
 import { UnavailablePlatformButton } from './UnavailablePlatformButton';

@@ -215,13 +215,13 @@ export function TermsPage() {
     document.body.classList.add(`landing-${theme}`);
     try {
       localStorage.setItem('wordbase-landing-theme', theme);
-    } catch {}
+    } catch { /* noop */ }
   }, [theme]);
 
   useEffect(() => {
     try {
       localStorage.setItem('wordbase-landing-lang', lang);
-    } catch {}
+    } catch { /* noop */ }
   }, [lang]);
 
   const content = TERMS_CONTENT[lang];

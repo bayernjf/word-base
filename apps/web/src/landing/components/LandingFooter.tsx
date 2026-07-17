@@ -1,4 +1,3 @@
-import { Github } from 'lucide-react';
 import { cn, themeVars } from '../theme';
 import type { LandingTheme } from '../Landing';
 import { WordBaseFullLogo } from './LandingNav';
