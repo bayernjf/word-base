@@ -129,11 +129,11 @@ export function DeleteAccountPage() {
   useEffect(() => {
     document.body.classList.remove('landing-dark', 'landing-light');
     document.body.classList.add(`landing-${theme}`);
-    try { localStorage.setItem('wordbase-landing-theme', theme); } catch {}
+    try { localStorage.setItem('wordbase-landing-theme', theme); } catch { /* noop */ }
   }, [theme]);
 
   useEffect(() => {
-    try { localStorage.setItem('wordbase-landing-lang', lang); } catch {}
+    try { localStorage.setItem('wordbase-landing-lang', lang); } catch { /* noop */ }
   }, [lang]);
 
   const content = CONTENT[lang];
