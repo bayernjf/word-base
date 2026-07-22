@@ -1,23 +1,23 @@
-# Preview Screenshot Artifact Design
+# Production Preview Screenshot Design
 
 ## Goal
 
-Keep the preview screenshot workflow, but prevent it from creating temporary Git branches, commits, or pull requests.
+Publish the current landing-page preview image with every Cloudflare Pages deployment, without creating Git branches, commits, pull requests, or separate CI runs.
 
 ## Workflow behavior
 
-On pushes to `main` or `dev`, and when manually dispatched, the workflow builds the web app, captures the 1200×630 landing-page screenshot, and uploads `apps/web/public/preview.png` as a GitHub Actions artifact.
+On pushes to `main` or `dev`, and when manually dispatched, the deployment workflow builds the web app, starts that build locally, and captures a 1200×630 landing-page screenshot into `apps/web/dist/preview.png`. The same `dist` directory is deployed to Cloudflare Pages.
 
-The screenshot remains available from the workflow run for inspection or download. It is not written back into the repository, so the deployed Open Graph image only changes when a developer intentionally updates and commits the tracked image.
+The production deployment therefore serves the generated image at the stable address `/preview.png`. The `main` deployment makes it available as `https://word-base.pages.dev/preview.png`, which other projects can reference directly.
 
 ## Implementation
 
-Replace the current "Commit preview image to feature branch" step with `actions/upload-artifact`. Remove permissions that are only needed for pushing commits and opening pull requests; the workflow retains read-only repository access.
+Move screenshot generation into the existing `Build Web (Vite)` job in `.github/workflows/deploy.yml`, after Vite writes `apps/web/dist`. Remove the separate `.github/workflows/screenshot.yml` workflow entirely. Add `/preview.png` to the Cloudflare deployment health checks.
 
 ## Failure behavior
 
-If the web build, preview server, or screenshot capture fails, the workflow fails. No repository state is changed in either success or failure cases.
+If the web build, preview server, screenshot capture, or Cloudflare image check fails, the deployment fails. No repository state is changed in either success or failure cases.
 
 ## Verification
 
-Validate the workflow YAML structure and confirm it contains no `git checkout -b`, `git push`, or `gh pr create` commands. Review the diff to ensure the artifact path is the generated PNG.
+Validate that the screenshot workflow was removed, the deployment workflow writes `apps/web/dist/preview.png`, and the deployment health check requests `/preview.png`.
