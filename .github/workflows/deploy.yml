@@ -2,7 +2,7 @@ name: Deploy Web
 
 on:
   push:
-    branches: [dev]
+    branches: [main, dev]
   workflow_dispatch:
 
 concurrency:
@@ -37,6 +37,29 @@ jobs:
         # the canonical version from apps/web/public/ in case a stale one exists.
         run: |
           cp apps/web/public/_worker.js apps/web/dist/_worker.js 2>/dev/null || true
+
+      - name: Install Playwright Chromium
+        run: npx --yes playwright@1.54.0 install --with-deps chromium
+
+      - name: Generate production preview image
+        run: |
+          npm -w @wordbase/web run preview -- --host 127.0.0.1 --port 4173 > /tmp/wordbase-preview.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              break
+            fi
+            if [ "$attempt" = 30 ]; then
+              cat /tmp/wordbase-preview.log
+              exit 1
+            fi
+            sleep 1
+          done
+          npx --yes playwright@1.54.0 screenshot \
+            --device="Desktop Chrome" \
+            --viewport-size="1200,630" \
+            --wait-for-timeout=1000 \
+            http://127.0.0.1:4173/ \
+            apps/web/dist/preview.png
 
       - name: Upload web dist artifact
         uses: actions/upload-artifact@v5
@@ -209,6 +232,7 @@ jobs:
           for attempt in $(seq 1 12); do
             if check_status "/" "200" \
               && check_status "/app" "200" \
+              && check_status "/preview.png" "200" \
               && check_json "/api/v1/health" "200" '"ok":true' \
               && check_json "/api/v1/words" "401" '"error":"Unauthorized"'; then
               echo "Cloudflare deployment verification passed on attempt $attempt"
