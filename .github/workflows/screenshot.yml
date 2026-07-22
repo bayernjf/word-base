@@ -2,14 +2,11 @@ name: Generate Preview Screenshot
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths-ignore:
-      - apps/web/public/preview.png
 
 permissions:
   actions: write
   contents: write
+  pull-requests: write
 
 jobs:
   screenshot:
@@ -52,13 +49,21 @@ jobs:
             http://127.0.0.1:4173/ \
             apps/web/public/preview.png
 
-      - name: Commit preview image
+      - name: Commit preview image to feature branch
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "preview-update-$(date +%Y%m%d-%H%M%S)"
           git add apps/web/public/preview.png
-          git diff --cached --quiet || git commit -m "chore(preview): update WordBase image"
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(preview): update WordBase image"
+          git push -u origin HEAD
+          gh pr create --base main --head "$(git rev-parse --abbrev-ref HEAD)" --title "chore(preview): update WordBase image" --body "Automatically generated preview image update"
 
       - name: Trigger production deployment
         env:
