@@ -2,7 +2,7 @@ name: Deploy Web
 
 on:
   push:
-    branches: [dev]
+    branches: [main, dev]
   workflow_dispatch:
 
 concurrency:
