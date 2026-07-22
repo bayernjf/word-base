@@ -1,6 +1,8 @@
 name: Generate Preview Screenshot
 
 on:
+  push:
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
@@ -52,6 +54,7 @@ jobs:
       - name: Commit preview image to feature branch
         env:
           GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -63,9 +66,10 @@ jobs:
           fi
           git commit -m "chore(preview): update WordBase image"
           git push -u origin HEAD
-          gh pr create --base main --head "$(git rev-parse --abbrev-ref HEAD)" --title "chore(preview): update WordBase image" --body "Automatically generated preview image update"
+          gh pr create --base "$BASE_BRANCH" --head "$(git rev-parse --abbrev-ref HEAD)" --title "chore(preview): update WordBase image" --body "Automatically generated preview image update"
 
-      - name: Trigger production deployment
+      - name: Trigger deployment
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy.yml --ref main
+        run: gh workflow run deploy.yml --ref ${{ github.ref_name }}
