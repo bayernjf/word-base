@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { createClient } from '@supabase/supabase-js'
 import { encryptApiKey, decryptApiKey } from './utils/crypto'
 import { logger, errorContext } from './utils/logger'
+import { initMonitoring, captureException } from './utils/monitoring'
 import { parseAllowedOrigins, isOriginAllowed } from './utils/cors'
 import { createAiUserLimiter, createAiGlobalLimiter, AI_DAILY_LIMIT } from './utils/rateLimit'
 import {
@@ -21,9 +22,14 @@ import {
 
 const app = new Hono()
 
+// 错误监控初始化（env 门控：无 SENTRY_DSN 时为 no-op）。
+// 在模块加载时调用，同时覆盖独立 server 与 Vercel serverless 两种运行时。
+initMonitoring()
+
 // 兜底错误处理：未被路由内 try/catch 捕获的异常统一收口，避免泄露内部细节
 app.onError((err, c) => {
   logger.error('unhandled_error', { path: c.req.path, method: c.req.method, ...errorContext(err) })
+  captureException(err, { path: c.req.path, method: c.req.method })
   return c.json({ error: 'internal_server_error' }, 500)
 })
 
