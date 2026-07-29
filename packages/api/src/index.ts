@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { createClient } from '@supabase/supabase-js'
+import { randomInt } from 'crypto'
 import { encryptApiKey, decryptApiKey } from './utils/crypto'
 import { logger, errorContext } from './utils/logger'
 import { initMonitoring, captureException } from './utils/monitoring'
@@ -1567,8 +1568,8 @@ app.post('/api/v1/pairing/new', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    // Generate 6-digit code
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    // Generate 6-digit code using cryptographically secure random
+    const code = String(randomInt(100000, 1000000))
     const expiresAt = Date.now() + 10 * 60 * 1000 // 10 minutes
 
     // Upsert pairing code (one active per user)

@@ -25,7 +25,8 @@ async function expoSpeak(text: string, options: SpeakOptions): Promise<void> {
 async function expoStopSpeak(): Promise<void> {
   try {
     await Speech.stop();
-  } catch {
+  } catch (err) {
+    console.warn('[expo] stopSpeak failed:', err);
   }
 }
 
@@ -33,7 +34,8 @@ async function expoReadClipboard(): Promise<string> {
   try {
     const result = await Clipboard.getStringAsync();
     return result ?? '';
-  } catch {
+  } catch (err) {
+    console.warn('[expo] readClipboard failed:', err);
     return '';
   }
 }
@@ -42,7 +44,8 @@ async function expoWriteClipboard(text: string): Promise<boolean> {
   try {
     await Clipboard.setStringAsync(text);
     return true;
-  } catch {
+  } catch (err) {
+    console.warn('[expo] writeClipboard failed:', err);
     return false;
   }
 }
@@ -68,7 +71,8 @@ async function expoShowNotification(title: string, body: string): Promise<void> 
         },
       });
     }
-  } catch {
+  } catch (err) {
+    console.warn('[expo] showNotification failed:', err);
   }
 }
 
@@ -80,14 +84,16 @@ function loadAllFromAsyncStorage(): Record<string, string> {
 async function saveToAsyncStorage(k: string, v: string): Promise<void> {
   try {
     await AsyncStorage.setItem(k, v);
-  } catch {
+  } catch (err) {
+    console.warn('[expo] saveToAsyncStorage failed:', err);
   }
 }
 
 async function removeFromAsyncStorage(k: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(k);
-  } catch {
+  } catch (err) {
+    console.warn('[expo] removeFromAsyncStorage failed:', err);
   }
 }
 
@@ -100,7 +106,8 @@ async function loadAllKv(): Promise<Record<string, string>> {
       if (value != null) out[key] = value;
     }
     return out;
-  } catch {
+  } catch (err) {
+    console.warn('[expo] loadAllKv failed:', err);
     return {};
   }
 }
@@ -195,8 +202,8 @@ export const mobilePlatform: PlatformAPI = {
     try {
       const { Linking } = await import('react-native');
       await Linking.openURL(url);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.warn('[expo] openUrl failed:', err);
     }
   },
 
