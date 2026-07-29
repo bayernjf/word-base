@@ -122,6 +122,73 @@ export const practiceEvaluateBodySchema = z.discriminatedUnion('type', [
   })
 ])
 
+// —— Books（单词本）——
+
+export const createBookBodySchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  description: z.string().max(500).optional().default(''),
+  icon: z.string().max(50).optional().default('BookOpen'),
+  is_sync: z.boolean().optional().default(false),
+  word_count: z.number().int().min(0).optional().default(0),
+})
+
+export const updateBookBodySchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  icon: z.string().max(50).optional(),
+  is_sync: z.boolean().optional(),
+  word_count: z.number().int().min(0).optional(),
+})
+
+// —— Words（单词）——
+
+export const createWordBodySchema = z.object({
+  word: z.string().trim().min(1).max(100),
+  book_id: z.string().trim().min(1).max(64),
+  frequency: z.number().int().min(0).optional().default(1),
+  translation: z.string().max(500).optional().default(''),
+  phonetic: z.string().max(200).optional().default(''),
+  part_of_speech: z.string().max(50).optional().default('noun'),
+  definition: z.string().max(2000).optional().default(''),
+  chinese_translation: z.string().max(500).optional().default(''),
+  level: z.string().max(10).optional().default('B2'),
+  contexts: z.unknown().optional(),
+  synonyms: z.unknown().optional(),
+  examples: z.unknown().optional(),
+  meta: z.unknown().optional(),
+})
+
+export const batchWordsBodySchema = z.object({
+  words: z.array(z.looseObject({
+    word: z.string().trim().min(1).max(100),
+    book_id: z.string().trim().min(1).max(64),
+  }).passthrough()).min(1).max(200),
+})
+
+export const batchDeleteBodySchema = z.object({
+  wordIds: z.array(z.string().trim().max(64)).min(1).max(200),
+})
+
+// —— AI Provider ——
+
+export const aiProviderBodySchema = z.object({
+  name: z.string().trim().max(100).optional(),
+  provider: z.enum(['openai', 'anthropic', 'gemini', 'openai-compatible']),
+  model: z.string().trim().max(100).optional(),
+  endpoint: z.string().max(500).optional(),
+  apiKey: z.string().min(1).max(2048),
+  isActive: z.boolean().optional().default(false),
+})
+
+export const aiProviderPatchBodySchema = z.object({
+  name: z.string().trim().max(100).optional(),
+  provider: z.enum(['openai', 'anthropic', 'gemini', 'openai-compatible']).optional(),
+  model: z.string().trim().max(100).optional(),
+  endpoint: z.string().max(500).optional(),
+  apiKey: z.string().max(2048).optional(),
+  isActive: z.boolean().optional(),
+})
+
 // —— User Settings（Extension Sync）——
 
 export const settingsBodySchema = z.object({

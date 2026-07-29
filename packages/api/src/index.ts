@@ -18,7 +18,14 @@ import {
   aiStoryGenerateBodySchema,
   practiceGenerateBodySchema,
   practiceEvaluateBodySchema,
-  settingsBodySchema
+  settingsBodySchema,
+  createBookBodySchema,
+  updateBookBodySchema,
+  createWordBodySchema,
+  batchWordsBodySchema,
+  batchDeleteBodySchema,
+  aiProviderBodySchema,
+  aiProviderPatchBodySchema,
 } from './utils/validation'
 
 const app = new Hono()
@@ -464,7 +471,7 @@ app.post('/api/v1/auth/register', async (c) => {
     return c.json(buildAuthResponse(data.session))
   } catch (err) {
     logger.error('auth_register_failed', errorContext(err))
-    return c.json({ error: (err as Error).message || "internal_server_error" }, 500)
+    return c.json({ error: 'internal_server_error' }, 500)
   }
 })
 
@@ -550,12 +557,12 @@ app.post('/api/v1/ai/providers', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const provider = normalizeAiProvider(body?.provider)
-    const apiKey = String(body?.apiKey || '').trim()
-    if (!apiKey) return c.json({ error: 'api_key_required' }, 400)
+    const parsed = await parseBody(c, aiProviderBodySchema, { fallback: 'invalid_provider_data', fieldErrors: { provider: 'invalid_provider', apiKey: 'api_key_required' } })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const provider = normalizeAiProvider(parsed.data.provider)
+    const apiKey = parsed.data.apiKey
 
-    const isActive = Boolean(body?.isActive)
+    const isActive = Boolean(parsed.data.isActive)
     if (isActive) {
       const { error: clearError } = await db
         .from('ai_provider_configs')
@@ -571,10 +578,10 @@ app.post('/api/v1/ai/providers', async (c) => {
       .from('ai_provider_configs')
       .insert({
         user_id: user.id,
-        name: String(body?.name || '').trim() || 'AI Provider',
+        name: parsed.data.name?.trim() || 'AI Provider',
         provider,
-        model: String(body?.model || '').trim() || defaultModelForProvider(provider),
-        endpoint: String(body?.endpoint || '').trim() || null,
+        model: parsed.data.model?.trim() || defaultModelForProvider(provider),
+        endpoint: parsed.data.endpoint?.trim() || null,
         encrypted_api_key: encryptedApiKey,
         api_key_hint: buildApiKeyHint(apiKey),
         is_active: isActive
@@ -604,21 +611,23 @@ app.patch('/api/v1/ai/providers/:id', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
+    const parsed = await parseBody(c, aiProviderPatchBodySchema, { fallback: 'invalid_provider_data', fieldErrors: { provider: 'invalid_provider' } })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const body = parsed.data
     const payload: any = {
       updated_at: new Date().toISOString()
     }
 
-    if (body?.name !== undefined) payload.name = String(body.name || '').trim() || 'AI Provider'
-    if (body?.provider !== undefined) payload.provider = normalizeAiProvider(body.provider)
-    if (body?.model !== undefined) payload.model = String(body.model || '').trim()
-    if (body?.endpoint !== undefined) payload.endpoint = String(body.endpoint || '').trim() || null
-    if (body?.apiKey !== undefined && String(body.apiKey || '').trim()) {
-      const apiKey = String(body.apiKey).trim()
+    if (body.name !== undefined) payload.name = body.name.trim() || 'AI Provider'
+    if (body.provider !== undefined) payload.provider = normalizeAiProvider(body.provider)
+    if (body.model !== undefined) payload.model = body.model.trim()
+    if (body.endpoint !== undefined) payload.endpoint = body.endpoint.trim() || null
+    if (body.apiKey !== undefined && body.apiKey.trim()) {
+      const apiKey = body.apiKey.trim()
       payload.encrypted_api_key = await encryptApiKey(apiKey, aiConfigEncryptionSecret)
       payload.api_key_hint = buildApiKeyHint(apiKey)
     }
-    if (body?.isActive !== undefined) payload.is_active = Boolean(body.isActive)
+    if (body.isActive !== undefined) payload.is_active = Boolean(body.isActive)
 
     if (payload.is_active) {
       const { error: clearError } = await db
@@ -728,9 +737,10 @@ app.post('/api/v1/books', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
+    const parsed = await parseBody(c, createBookBodySchema, { fallback: 'invalid_book_data' })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
     const book = {
-      ...body,
+      ...parsed.data,
       user_id: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -775,8 +785,10 @@ app.put('/api/v1/books/:id', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const { id: _id, user_id: _userId, created_at: _createdAt, updated_at: _updatedAt, sync_version: _syncVersion, is_deleted: _isDeleted, ...updates } = body
+    const parsed = await parseBody(c, updateBookBodySchema, { fallback: 'invalid_book_data' })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { id: _id, user_id: _userId, created_at: _createdAt, updated_at: _updatedAt, sync_version: _syncVersion, is_deleted: _isDeleted, ..._blocked } = { id: '', user_id: '', created_at: '', updated_at: '', sync_version: 0, is_deleted: false }
+    const updates = { ...parsed.data, updated_at: new Date().toISOString() }
     const { data, error } = await db
       .from('vocabulary_books')
       .update({
@@ -846,9 +858,10 @@ app.post('/api/v1/words', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
+    const parsed = await parseBody(c, createWordBodySchema, { fallback: 'invalid_word_data' })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
     const word = {
-      ...body,
+      ...parsed.data,
       user_id: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -997,9 +1010,10 @@ app.post('/api/v1/words/batch', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
+    const parsed = await parseBody(c, batchWordsBodySchema, { fallback: 'invalid_words_batch' })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
     const now = new Date().toISOString()
-    const words = (body.words?.map((word: any) => {
+    const words = parsed.data.words.map((word: any) => {
       const { user_id: _userId, created_at: _createdAt, updated_at: _updatedAt, is_deleted: _isDeleted, ...input } = word
       const mapped = {
         ...input,
@@ -1010,7 +1024,7 @@ app.post('/api/v1/words/batch', async (c) => {
         is_deleted: false
       }
       return mapped
-    }) || [])
+    })
     const dedupedWords = dedupeIncomingWords(words)
 
     if (dedupedWords.length === 0) {
@@ -1069,8 +1083,9 @@ app.post('/api/v1/words/batch-delete', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const wordIds = body.wordIds || []
+    const parsed = await parseBody(c, batchDeleteBodySchema, { fallback: 'invalid_word_ids' })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const wordIds = parsed.data.wordIds
 
     const { data, error } = await db
       .from('words')

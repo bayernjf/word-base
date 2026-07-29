@@ -6,6 +6,13 @@ import {
   aiTranslateBodySchema,
   practiceGenerateBodySchema,
   practiceEvaluateBodySchema,
+  createBookBodySchema,
+  updateBookBodySchema,
+  createWordBodySchema,
+  batchWordsBodySchema,
+  batchDeleteBodySchema,
+  aiProviderBodySchema,
+  aiProviderPatchBodySchema,
 } from '../../packages/api/src/utils/validation';
 
 // 构造 parseBody 需要的最小 Hono context
@@ -126,5 +133,130 @@ describe('AI 端点 schema', () => {
     expect(aiTranslateBodySchema.safeParse({ text: 'x'.repeat(5001) }).success).toBe(false);
     const parsed = aiTranslateBodySchema.parse({ text: 'hello' });
     expect(parsed.targetLanguage).toBe('zh');
+  });
+});
+
+describe('Books schema', () => {
+  it('createBook 合法载荷解析成功，默认值正确', () => {
+    const parsed = createBookBodySchema.parse({ name: ' My Book ' });
+    expect(parsed.name).toBe('My Book');
+    expect(parsed.description).toBe('');
+    expect(parsed.icon).toBe('BookOpen');
+    expect(parsed.is_sync).toBe(false);
+    expect(parsed.word_count).toBe(0);
+  });
+
+  it('createBook 拒绝空 name', () => {
+    expect(createBookBodySchema.safeParse({ name: '' }).success).toBe(false);
+    expect(createBookBodySchema.safeParse({ name: '   ' }).success).toBe(false);
+  });
+
+  it('createBook 拒绝超长 name', () => {
+    expect(createBookBodySchema.safeParse({ name: 'x'.repeat(101) }).success).toBe(false);
+  });
+
+  it('updateBook 允许部分更新', () => {
+    const parsed = updateBookBodySchema.parse({ name: 'Renamed' });
+    expect(parsed.name).toBe('Renamed');
+    expect(parsed.description).toBeUndefined();
+  });
+
+  it('updateBook 空对象合法（全部 optional）', () => {
+    const parsed = updateBookBodySchema.parse({});
+    expect(parsed).toEqual({});
+  });
+});
+
+describe('Words schema', () => {
+  it('createWord 合法载荷解析成功', () => {
+    const parsed = createWordBodySchema.parse({ word: ' apple ', book_id: 'abc-123' });
+    expect(parsed.word).toBe('apple');
+    expect(parsed.book_id).toBe('abc-123');
+    expect(parsed.frequency).toBe(1);
+    expect(parsed.translation).toBe('');
+    expect(parsed.part_of_speech).toBe('noun');
+    expect(parsed.level).toBe('B2');
+  });
+
+  it('createWord 拒绝空 word', () => {
+    expect(createWordBodySchema.safeParse({ word: '', book_id: 'abc' }).success).toBe(false);
+  });
+
+  it('createWord 拒绝超长 word', () => {
+    expect(createWordBodySchema.safeParse({ word: 'x'.repeat(101), book_id: 'abc' }).success).toBe(false);
+  });
+
+  it('createWord 拒绝缺少 book_id', () => {
+    expect(createWordBodySchema.safeParse({ word: 'apple' }).success).toBe(false);
+  });
+
+  it('batchWords 至少需要一个单词', () => {
+    expect(batchWordsBodySchema.safeParse({ words: [] }).success).toBe(false);
+  });
+
+  it('batchWords 拒绝超过 200 个单词', () => {
+    const words = Array.from({ length: 201 }, (_, i) => ({ word: `w${i}`, book_id: 'b' }));
+    expect(batchWordsBodySchema.safeParse({ words }).success).toBe(false);
+  });
+
+  it('batchWords 合法载荷解析成功', () => {
+    const parsed = batchWordsBodySchema.parse({ words: [{ word: 'apple', book_id: 'b1' }] });
+    expect(parsed.words).toHaveLength(1);
+  });
+
+  it('batchDelete 至少需要一个 ID', () => {
+    expect(batchDeleteBodySchema.safeParse({ wordIds: [] }).success).toBe(false);
+  });
+
+  it('batchDelete 拒绝超过 200 个 ID', () => {
+    const wordIds = Array.from({ length: 201 }, (_, i) => `id-${i}`);
+    expect(batchDeleteBodySchema.safeParse({ wordIds }).success).toBe(false);
+  });
+
+  it('batchDelete 合法载荷解析成功', () => {
+    const parsed = batchDeleteBodySchema.parse({ wordIds: ['id-1', 'id-2'] });
+    expect(parsed.wordIds).toHaveLength(2);
+  });
+});
+
+describe('AI Provider schema', () => {
+  it('create 合法载荷解析成功', () => {
+    const parsed = aiProviderBodySchema.parse({
+      provider: 'openai',
+      apiKey: 'sk-test',
+      name: 'My GPT',
+    });
+    expect(parsed.provider).toBe('openai');
+    expect(parsed.apiKey).toBe('sk-test');
+    expect(parsed.isActive).toBe(false);
+  });
+
+  it('create 拒绝非法 provider', () => {
+    expect(aiProviderBodySchema.safeParse({ provider: 'invalid', apiKey: 'sk' }).success).toBe(false);
+  });
+
+  it('create 拒绝空 apiKey', () => {
+    expect(aiProviderBodySchema.safeParse({ provider: 'openai', apiKey: '' }).success).toBe(false);
+  });
+
+  it('create 拒绝超长 apiKey', () => {
+    expect(aiProviderBodySchema.safeParse({ provider: 'openai', apiKey: 'x'.repeat(2049) }).success).toBe(false);
+  });
+
+  it('create 拒绝超长 endpoint', () => {
+    expect(aiProviderBodySchema.safeParse({
+      provider: 'openai-compatible',
+      apiKey: 'sk',
+      endpoint: 'http://x'.padEnd(501, 'a'),
+    }).success).toBe(false);
+  });
+
+  it('patch 全部字段 optional', () => {
+    const parsed = aiProviderPatchBodySchema.parse({});
+    expect(parsed).toEqual({});
+  });
+
+  it('patch 拒绝非法 provider', () => {
+    expect(aiProviderPatchBodySchema.safeParse({ provider: 'bad' }).success).toBe(false);
   });
 });
