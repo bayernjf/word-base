@@ -45,7 +45,7 @@ export function Hero({ theme }: Props) {
 
         <h1
           className={cn(
-            'text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1]',
+            'text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]',
             t.text,
           )}
         >
@@ -55,8 +55,8 @@ export function Hero({ theme }: Props) {
           <span className="landing-gradient-text">不流失</span>
         </h1>
 
-        <p className={cn('mt-6 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed', t.textMuted)}>
-          WordBase 结合浏览器划词扩展 WordPicker 与 AI 词汇学习工作台。在英文网页阅读时按住 <kbd className={cn('px-1.5 py-0.5 rounded text-xs font-mono border', theme === 'dark' ? 'bg-slate-800/60 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600')}>Ctrl</kbd> 悬停即查词，一键收藏同步云端，在全平台通过 AI 故事、语境练习真正掌握词汇。
+        <p className={cn('mt-6 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed', t.textMuted)}>
+          浏览器划词收藏 + AI 语境深度学习，全平台词汇积累。
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3">
