@@ -67,7 +67,7 @@ word-base/
 │   │   └── src-tauri/           # Rust 工程（已入版本控制）
 │   └── mobile/                  # @wordbase/mobile — Expo + RN
 │       └── app.json             # Expo 配置（bundle ID/权限/插件）
-├── supabase/migrations/         # 19 个 SQL 迁移脚本（001 ~ 019）
+├── supabase/migrations/         # 20 个 SQL 迁移脚本（001 ~ 020）
 ├── scripts/                     # 构建/版本/图标脚本
 └── .github/workflows/           # 5 个 CI/CD workflow
 ```
@@ -224,6 +224,45 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 ## 11. 当前工作状态
 
 **当前分支**：`feature/20260604`
+
+### 功能完成度总览（2026-07-30，详见 `PRODUCTION_READINESS.md` / `APP_STORE_READINESS.md`）
+
+| 模块 | 完成度 | 状态 |
+|---|---|---|
+| 生词本与数据存储 | 🟢 90% | 完成度最高，可上生产 |
+| 用户认证 | 🟢 85% | 扎实，缺邮箱验证/登录限流确认 |
+| AI 增强（释义/义项/深解） | 🟢 85% | 真实可用 |
+| AI Provider 配置与密钥安全 | 🟢 85% | AES-256-GCM 规范 |
+| 多设备云同步 | 🟢 80% | 完整，并发撞号边缘风险 |
+| AI 智能句景（故事+导师） | 🟢 80% | 带限流，导师非流式 |
+| SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
+| 练习中心（听说读写） | 🟡 75% | 已 AI 化，待联调+真机验证 |
+| 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
+| 工程质量保障 | 🟡 65% | 68 用例 + zod 校验 + 结构化日志 + CI 四端卡点，缺 E2E/Sentry |
+| 部署与运维 | 🟡 65% | 已上 Cloudflare+Vercel，CORS 白名单 + AI 限流/配额就绪，缺监控 |
+
+**各端上架就绪度**：Web 🟢 100% · Desktop 🟡 70%（缺公证/签名） · Mobile 🔴 45%（缺 release 签名、商店素材、真机验证）
+
+**最近完成（本次会话，待提交）**：**工程质量 + 部署安全 P0 加固**
+
+全部通过验证：四端 tsc + vitest（80/80）+ api build + web vite/next build。
+
+### 工程质量 P0（详见 `PRODUCTION_READINESS.md` 模块九）
+
+- **CI 四端卡点**：`ci.yml` 新增 api/web/desktop/mobile 四端 `tsc --noEmit` + api build
+- **API zod 入参校验**：`packages/api/src/utils/validation.ts`，覆盖 auth + 全部 AI 端点，错误码向后兼容
+- **后端统一错误收口**：`app.onError` 兜底 + `utils/logger.ts` 结构化 JSON 日志（替换全部 console.*）
+- **单测扩充**：srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation/apiSecurity 共 **80 用例**
+
+### 部署安全 P0（详见 `PRODUCTION_READINESS.md` 模块十）
+
+- **CORS 白名单收敛**：`utils/cors.ts` — 生产/预览域名 + Tauri + 本地开发/真机 + 浏览器插件来源，未命中不下发 CORS 头，`ALLOWED_ORIGINS` 可追加
+- **AI 接口限流**：`utils/rateLimit.ts` — enrich/explain/sense-cluster/translate/tutor-chat 接入内存固定窗口（每用户 20/分、全局 120/分）+ `ai_call_quota` 每日 300 次配额（迁移 `020_ai_call_quota.sql`），成功才计数，迁移未执行时优雅降级
+- **密钥轮换方案**：`scripts/rotate-ai-config-key.mjs`（幂等 dry-run/`--apply`）+ `docs/KEY_ROTATION.md`（备份/轮换/回滚流程）
+
+> ⚠️ 待执行运维动作：在 Supabase 执行迁移 **019 + 020**（练习配额 + AI 调用配额），否则每日配额兜底不生效（内存限流仍工作）。
+
+---
 
 **最近完成（已提交）**：**练习中心（Practice Center）全面 AI 化改造**
 
