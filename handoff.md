@@ -241,21 +241,40 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
 | 练习中心（听说读写） | 🟡 75% | 已 AI 化，待联调+真机验证 |
 | 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
-| 工程质量保障 | 🟢 80% | 80 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控）+ Playwright E2E 冒烟 |
+| 工程质量保障 | 🟢 90% | 109 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控）+ Playwright E2E 冒烟 |
 | 部署与运维 | 🟡 70% | 已上 Cloudflare+Vercel，CORS 白名单 + AI 限流/配额 + Sentry 监控就绪 |
 
 **各端上架就绪度**：Web 🟢 100% · Desktop 🟡 70%（缺公证/签名） · Mobile 🔴 45%（缺 release 签名、商店素材、真机验证）
 
-**最近完成（本次会话，待提交）**：**工程质量 + 部署安全 P0 加固**
+**最近完成（本次会话，待提交）**：**代码审计修复 — 安全加固 + 类型完善 + CI 修复**
 
-全部通过验证：四端 tsc + vitest（80/80）+ api build + web vite/next build。
+全部通过验证：四端 tsc + vitest（109/109）。
+
+### 审计修复内容（详见 `CODE_AUDIT_REPORT.md`）
+
+| # | 问题 | 修复内容 |
+|---|------|----------|
+| 2.6 | Books/Words 端点缺 Zod 校验 | 新增 7 个 Zod schema，改用 parseBody 统一校验 |
+| 2.7 | Register 端点泄露错误信息 | catch 块统一返回 'internal_server_error' |
+| 2.8 | AI Provider 端点缺校验 | 新增 aiProviderBodySchema/aiProviderPatchBodySchema |
+| 2.9 | 配对码使用 Math.random() | 改用 crypto.randomInt() |
+| 3.4 | 部分函数使用 `any` | 定义 ProfileUpdate/BookInsert/WordInsert 等接口 |
+| 6.4 | 部分 catch 块静默吞错 | 添加 console.warn 日志（8 处） |
+| 7.4 | Rollback workflow 路径错误 | 改为 apps/web/dist |
+
+### 最近已提交的 commit（新→旧）
+
+```
+fix(shared,mobile,api): resolve remaining audit issues - types, error logging, CI path, secure random
+fix(api): add Zod validation for Books/Words/AI Provider endpoints, fix register error leak
+```
 
 ### 工程质量 P0（详见 `PRODUCTION_READINESS.md` 模块九）
 
 - **CI 四端卡点**：`ci.yml` 新增 api/web/desktop/mobile 四端 `tsc --noEmit` + api build
 - **API zod 入参校验**：`packages/api/src/utils/validation.ts`，覆盖 auth + 全部 AI 端点，错误码向后兼容
 - **后端统一错误收口**：`app.onError` 兜底 + `utils/logger.ts` 结构化 JSON 日志（替换全部 console.*）
-- **单测扩充**：srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation/apiSecurity 共 **80 用例**
+- **单测扩充**：srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation/apiSecurity 共 **109 用例**
 
 ### 部署安全 P0（详见 `PRODUCTION_READINESS.md` 模块十）
 
@@ -347,6 +366,8 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 ### 最近已提交的 commit（新→旧）
 
 ```
+fix(shared,mobile,api): resolve remaining audit issues - types, error logging, CI path, secure random
+fix(api): add Zod validation for Books/Words/AI Provider endpoints, fix register error leak
 docs: refresh readiness assessments and update handoff document
 chore(shared): remove unused listeningQuizzes mock data
 feat(shared): rework practice views to AI-generated content
