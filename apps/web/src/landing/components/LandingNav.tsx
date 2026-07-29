@@ -1,4 +1,5 @@
-import { Moon, Sun, Github, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Moon, Sun, Github, ArrowRight, Menu, X } from 'lucide-react';
 import type { LandingTheme } from '../Landing';
 import { cn, themeVars } from '../theme';
 import { trackEvent } from '@wordbase/shared/lib/analytics';
@@ -44,17 +45,28 @@ const navLinks = [
   { label: '浏览器扩展', href: '#extension' },
   { label: 'AI 学习', href: '#learning' },
   { label: '多端同步', href: '#platforms' },
+  { label: 'FAQ', href: '#faq' },
 ];
 
 export function LandingNav({ theme, toggleTheme }: Props) {
   const t = themeVars(theme);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <header
       className={cn(
-        'fixed top-0 inset-x-0 z-50 backdrop-blur-xl border-b',
-        t.navBg,
-        t.border,
+        'fixed top-0 inset-x-0 z-50 backdrop-blur-xl border-b transition-all duration-300',
+        scrolled
+          ? cn(t.navBg, 'shadow-lg', t.border)
+          : cn(t.navBg, 'border-transparent'),
       )}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between overflow-visible">
@@ -88,6 +100,7 @@ export function LandingNav({ theme, toggleTheme }: Props) {
                 : 'hover:bg-slate-100 text-slate-600',
             )}
             aria-label="切换主题"
+            aria-pressed={theme === 'dark'}
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
@@ -95,7 +108,12 @@ export function LandingNav({ theme, toggleTheme }: Props) {
             href="https://github.com/bayernjf/word-base"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden"
+            className={cn(
+              'p-2 rounded-lg transition-colors hidden sm:block',
+              theme === 'dark'
+                ? 'hover:bg-slate-800/60 text-slate-400'
+                : 'hover:bg-slate-100 text-slate-600',
+            )}
             aria-label="GitHub"
           >
             <Github className="w-4 h-4" />
@@ -113,12 +131,88 @@ export function LandingNav({ theme, toggleTheme }: Props) {
           </a>
           <a
             href="#cta"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
+            className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] transition-all"
           >
             免费使用
             <ArrowRight className="w-3.5 h-3.5" />
           </a>
+
+          {/* Mobile hamburger button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className={cn(
+              'md:hidden p-2 rounded-lg transition-colors',
+              theme === 'dark'
+                ? 'hover:bg-slate-800/60 text-slate-400'
+                : 'hover:bg-slate-100 text-slate-600',
+            )}
+            aria-label="菜单"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
+      </div>
+
+      {/* Mobile drawer */}
+      <div
+        className={cn(
+          'md:hidden overflow-hidden transition-all duration-300 ease-in-out',
+          mobileMenuOpen ? 'max-h-96 border-t' : 'max-h-0',
+          t.border,
+        )}
+      >
+        <nav className={cn('flex flex-col gap-1 px-4 py-4', t.navBg)}>
+          {navLinks.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className={cn(
+                'px-3 py-2.5 rounded-lg text-sm transition-colors',
+                t.textMuted,
+                theme === 'dark' ? 'hover:bg-slate-800/60 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-800',
+              )}
+            >
+              {l.label}
+            </a>
+          ))}
+          <a
+            href="/app"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              trackEvent('web_app_open', { source: 'landing_nav_mobile' });
+            }}
+            className={cn(
+              'px-3 py-2.5 rounded-lg text-sm transition-colors',
+              t.textMuted,
+              theme === 'dark' ? 'hover:bg-slate-800/60 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-800',
+            )}
+          >
+            进入 Web 版
+          </a>
+          <a
+            href="https://github.com/bayernjf/word-base"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMobileMenuOpen(false)}
+            className={cn(
+              'px-3 py-2.5 rounded-lg text-sm transition-colors',
+              t.textMuted,
+              theme === 'dark' ? 'hover:bg-slate-800/60 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-800',
+            )}
+          >
+            GitHub
+          </a>
+          <a
+            href="#cta"
+            onClick={() => setMobileMenuOpen(false)}
+            className="mt-2 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/25"
+          >
+            免费使用
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        </nav>
       </div>
     </header>
   );
