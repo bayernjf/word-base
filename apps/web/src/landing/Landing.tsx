@@ -11,6 +11,9 @@ import { LearningSection } from './components/LearningSection';
 import { MultiPlatformSection } from './components/MultiPlatformSection';
 import { FinalCTA } from './components/FinalCTA';
 import { LandingFooter } from './components/LandingFooter';
+import { SocialProofSection } from './components/SocialProofSection';
+import { FaqSection } from './components/FaqSection';
+import { Reveal } from './components/Reveal';
 
 export type LandingTheme = 'dark' | 'light';
 
@@ -56,11 +59,13 @@ export function Landing() {
       <LandingNav theme={theme} toggleTheme={toggleTheme} />
       <main>
         <Hero theme={theme} />
-        <WorkflowSection theme={theme} />
-        <ExtensionSection theme={theme} />
-        <LearningSection theme={theme} />
-        <MultiPlatformSection theme={theme} />
-        <FinalCTA theme={theme} />
+        <Reveal><SocialProofSection theme={theme} /></Reveal>
+        <Reveal><WorkflowSection theme={theme} /></Reveal>
+        <Reveal><ExtensionSection theme={theme} /></Reveal>
+        <Reveal><LearningSection theme={theme} /></Reveal>
+        <Reveal><MultiPlatformSection theme={theme} /></Reveal>
+        <Reveal><FaqSection theme={theme} /></Reveal>
+        <Reveal><FinalCTA theme={theme} /></Reveal>
       </main>
       <LandingFooter theme={theme} />
       <AnalyticsConsentBanner />
