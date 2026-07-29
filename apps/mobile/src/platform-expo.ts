@@ -134,13 +134,15 @@ const mobileUpdater: UpdateService = {
         || (result.manifest as { id?: string; revisionId?: string } | undefined)?.revisionId
         || 'new';
       otaUpdate = { id: updateId, createdAt: new Date() };
+      // 展示 SemVer（app.json version）而非 OTA update ID
+      const appVersion = (Constants.expoConfig?.version as string | undefined) || 'unknown';
       return {
         hasUpdate: true,
-        version: updateId.slice(0, 8),
+        version: appVersion,
       };
     } catch (err) {
       console.warn('[ota] check failed:', err);
-      return { hasUpdate: false };
+      return { hasUpdate: false, error: err instanceof Error ? err.message : String(err) };
     }
   },
 
@@ -149,10 +151,10 @@ const mobileUpdater: UpdateService = {
       const Updates = await import('expo-updates');
       if (!Updates.isEnabled || !otaUpdate) return;
       const fetchResult = await Updates.fetchUpdateAsync();
-      if (fetchResult.isNew) {
-        mobileUpdater.isReady = true;
-        onProgress?.({ percentage: 100 });
-      }
+      // isNew=true: 刚下载完；isNew=false: 之前已下载过，本次无需重复下载
+      // 两种情况都视为 ready，apply() 会调 reloadAsync()
+      mobileUpdater.isReady = true;
+      onProgress?.({ percentage: 100 });
     } catch (err) {
       console.warn('[ota] fetch failed:', err);
       throw err;

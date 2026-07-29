@@ -28,3 +28,8 @@ apps/mobile/.expo/
 # TRAE local notes (persistent across sessions, never committed)
 .trae/
 !.trae/rules/
+
+# Playwright E2E
+test-results/
+playwright-report/
+blob-report/

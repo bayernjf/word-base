@@ -42,6 +42,7 @@ import { AnnouncementModal } from './components/announcement/AnnouncementModal';
 import { useVocabularyBooks, useWords } from './hooks/useVocabulary';
 import { useStories } from './hooks/useStories';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useAutoUpdateCheck } from './hooks/useAutoUpdateCheck';
 import { profileApi, supabase } from './lib/supabase';
 import { createTranslator } from './i18n';
 import { enqueueAutoAi, type BatchAiType } from './lib/batchAiStore';
@@ -146,6 +147,9 @@ export default function AppSupabase() {
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
   const isMobile = useIsMobile();
+
+  // 全局后台自动更新检查（桌面端轮询 + 移动端启动检查）
+  useAutoUpdateCheck();
 
   // ============ 公告系统 ============
   const { announcements, dismissBanner, markRead, unreadCount } = useAnnouncements();

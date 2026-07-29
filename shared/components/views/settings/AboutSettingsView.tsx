@@ -87,8 +87,6 @@ const COPY = {
   },
 } as const;
 
-const DESKTOP_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
-
 export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, language, onPrivacyPolicyClick }) => {
   const c = COPY[language] || COPY.en;
   const isGlass = themeStyles.name === 'glass';
@@ -150,6 +148,10 @@ export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, l
     try {
       const result = await updater.check();
       lastCheckRef.current = Date.now();
+      if (result.error) {
+        if (!silent) setState({ phase: 'error', message: result.error });
+        return;
+      }
       if (!result.hasUpdate || !result.version) {
         setState({ phase: 'up-to-date' });
         return;
@@ -172,33 +174,24 @@ export const AboutSettingsView: React.FC<AboutSettingsProps> = ({ themeStyles, l
     }
   }, [updater, platform, language, isMobile]);
 
-  // Auto-check on launch + periodic polling (desktop) / launch-only (mobile)
-  useEffect(() => {
-    if (!updater) return;
-    const initialTimer = setTimeout(() => { performCheck(true); }, 5000);
-    const interval = isDesktop ? setInterval(() => performCheck(true), DESKTOP_CHECK_INTERVAL_MS) : null;
-    return () => {
-      clearTimeout(initialTimer);
-      if (interval) clearInterval(interval);
-    };
-  }, [updater, performCheck, isDesktop]);
+  // Auto-check moved to AppSupabase (useAutoUpdateCheck hook) for global coverage.
+  // About page only handles manual check / download / apply UI.
 
   const handleDownload = useCallback(async () => {
     if (!updater) return;
+    // 捕获当前版本号，避免 downloading 状态覆盖 available 的 version
+    const versionRef = state.phase === 'available' ? state.version : '';
+    const bodyRef = state.phase === 'available' ? state.body : undefined;
     setState({ phase: 'downloading' });
     try {
       await updater.download((p: UpdateProgress) => {
         setState({ phase: 'downloading', percentage: p.percentage, downloaded: p.downloaded, total: p.total });
       });
-      setState((prev) =>
-        prev.phase === 'available'
-          ? { phase: 'ready', version: prev.version, body: prev.body }
-          : { phase: 'ready', version: '' }
-      );
+      setState({ phase: 'ready', version: versionRef, body: bodyRef });
     } catch (err) {
       setState({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
     }
-  }, [updater]);
+  }, [updater, state]);
 
   const handleApply = useCallback(async () => {
     if (!updater) return;

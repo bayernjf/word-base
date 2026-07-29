@@ -147,6 +147,7 @@ async function removeKv(k: string): Promise<void> {
 
 let pendingUpdate: { version: string; body?: string; date?: string } | null = null;
 let downloaded = false;
+let updateHandle: Awaited<ReturnType<typeof import('@tauri-apps/plugin-updater').check>> | null = null;
 
 const desktopUpdater: UpdateService = {
   channel: 'desktop-binary',
@@ -174,7 +175,7 @@ const desktopUpdater: UpdateService = {
       };
     } catch (err) {
       console.warn('[updater] check failed:', err);
-      return { hasUpdate: false };
+      return { hasUpdate: false, error: err instanceof Error ? err.message : String(err) };
     }
   },
 
@@ -197,12 +198,19 @@ const desktopUpdater: UpdateService = {
         onProgress?.({ percentage: 100, downloaded: accumulated, total });
       }
     });
+    updateHandle = update;
     downloaded = true;
     desktopUpdater.isReady = true;
   },
 
   async apply() {
-    if (!isTauri() || !downloaded) return;
+    if (!isTauri() || !downloaded || !updateHandle) return;
+    try {
+      await updateHandle.install();
+    } catch (err) {
+      console.warn('[updater] install failed:', err);
+      throw err;
+    }
     const { relaunch } = await import('@tauri-apps/plugin-process');
     await relaunch();
   },

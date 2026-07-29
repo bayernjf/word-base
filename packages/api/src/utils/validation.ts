@@ -122,6 +122,22 @@ export const practiceEvaluateBodySchema = z.discriminatedUnion('type', [
   })
 ])
 
+// —— User Settings（Extension Sync）——
+
+export const settingsBodySchema = z.object({
+  settings: z.record(z.string(), z.unknown()).refine(
+    (obj) => {
+      try {
+        const str = JSON.stringify(obj);
+        return str.length <= 64 * 1024; // 64KB limit
+      } catch {
+        return false;
+      }
+    },
+    { message: 'settings payload exceeds 64KB limit' }
+  )
+})
+
 // —— 统一解析入口 ——
 
 type HonoLikeContext = { req: { json: () => Promise<unknown> } }

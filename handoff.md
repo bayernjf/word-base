@@ -33,7 +33,8 @@
 | **数据库/Auth** | Supabase（PostgreSQL + RLS + Auth） |
 | **AI SDK** | @google/genai、Web Crypto API（AES-256-GCM 加密） |
 | **部署** | Cloudflare Pages（CDN 静态前端）+ Vercel（Serverless API） |
-| **CI/CD** | GitHub Actions（5 个 workflow） |
+| **CI/CD** | GitHub Actions（5 个 workflow）+ Playwright E2E |
+| **E2E 测试** | Playwright（Chromium，冒烟测试） |
 | **Node** | 22（见 `.node-version`） |
 
 ---
@@ -127,6 +128,8 @@ npx tsc --noEmit -p apps/web/tsconfig.json
 npx tsc --noEmit -p apps/desktop/tsconfig.json
 npx tsc --noEmit -p apps/mobile/tsconfig.json
 npx vitest run           # 单测
+npm run test:e2e         # E2E 冒烟（Playwright Chromium）
+npm run test:e2e:ui      # E2E UI 模式
 
 # 清理
 npm run clean
@@ -194,7 +197,7 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 
 | Workflow | 触发 | 功能 |
 |---|---|---|
-| `ci.yml` | push main/dev/feature/*、PR | Typecheck + Web Build + Supabase 健康检查 |
+| `ci.yml` | push main/dev/feature/*、PR | Typecheck + Web Build + E2E 冒烟 + Supabase 健康检查 |
 | `deploy.yml` | push main/dev | Cloudflare Pages + Vercel 部署 |
 | `desktop-release.yml` | push `v*` tag / push main / push dev | 桌面+移动端打包，GitHub Release |
 | `mobile-ota.yml` | push main/dev | Expo EAS Update 热更新 |
@@ -238,7 +241,7 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
 | 练习中心（听说读写） | 🟡 75% | 已 AI 化，待联调+真机验证 |
 | 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
-| 工程质量保障 | 🟡 70% | 80 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控），缺 E2E |
+| 工程质量保障 | 🟢 80% | 80 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控）+ Playwright E2E 冒烟 |
 | 部署与运维 | 🟡 70% | 已上 Cloudflare+Vercel，CORS 白名单 + AI 限流/配额 + Sentry 监控就绪 |
 
 **各端上架就绪度**：Web 🟢 100% · Desktop 🟡 70%（缺公证/签名） · Mobile 🔴 45%（缺 release 签名、商店素材、真机验证）
