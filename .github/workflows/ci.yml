@@ -33,8 +33,23 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck (api)
+        run: npx tsc --noEmit -p packages/api/tsconfig.json
+
+      - name: Typecheck (web)
+        run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+      - name: Typecheck (desktop)
+        run: npx tsc --noEmit -p apps/desktop/tsconfig.json
+
+      - name: Typecheck (mobile)
+        run: npx tsc --noEmit -p apps/mobile/tsconfig.json
+
       - name: Test
         run: npm test
+
+      - name: Build API
+        run: npm -w @wordbase/api run build
 
       - name: Build web frontend
         env:
