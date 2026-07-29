@@ -374,6 +374,7 @@ fix(api): add Zod validation for Books/Words/AI Provider endpoints, fix register
 ### 最近已提交的 commit（新→旧）
 
 ```
+refactor(shared): extract useProfile, useAutoAi, useBookActions hooks from AppSupabase
 refactor(api): split index.ts into routes/ modules and extract shared context
 refactor(shared): extract useAiModels hook from AppSupabase
 fix(shared,mobile,api): resolve remaining audit issues - types, error logging, CI path, secure random
@@ -410,6 +411,9 @@ c2201e5 fix(web): import trackEvent in useDownloadUrls to prevent crash
 | `packages/api/src/context.ts` | API 共享上下文（Supabase/认证/AI 工具） |
 | `packages/api/src/routes/` | API 路由模块（auth/ai/books/words/sync/settings/session/feedback/practice） |
 | `shared/hooks/useAiModels.ts` | AI Provider 配置管理 hook |
+| `shared/hooks/useProfile.ts` | 用户 Profile 管理 hook（加载/更新/密码/删号/currentUser） |
+| `shared/hooks/useAutoAi.ts` | 自动 AI enrich/explain 开关与入队逻辑 |
+| `shared/hooks/useBookActions.ts` | 书本/单词操作 wrapper hook |
 | `apps/web/vercel.json` | Vercel 框架声明 |
 | `apps/desktop/src-tauri/tauri.conf.json` | Tauri 配置 |
 | `apps/desktop/native-templates/` | CI 构建时覆盖的 Tauri 配置模板 |
@@ -493,8 +497,12 @@ npm run dev
 
 ### 🔵 代码重构（技术债）
 
-- [ ] **API 文件拆分**：`packages/api/src/index.ts`（2076 行）按领域拆分为 `routes/auth.ts`、`routes/books.ts`、`routes/words.ts`、`routes/ai.ts`、`routes/settings.ts`、`routes/feedback.ts` 等
-- [ ] **AppSupabase 拆分**：`shared/AppSupabase.tsx`（1167 行）拆分为独立 hooks（`useBooks`、`useWords`、`useAiModels` 等）
+- [x] **API 文件拆分**：`packages/api/src/index.ts`（2076 行）已拆分为 `routes/` 模块化路由（10 个路由文件 + `context.ts` 共享上下文），主入口约 70 行
+- [x] **AppSupabase 拆分**：`shared/AppSupabase.tsx` 已从 1167 行瘦身至约 747 行，提取了 4 个独立 hooks：
+  - `useAiModels` — AI Provider CRUD + 连接测试
+  - `useProfile` — profile 加载/更新/密码修改/账号删除/currentUser 派生
+  - `useAutoAi` — 自动 AI enrich/explain 开关、基线、入队逻辑
+  - `useBookActions` — 书本/单词操作 wrappers（create/delete/update/setSync/move）
 - [ ] **API 集成测试**：补充端点级测试（`tests/integration/`）
 - [ ] **API 文档**：补充 OpenAPI/Markdown 文档
 - [ ] **替换 `any` 类型**：`shared/lib/supabase.ts` 中仍有部分 `any`（`getEnvValue` 的 `globalThis`）
