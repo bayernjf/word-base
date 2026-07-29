@@ -246,9 +246,17 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 
 **各端上架就绪度**：Web 🟢 100% · Desktop 🟡 70%（缺公证/签名） · Mobile 🔴 45%（缺 release 签名、商店素材、真机验证）
 
-**最近完成（本次会话，待提交）**：**代码审计修复 — 安全加固 + 类型完善 + CI 修复**
+**最近完成（本次会话，待提交）**：**代码重构 — API 路由拆分 + 前端 Hook 抽取**
 
-全部通过验证：四端 tsc + vitest（109/109）。
+全部通过验证：四端 tsc + vitest（109/109）+ api build。
+
+### 重构内容
+
+| 改动 | 说明 |
+|------|----------|
+| API index.ts 拆分 | 2076 行 → 70 行主文件 + `routes/` 10 个模块（auth/ai-providers/books/words/sync/settings/ai/session/feedback/practice） |
+| 共享上下文提取 | `context.ts` 集中管理 Supabase 客户端、认证、AI 限流、工具函数 |
+| AppSupabase.tsx 瘦身 | 提取 `useAiModels` hook（AI Provider CRUD + 连接测试），减少 ~170 行 |
 
 ### 审计修复内容（详见 `CODE_AUDIT_REPORT.md`）
 
@@ -366,6 +374,8 @@ fix(api): add Zod validation for Books/Words/AI Provider endpoints, fix register
 ### 最近已提交的 commit（新→旧）
 
 ```
+refactor(api): split index.ts into routes/ modules and extract shared context
+refactor(shared): extract useAiModels hook from AppSupabase
 fix(shared,mobile,api): resolve remaining audit issues - types, error logging, CI path, secure random
 fix(api): add Zod validation for Books/Words/AI Provider endpoints, fix register error leak
 docs: refresh readiness assessments and update handoff document
@@ -396,7 +406,10 @@ c2201e5 fix(web): import trackEvent in useDownloadUrls to prevent crash
 | `shared/lib/feedback*.ts` | 反馈采集 + 诊断日志 |
 | `shared/lib/announcement/` | 公告系统 |
 | `shared/lib/batchAiStore.ts` | 批量 AI 任务队列 |
-| `apps/web/src/app/api/[[...all]]/route.ts` | Next.js Route Handler 挂载 Hono API |
+| `packages/api/src/index.ts` | API 入口（路由注册 + CORS + 错误处理） |
+| `packages/api/src/context.ts` | API 共享上下文（Supabase/认证/AI 工具） |
+| `packages/api/src/routes/` | API 路由模块（auth/ai/books/words/sync/settings/session/feedback/practice） |
+| `shared/hooks/useAiModels.ts` | AI Provider 配置管理 hook |
 | `apps/web/vercel.json` | Vercel 框架声明 |
 | `apps/desktop/src-tauri/tauri.conf.json` | Tauri 配置 |
 | `apps/desktop/native-templates/` | CI 构建时覆盖的 Tauri 配置模板 |
@@ -451,13 +464,40 @@ npm run dev
 
 ## 15. 待办 / 下一步
 
-- [ ] 新增的 `019_practice_quota.sql` 迁移需要在 Supabase 数据库执行
-- [ ] 练习 API 端点（generate/evaluate）需要与前端联调验证
-- [ ] 口语练习依赖 Web Speech API（仅 Chrome/Edge 支持），需确认移动端降级方案
-- [ ] 移动端练习功能需要真机测试（React 18 兼容性 + ASR 可用性）
-- [ ] 练习内容缓存目前是纯内存 Map，刷新页面即失效，可考虑后续优化
-- [ ] 正式发版阻塞项（见 `.trae/TODO.md`）：Tauri 签名密钥 Secrets、Expo OTA 配置（`EXPO_TOKEN`）
-- [ ] 桌面端 updater P0 修复（`apply()` 未调 `install()` 等，见 `.trae/TODO.md`）
+### 🔴 发版阻塞项
+
+- [ ] **Tauri 签名密钥**：生成签名密钥对，配置 3 个 GitHub Secrets（详见 `.trae/TODO.md`）
+- [ ] **Expo OTA 配置**：注册 Expo 账号、绑定项目、配置 `EXPO_TOKEN`（详见 `.trae/TODO.md`）
+- [ ] **Supabase 迁移**：执行 019（练习配额）+ 020（AI 调用配额）SQL
+
+### 🟠 桌面端 updater 修复（P0，详见 `.trae/TODO.md`）
+
+- [ ] `apply()` 未调 `install()`，当前重启的是旧版本
+- [ ] capabilities 缺 `updater:default` 和 `process:default` 权限
+- [ ] `latest.json` 使用相对路径，需改为完整 GitHub 下载 URL
+- [ ] 全局后台自动检查（主进程 30s 首次 + 6h 轮询）
+- [ ] 检查/下载/安装错误被吞没，需向 UI 推送具体错误
+
+### 🟡 移动端完善
+
+- [ ] 练习功能真机测试（React 18 兼容性 + ASR 可用性）
+- [ ] EAS project ID 和 `updates.url` 固化到 `app.json`
+- [ ] APK 签名：CI 目前只出 debug 包，正式发布需 release keystore
+- [ ] 口语练习降级方案（Web Speech API 仅 Chrome/Edge）
+
+### 🟢 功能改进
+
+- [ ] 练习中心联调：generate/evaluate API 与前端联调验证
+- [ ] 练习缓存优化：当前纯内存 Map，刷新即失效
+- [ ] Web 关于页显示 `VITE_APP_VERSION` 版本号
+
+### 🔵 代码重构（技术债）
+
+- [ ] **API 文件拆分**：`packages/api/src/index.ts`（2076 行）按领域拆分为 `routes/auth.ts`、`routes/books.ts`、`routes/words.ts`、`routes/ai.ts`、`routes/settings.ts`、`routes/feedback.ts` 等
+- [ ] **AppSupabase 拆分**：`shared/AppSupabase.tsx`（1167 行）拆分为独立 hooks（`useBooks`、`useWords`、`useAiModels` 等）
+- [ ] **API 集成测试**：补充端点级测试（`tests/integration/`）
+- [ ] **API 文档**：补充 OpenAPI/Markdown 文档
+- [ ] **替换 `any` 类型**：`shared/lib/supabase.ts` 中仍有部分 `any`（`getEnvValue` 的 `globalThis`）
 
 ---
 

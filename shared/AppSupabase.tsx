@@ -48,16 +48,7 @@ import { createTranslator } from './i18n';
 import { enqueueAutoAi, type BatchAiType } from './lib/batchAiStore';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { trackEvent, trackPageView } from './lib/analytics';
-import {
-  AiProviderConfig,
-  AiProviderInput,
-  createAiProviderConfig,
-  deleteAiProviderConfig,
-  listAiProviderConfigs,
-  updateAiProviderConfig,
-  testAiProviderConfig,
-  type AiProviderTestInput,
-} from './lib/aiProviderConfigs';
+import { useAiModels } from './hooks/useAiModels';
 
 interface ProfileRow {
   id: string;
@@ -140,13 +131,19 @@ export default function AppSupabase() {
   const [isSmallTypography, setIsSmallTypography] = useState<boolean>(false);
   const [selectedWordId, setSelectedWordId] = useState<string>('');
   const [authError, setAuthError] = useState<string | null>(null);
-  const [models, setModels] = useState<AiProviderConfig[]>([]);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [autoEnrich, setAutoEnrich] = useState<boolean>(false);
   const [autoExplain, setAutoExplain] = useState<boolean>(false);
 
   const themeStyles = getThemeClasses(theme, isSmallTypography);
   const isMobile = useIsMobile();
+
+  // ============ AI 模型管理 ============
+  const {
+    models, hasActiveModel,
+    handleToggleModel, handleAddCustomModel, handleTestModelConnection,
+    handleUpdateCustomModel, handleDeleteModel,
+  } = useAiModels(session?.access_token);
 
   // 全局后台自动更新检查（桌面端轮询 + 移动端启动检查）
   useAutoUpdateCheck();
@@ -343,29 +340,6 @@ export default function AppSupabase() {
     };
   }, [user, profile]);
 
-  const loadAiProviders = useCallback(async () => {
-    const accessToken = session?.access_token;
-    if (!accessToken) {
-      setModels([]);
-      return;
-    }
-
-    try {
-      logger.debug('loadAiProviders started');
-      const providers = await listAiProviderConfigs(accessToken);
-      setModels(providers);
-      logger.info(`loadAiProviders success, count=${providers.length}`);
-    } catch (error) {
-      // 未配置 AI 模型或数据库表不存在时为正常情况，只打 warn
-      logger.warn('Could not load AI providers (no configs yet):', error instanceof Error ? error.message : error);
-      setModels([]);
-    }
-  }, [session?.access_token]);
-
-  useEffect(() => {
-    void loadAiProviders();
-  }, [loadAiProviders]);
-
   const handleSignIn = async (email: string, password: string, remember: boolean) => {
     setAuthError(null);
     const { error } = await signIn(email, password, remember);
@@ -522,92 +496,6 @@ export default function AppSupabase() {
     }
   };
 
-  const handleToggleModel = async (modelId: string) => {
-    const accessToken = session?.access_token;
-    if (!accessToken) return;
-
-    const current = models.find((model) => model.id === modelId);
-    logger.debug('handleToggleModel', { modelId, currentActive: current?.isActive });
-    try {
-      const updated = await updateAiProviderConfig(modelId, { isActive: !current?.isActive }, accessToken);
-      setModels((prev) => prev.map((model) => {
-        if (updated.isActive && model.id !== updated.id) {
-          return { ...model, isActive: false };
-        }
-        return model.id === updated.id ? updated : model;
-      }));
-      logger.info('handleToggleModel success', { modelId, isActive: updated.isActive });
-    } catch (error) {
-      logger.error('Error toggling AI provider:', error);
-    }
-  };
-
-  const handleAddCustomModel = async (newModel: AiProviderInput) => {
-    const accessToken = session?.access_token;
-    if (!accessToken) return;
-
-    logger.debug('handleAddCustomModel', { provider: newModel.provider });
-    try {
-      const created = await createAiProviderConfig(
-        {
-          ...newModel,
-          isActive: models.length === 0,
-        },
-        accessToken
-      );
-      setModels((prev) => {
-        const next = created.isActive ? prev.map((model) => ({ ...model, isActive: false })) : prev;
-        return [...next, created];
-      });
-      logger.info('handleAddCustomModel success', { id: created.id, provider: created.provider });
-    } catch (error) {
-      logger.error('Error adding AI provider:', error);
-      throw error;
-    }
-  };
-
-  const handleTestModelConnection = async (input: AiProviderTestInput): Promise<boolean> => {
-    const accessToken = session?.access_token;
-    if (!accessToken) throw new Error('not_authenticated');
-    logger.debug('handleTestModelConnection', { provider: input.provider, model: input.model });
-    return testAiProviderConfig(input, accessToken);
-  };
-
-  const handleUpdateCustomModel = async (modelId: string, updates: AiProviderInput) => {
-    const accessToken = session?.access_token;
-    if (!accessToken) return;
-
-    logger.debug('handleUpdateCustomModel', { modelId, provider: updates.provider });
-    try {
-      const updated = await updateAiProviderConfig(modelId, updates, accessToken);
-      setModels((prev) => prev.map((model) => {
-        if (updated.isActive && model.id !== updated.id) {
-          return { ...model, isActive: false };
-        }
-        return model.id === updated.id ? updated : model;
-      }));
-      logger.info('handleUpdateCustomModel success', { modelId });
-    } catch (error) {
-      logger.error('Error updating AI provider:', error);
-      throw error;
-    }
-  };
-
-  const handleDeleteModel = async (modelId: string) => {
-    const accessToken = session?.access_token;
-    if (!accessToken) return;
-
-    logger.debug('handleDeleteModel', { modelId });
-    try {
-      await deleteAiProviderConfig(modelId, accessToken);
-      setModels((prev) => prev.filter((model) => model.id !== modelId));
-      logger.info('handleDeleteModel success', { modelId });
-    } catch (error) {
-      logger.error('Error deleting AI provider:', error);
-      throw error;
-    }
-  };
-
   const handleAddWord = async (wordData: Parameters<typeof addWord>[0]) => {
     logger.debug('handleAddWord', { word: wordData.word, bookId: wordData.bookId });
     const saved = await addWord(wordData);
@@ -632,7 +520,6 @@ export default function AppSupabase() {
   };
 
   // ============ 自动 AI 分析 ============
-  const hasActiveModel = models.some((model) => model.isActive);
 
   // 切换开关：需有激活模型才能开启；持久化到 profile（跨设备）
   const persistAutoFlag = async (field: 'auto_enrich' | 'auto_explain', value: boolean) => {
