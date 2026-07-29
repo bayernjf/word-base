@@ -20,8 +20,8 @@
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
 | 练习模块（听/说/读/写） | 🟡 75% | 已 AI 化（生成 + 评估 + 限流），待联调验证 |
 | AI Provider 配置与密钥安全 | 🟢 85% | AES-256-GCM 加密，规范 |
-| 工程质量保障 | 🟡 65% | vitest + CI 四端 tsc 卡点、zod 入参校验、结构化日志已接入，无 E2E/监控 |
-| 部署与运维 | 🟡 65% | 已上 Cloudflare + Vercel，CORS 白名单 + AI 限流已就位，无监控 |
+| 工程质量保障 | 🟡 70% | vitest + CI 四端 tsc 卡点、zod 入参校验、结构化日志、Sentry 错误监控（env 门控）已接入，缺 E2E |
+| 部署与运维 | 🟡 70% | 已上 Cloudflare + Vercel，CORS 白名单 + AI 限流 + Sentry 监控就位，缺跨实例内存态方案 |
 
 **结论**：**词汇学习核心闭环（登录→生词本→AI 增强→云同步→间隔复习→智能句景）已经是真实可用的产品级功能**，完成度高。练习中心（听说读写）已于 2026-07-30 完成 AI 化改造（不再是 mock），剩联调与真机验证；工程化基础（vitest + CI）已补齐，但测试覆盖率、限流、监控仍距生产标准有差距。
 
@@ -161,19 +161,19 @@
 | 项 | 状态 | 说明 |
 |---|---|---|
 | TypeScript 类型检查 | ✅ | 四端 `tsc --noEmit`，CI 已卡点（`ci.yml` 四端 typecheck + api build） |
-| 单元测试文件 | ✅ | srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation 共 68 用例 |
+| 单元测试文件 | ✅ | srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation/apiSecurity 共 80 用例 |
 | 测试运行器 | ✅ | vitest 已配置，include 覆盖 `tests/**` + `shared/**` |
 | API 输入校验 | ✅ | zod schema（`packages/api/src/utils/validation.ts`）覆盖 auth + 全部 AI 端点，错误码向后兼容 |
 | 集成 / E2E 测试 | 🔴 无 | |
 | CI | ✅ | GitHub Actions（`ci.yml`：lint + 四端 typecheck + test + api/web build） |
-| 错误监控 / 上报 | 🔴 无 | 前后端均无 Sentry 类监控 |
+| 错误监控 / 上报 | ✅ | 前后端 Sentry env 门控接入（api `utils/monitoring.ts` 在 `app.onError` 上报；web `src/monitoring.ts` 动态 import，未配 DSN 时零成本惰性），配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效 |
 | 日志 | ✅ | 前端统一 logger + 环形缓冲；后端结构化 JSON 日志（`utils/logger.ts`）+ `app.onError` 兜底 |
 
-**现状**：单测 68 用例、CI 四端卡点、API 入参校验与结构化日志已就位；主要差距是无 E2E 冒烟与错误监控（Sentry）。
+**现状**：单测 80 用例、CI 四端卡点、API 入参校验、结构化日志、Sentry 错误监控（env 门控）已就位；主要差距是无 E2E 冒烟。
 
 ---
 
-## 模块十：部署与运维 🟡 65%
+## 模块十：部署与运维 🟡 70%
 
 | 项 | 状态 | 说明 |
 |---|---|---|
@@ -183,6 +183,7 @@
 | 限流 / 防刷 | ✅ | story/practice 每日配额 + AI 轻量端点（enrich/explain/translate/sense-cluster/tutor-chat）内存固定窗口限流 + `ai_call_quota` 每日配额（迁移 020） |
 | 密钥 / 环境变量管理 | ✅ | 三份 `.env`，生产走平台 secrets；`AI_CONFIG_ENCRYPTION_KEY` 有备份/轮换方案（`docs/KEY_ROTATION.md` + `scripts/rotate-ai-config-key.mjs`） |
 | 健康检查 | ✅ | `/api/v1/health` |
+| 错误监控 | ✅ | 前后端 Sentry env 门控接入（未配 DSN 时惰性），配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效 |
 | 进程管理 / 水平扩展 | 🟡 | Vercel Serverless 天然多实例，但内存态（练习缓存等）不跨实例 |
 | HTTPS / 反代 | ✅ | Cloudflare `_worker.js` 反代 `/api/*` → Vercel |
 
@@ -203,7 +204,7 @@
 - [x] 引入 vitest + `test` 脚本，并接 CI（lint + 四端 typecheck + test + api/web build 卡点，`ci.yml`）
 - [x] 补 SRS 算法、AI payload 解析的单元测试回归保护（2026-07-30：shared/lib 测试纳入 vitest，SRS 20 用例含边界场景）
 - [x] API 请求体 zod 校验 + 后端统一错误收口（2026-07-30：auth/AI/practice 端点全覆盖，`app.onError` 兜底，结构化 JSON 日志替换 console.*）
-- [ ] 接前后端错误监控（Sentry）
+- [x] 接前后端错误监控（Sentry）（2026-07-30：env 门控接入 api/web，未配 DSN 时惰性，配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效）
 - [ ] 确认 Supabase 生产配置：邮箱验证、密码强度、登录限流
 - [ ] 后端内存态（练习缓存等）跨实例方案，或确认 Serverless 实例行为可接受
 

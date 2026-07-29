@@ -238,8 +238,8 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
 | 练习中心（听说读写） | 🟡 75% | 已 AI 化，待联调+真机验证 |
 | 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
-| 工程质量保障 | 🟡 65% | 68 用例 + zod 校验 + 结构化日志 + CI 四端卡点，缺 E2E/Sentry |
-| 部署与运维 | 🟡 65% | 已上 Cloudflare+Vercel，CORS 白名单 + AI 限流/配额就绪，缺监控 |
+| 工程质量保障 | 🟡 70% | 80 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控），缺 E2E |
+| 部署与运维 | 🟡 70% | 已上 Cloudflare+Vercel，CORS 白名单 + AI 限流/配额 + Sentry 监控就绪 |
 
 **各端上架就绪度**：Web 🟢 100% · Desktop 🟡 70%（缺公证/签名） · Mobile 🔴 45%（缺 release 签名、商店素材、真机验证）
 
@@ -259,6 +259,7 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 - **CORS 白名单收敛**：`utils/cors.ts` — 生产/预览域名 + Tauri + 本地开发/真机 + 浏览器插件来源，未命中不下发 CORS 头，`ALLOWED_ORIGINS` 可追加
 - **AI 接口限流**：`utils/rateLimit.ts` — enrich/explain/sense-cluster/translate/tutor-chat 接入内存固定窗口（每用户 20/分、全局 120/分）+ `ai_call_quota` 每日 300 次配额（迁移 `020_ai_call_quota.sql`），成功才计数，迁移未执行时优雅降级
 - **密钥轮换方案**：`scripts/rotate-ai-config-key.mjs`（幂等 dry-run/`--apply`）+ `docs/KEY_ROTATION.md`（备份/轮换/回滚流程）
+- **Sentry 错误监控（env 门控）**：api `utils/monitoring.ts` 在 `app.onError` 上报；web `src/monitoring.ts` 动态 import（未配 DSN 时零成本惰性，Rollup 摇树移除）。配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效
 
 > ⚠️ 待执行运维动作：在 Supabase 执行迁移 **019 + 020**（练习配额 + AI 调用配额），否则每日配额兜底不生效（内存限流仍工作）。
 
