@@ -1,8 +1,31 @@
 import { Hono } from 'hono'
 import { createClient } from '@supabase/supabase-js'
 import { encryptApiKey, decryptApiKey } from './utils/crypto'
+import { logger, errorContext } from './utils/logger'
+import { parseAllowedOrigins, isOriginAllowed } from './utils/cors'
+import { createAiUserLimiter, createAiGlobalLimiter, AI_DAILY_LIMIT } from './utils/rateLimit'
+import {
+  parseBody,
+  loginBodySchema,
+  registerBodySchema,
+  refreshBodySchema,
+  aiEnrichBodySchema,
+  aiExplainBodySchema,
+  aiSenseClusterBodySchema,
+  aiTranslateBodySchema,
+  aiTutorChatBodySchema,
+  aiStoryGenerateBodySchema,
+  practiceGenerateBodySchema,
+  practiceEvaluateBodySchema
+} from './utils/validation'
 
 const app = new Hono()
+
+// 兜底错误处理：未被路由内 try/catch 捕获的异常统一收口，避免泄露内部细节
+app.onError((err, c) => {
+  logger.error('unhandled_error', { path: c.req.path, method: c.req.method, ...errorContext(err) })
+  return c.json({ error: 'internal_server_error' }, 500)
+})
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
@@ -25,15 +48,21 @@ const supabaseAdmin = supabaseServiceRoleKey
     })
   : null
 
+// CORS 白名单：仅回显已知来源（生产/预览域名、Tauri、本地开发、插件），未命中不下发 CORS 头
+// 无 Origin 的请求（RN fetch、curl、服务端调用）不受 CORS 约束，直接放行
+const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS)
+
 app.use(async (c, next) => {
-  // 允许来自已知前端的请求（禁止 * + credentials 组合）
   const origin = c.req.header('Origin');
-  if (origin) {
+  if (origin && isOriginAllowed(origin, allowedOrigins)) {
     c.res.headers.set('Access-Control-Allow-Origin', origin);
+    c.res.headers.set('Vary', 'Origin');
+    c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  } else if (origin) {
+    logger.warn('cors_origin_rejected', { origin, path: c.req.path });
   }
-  c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
+
   if (c.req.method === 'OPTIONS') {
     return c.json({ ok: true }, 200);
   }
@@ -73,6 +102,78 @@ const getRequestContext = async (c: { req: { header: (key: string) => string | u
 
   return { token, user, db: createUserSupabaseClient(token) }
 }
+
+// AI 轻量端点限流：内存固定窗口（单实例突发防护）+ ai_call_quota 每日配额（跨实例硬上限）
+const aiUserLimiter = createAiUserLimiter()
+const aiGlobalLimiter = createAiGlobalLimiter()
+
+// 注意：web 端 tsconfig 为 strict:false，不对联合类型做控制流窄化，故用单接口 + 可选字段
+interface AiLimitState {
+  allowed: boolean
+  error?: string
+  retryAfterSeconds?: number
+  quota?: { call_count: number } | null
+  quotaAvailable?: boolean
+}
+
+const quotaDateToday = () => new Date().toISOString().slice(0, 10)
+
+const checkAiCallLimits = async (
+  db: ReturnType<typeof createUserSupabaseClient>,
+  userId: string
+): Promise<AiLimitState> => {
+  const userHit = aiUserLimiter.hit(`u:${userId}`)
+  if (!userHit.allowed) {
+    return { allowed: false, error: 'rate_limited', retryAfterSeconds: userHit.retryAfterSeconds }
+  }
+  const globalHit = aiGlobalLimiter.hit('global')
+  if (!globalHit.allowed) {
+    logger.warn('ai_global_rate_limited', { userId })
+    return { allowed: false, error: 'rate_limited', retryAfterSeconds: globalHit.retryAfterSeconds }
+  }
+
+  const { data: quota, error } = await db
+    .from('ai_call_quota')
+    .select('call_count')
+    .eq('user_id', userId)
+    .eq('quota_date', quotaDateToday())
+    .maybeSingle()
+
+  if (error) {
+    // 迁移 020 未执行时优雅降级：仅记录告警，不阻断请求（内存限流仍生效）
+    logger.warn('ai_call_quota_read_failed', { code: error.code })
+    return { allowed: true, quota: null, quotaAvailable: false }
+  }
+
+  if ((quota?.call_count || 0) >= AI_DAILY_LIMIT) {
+    return { allowed: false, error: 'daily_quota_exceeded' }
+  }
+  return { allowed: true, quota, quotaAvailable: true }
+}
+
+const recordAiCall = async (
+  db: ReturnType<typeof createUserSupabaseClient>,
+  userId: string,
+  limit: AiLimitState
+) => {
+  if (!limit.quotaAvailable) return
+  try {
+    if (limit.quota) {
+      await db.from('ai_call_quota')
+        .update({ call_count: limit.quota.call_count + 1 })
+        .eq('user_id', userId)
+        .eq('quota_date', quotaDateToday())
+    } else {
+      await db.from('ai_call_quota')
+        .insert({ user_id: userId, quota_date: quotaDateToday(), call_count: 1 })
+    }
+  } catch (err) {
+    logger.warn('ai_call_quota_write_failed', errorContext(err))
+  }
+}
+
+const aiLimitResponse = (c: { json: (obj: object, status: 429) => Response }, limit: AiLimitState) =>
+  c.json({ error: limit.error || 'rate_limited', retryAfterSeconds: limit.retryAfterSeconds }, 429)
 
 const buildAuthResponse = (session: { access_token: string; refresh_token: string; user: { id: string; email?: string; user_metadata?: { display_name?: string } } | null }) => ({
   accessToken: session.access_token,
@@ -274,13 +375,9 @@ app.get('/api/v1/health', (c) => {
 
 app.post('/api/v1/auth/login', async (c) => {
   try {
-    const body = await c.req.json()
-    const email = String(body?.email || '').trim().toLowerCase()
-    const password = String(body?.password || '')
-
-    if (!email || !password) {
-      return c.json({ error: 'email_and_password_required' }, 400)
-    }
+    const parsed = await parseBody(c, loginBodySchema, { fallback: 'email_and_password_required' })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { email, password } = parsed.data
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
@@ -292,21 +389,16 @@ app.post('/api/v1/auth/login', async (c) => {
 
     return c.json(buildAuthResponse(data.session))
   } catch (err) {
-    console.error('[auth/login] error:', (err as Error).message)
+    logger.error('auth_login_failed', errorContext(err))
     return c.json({ error: 'internal_server_error' }, 500)
   }
 })
 
 app.post('/api/v1/auth/register', async (c) => {
   try {
-    const body = await c.req.json()
-    const email = String(body?.email || '').trim().toLowerCase()
-    const password = String(body?.password || '')
-    const nickname = String(body?.nickname || '').trim()
-
-    if (!email || !password) {
-      return c.json({ error: 'email_and_password_required' }, 400)
-    }
+    const parsed = await parseBody(c, registerBodySchema, { fallback: 'email_and_password_required' })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { email, password, nickname } = parsed.data
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -354,7 +446,7 @@ app.post('/api/v1/auth/register', async (c) => {
             })
         }
       } catch (bookErr) {
-        console.error('创建默认单词本失败:', (bookErr as Error).message)
+        logger.error('register_default_book_failed', errorContext(bookErr))
       }
     }
 
@@ -364,18 +456,16 @@ app.post('/api/v1/auth/register', async (c) => {
 
     return c.json(buildAuthResponse(data.session))
   } catch (err) {
-    console.error('[auth] error:', (err as Error).message)
+    logger.error('auth_register_failed', errorContext(err))
     return c.json({ error: (err as Error).message || "internal_server_error" }, 500)
   }
 })
 
 app.post('/api/v1/auth/refresh', async (c) => {
   try {
-    const body = await c.req.json()
-    const refreshToken = String(body?.refreshToken || '').trim()
-    if (!refreshToken) {
-      return c.json({ error: 'refresh_token_required' }, 400)
-    }
+    const parsed = await parseBody(c, refreshBodySchema, { fallback: 'refresh_token_required' })
+    if (!parsed.ok) return c.json({ error: parsed.error }, 400)
+    const { refreshToken } = parsed.data
 
     const { data, error } = await supabase.auth.refreshSession({
       refresh_token: refreshToken
@@ -621,7 +711,7 @@ app.post('/api/v1/ai/providers/test', async (c) => {
     const ok = String(raw || '').trim().length > 0
     return c.json({ ok, model, provider })
   } catch (err) {
-    console.error('[ai/providers/test] error:', (err as Error).message)
+    logger.error('ai_provider_test_failed', errorContext(err))
     return c.json({ error: 'connection_test_failed' }, 502)
   }
 })
@@ -980,13 +1070,16 @@ app.post('/api/v1/ai/enrich', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const word = String(body?.word || '').trim()
-    if (!word) return c.json({ error: 'word_required' }, 400)
+    const parsed = await parseBody(c, aiEnrichBodySchema, { fieldErrors: { word: 'word_required' } })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { word, translation, wordId, providerId } = parsed.data
 
-    const config = await getActiveAiConfig(db, body?.providerId)
-    const contexts = (body?.contexts || [])
-      .map((item: any) => item?.context?.trim())
+    const limit = await checkAiCallLimits(db, user.id)
+    if (!limit.allowed) return aiLimitResponse(c, limit)
+
+    const config = await getActiveAiConfig(db, providerId)
+    const contexts = parsed.data.contexts
+      .map((item) => item?.context?.trim())
       .filter(Boolean)
       .slice(0, 5)
 
@@ -994,17 +1087,18 @@ app.post('/api/v1/ai/enrich', async (c) => {
       'Generate vocabulary enrichment as strict JSON only.',
       'Schema: {"definition":"...","translation":"...","synonyms":["..."],"examples":[{"en":"...","zh":"..."}],"usageHistory":[{"context":"...","translation":"...","source":"AI"}],"memoryTip":"..."}',
       `Word: ${word}`,
-      `Current translation: ${body?.translation || ''}`,
+      `Current translation: ${translation}`,
       `Contexts: ${JSON.stringify(contexts)}`,
       'Rules: "definition" must be an English explanation of the word meaning (English-English style); "translation" must be the Chinese translation; examples must be natural English with Chinese translations; synonyms must be English; memoryTip must be in Chinese; do not include markdown.',
     ].join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    let parsed: any
+    await recordAiCall(db, user.id, limit)
+    let aiParsed: any
     try {
-      parsed = JSON.parse(extractJsonText(raw))
+      aiParsed = JSON.parse(extractJsonText(raw))
     } catch {
-      console.warn('AI enrich JSON parse failed, returning fallback', { wordId: body?.wordId })
+      logger.warn('ai_enrich_parse_failed', { wordId })
       return c.json({
         enrichment: {
           definition: '',
@@ -1017,10 +1111,10 @@ app.post('/api/v1/ai/enrich', async (c) => {
     }
 
     const enrichment = {
-      definition: readString(parsed.definition),
-      translation: readString(parsed.translation),
-      synonyms: readStringArray(parsed.synonyms).slice(0, 8),
-      examples: (Array.isArray(parsed.examples) ? parsed.examples : [])
+      definition: readString(aiParsed.definition),
+      translation: readString(aiParsed.translation),
+      synonyms: readStringArray(aiParsed.synonyms).slice(0, 8),
+      examples: (Array.isArray(aiParsed.examples) ? aiParsed.examples : [])
         .map((item: any) => {
           const en = readString(item?.en)
           const zh = readString(item?.zh)
@@ -1028,7 +1122,7 @@ app.post('/api/v1/ai/enrich', async (c) => {
         })
         .filter(Boolean)
         .slice(0, 5),
-      usageHistory: (Array.isArray(parsed.usageHistory) ? parsed.usageHistory : [])
+      usageHistory: (Array.isArray(aiParsed.usageHistory) ? aiParsed.usageHistory : [])
         .map((item: any) => {
           const ctx = readString(item?.context)
           const tr = readString(item?.translation)
@@ -1036,11 +1130,11 @@ app.post('/api/v1/ai/enrich', async (c) => {
         })
         .filter(Boolean)
         .slice(0, 5),
-      memoryTip: readString(parsed.memoryTip) || undefined,
+      memoryTip: readString(aiParsed.memoryTip) || undefined,
     }
 
     // Persist to word record if wordId provided
-    if (body?.wordId) {
+    if (wordId) {
       await db.from('words').update({
         definition: enrichment.definition,
         translation: enrichment.translation,
@@ -1050,11 +1144,12 @@ app.post('/api/v1/ai/enrich', async (c) => {
         usage_history: enrichment.usageHistory,
         memory_tip: enrichment.memoryTip || null,
         updated_at: new Date().toISOString(),
-      }).eq('id', body.wordId).eq('user_id', user.id)
+      }).eq('id', wordId).eq('user_id', user.id)
     }
 
     return c.json({ enrichment })
   } catch (err) {
+    logger.error('ai_enrich_failed', errorContext(err))
     return c.json({ error: "internal_server_error" }, 500)
   }
 })
@@ -1065,13 +1160,16 @@ app.post('/api/v1/ai/explain', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const word = String(body?.word || '').trim()
-    if (!word) return c.json({ error: 'word_required' }, 400)
+    const parsed = await parseBody(c, aiExplainBodySchema, { fieldErrors: { word: 'word_required' } })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { word, wordId, providerId } = parsed.data
 
-    const config = await getActiveAiConfig(db, body?.providerId)
-    const contexts = (body?.contexts || [])
-      .map((item: any) => item?.context?.trim())
+    const limit = await checkAiCallLimits(db, user.id)
+    if (!limit.allowed) return aiLimitResponse(c, limit)
+
+    const config = await getActiveAiConfig(db, providerId)
+    const contexts = parsed.data.contexts
+      .map((item) => item?.context?.trim())
       .filter(Boolean)
       .slice(0, 5)
 
@@ -1084,16 +1182,17 @@ app.post('/api/v1/ai/explain', async (c) => {
     ].join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    let parsed: any
+    await recordAiCall(db, user.id, limit)
+    let aiParsed: any
     try {
-      parsed = JSON.parse(extractJsonText(raw))
+      aiParsed = JSON.parse(extractJsonText(raw))
     } catch {
-      console.warn('AI deepExplanation JSON parse failed')
+      logger.warn('ai_explain_parse_failed', { wordId })
       return c.json({ deepExplanation: { contextInsights: [], synonymComparison: '', memoryHook: '' } }, 200)
     }
 
     const deepExplanation = {
-      contextInsights: (Array.isArray(parsed.contextInsights) ? parsed.contextInsights : [])
+      contextInsights: (Array.isArray(aiParsed.contextInsights) ? aiParsed.contextInsights : [])
         .map((item: any) => {
           const ctx = readString(item?.context)
           const insight = readString(item?.insight)
@@ -1101,21 +1200,22 @@ app.post('/api/v1/ai/explain', async (c) => {
         })
         .filter(Boolean)
         .slice(0, 5),
-      synonymComparison: readString(parsed.synonymComparison),
-      memoryHook: readString(parsed.memoryHook),
+      synonymComparison: readString(aiParsed.synonymComparison),
+      memoryHook: readString(aiParsed.memoryHook),
       generatedAt: Date.now(),
     }
 
     // Persist to word record if wordId provided
-    if (body?.wordId) {
+    if (wordId) {
       await db.from('words').update({
         deep_explanation: deepExplanation,
         updated_at: new Date().toISOString(),
-      }).eq('id', body.wordId).eq('user_id', user.id)
+      }).eq('id', wordId).eq('user_id', user.id)
     }
 
     return c.json({ deepExplanation })
   } catch (err) {
+    logger.error('ai_explain_failed', errorContext(err))
     return c.json({ error: "internal_server_error" }, 500)
   }
 })
@@ -1126,13 +1226,16 @@ app.post('/api/v1/ai/sense-cluster', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const word = String(body?.word || '').trim()
-    if (!word) return c.json({ error: 'word_required' }, 400)
+    const parsed = await parseBody(c, aiSenseClusterBodySchema, { fieldErrors: { word: 'word_required' } })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { word, wordId, providerId } = parsed.data
 
-    const config = await getActiveAiConfig(db, body?.providerId)
-    const contexts = (body?.contexts || [])
-      .map((item: any) => item?.context?.trim())
+    const limit = await checkAiCallLimits(db, user.id)
+    if (!limit.allowed) return aiLimitResponse(c, limit)
+
+    const config = await getActiveAiConfig(db, providerId)
+    const contexts = parsed.data.contexts
+      .map((item) => item?.context?.trim())
       .filter(Boolean)
       .slice(0, 10)
 
@@ -1145,16 +1248,17 @@ app.post('/api/v1/ai/sense-cluster', async (c) => {
     ].join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    let parsed: any
+    await recordAiCall(db, user.id, limit)
+    let aiParsed: any
     try {
-      parsed = JSON.parse(extractJsonText(raw))
+      aiParsed = JSON.parse(extractJsonText(raw))
     } catch {
-      console.warn('AI sense-cluster JSON parse failed')
+      logger.warn('ai_sense_cluster_parse_failed', { wordId })
       return c.json({ senseGroups: { groups: [] } }, 200)
     }
 
     const senseGroups = {
-      groups: (Array.isArray(parsed.groups) ? parsed.groups : [])
+      groups: (Array.isArray(aiParsed.groups) ? aiParsed.groups : [])
         .map((item: any) => {
           const sense = readString(item?.sense)
           if (!sense) return null
@@ -1171,15 +1275,16 @@ app.post('/api/v1/ai/sense-cluster', async (c) => {
     }
 
     // Persist to word record if wordId provided
-    if (body?.wordId) {
+    if (wordId) {
       await db.from('words').update({
         sense_groups: senseGroups,
         updated_at: new Date().toISOString(),
-      }).eq('id', body.wordId).eq('user_id', user.id)
+      }).eq('id', wordId).eq('user_id', user.id)
     }
 
     return c.json({ senseGroups })
   } catch (err) {
+    logger.error('ai_sense_cluster_failed', errorContext(err))
     return c.json({ error: "internal_server_error" }, 500)
   }
 })
@@ -1190,19 +1295,23 @@ app.post('/api/v1/ai/translate', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const text = String(body?.text || '').trim()
-    if (!text) return c.json({ error: 'text_required' }, 400)
-    const targetLanguage = String(body?.targetLanguage || 'zh')
+    const parsed = await parseBody(c, aiTranslateBodySchema, { fieldErrors: { text: 'text_required' } })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { text, targetLanguage, providerId } = parsed.data
 
-    const config = await getActiveAiConfig(db, body?.providerId)
+    const limit = await checkAiCallLimits(db, user.id)
+    if (!limit.allowed) return aiLimitResponse(c, limit)
+
+    const config = await getActiveAiConfig(db, providerId)
     const prompt = `Translate the following text to ${targetLanguage === 'zh' ? 'Chinese' : targetLanguage}. Return only the translation, no explanation.\n\nText: ${text}`
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: false })
+    await recordAiCall(db, user.id, limit)
     const translatedText = String(raw || '').trim()
 
     return c.json({ translatedText })
   } catch (err) {
+    logger.error('ai_translate_failed', errorContext(err))
     return c.json({ error: "internal_server_error" }, 500)
   }
 })
@@ -1213,11 +1322,9 @@ app.post('/api/v1/ai/story-generate', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const topic = String(body?.topic || '').trim()
-    const difficulty = String(body?.difficulty || 'B2')
-    const words = Array.isArray(body?.words) ? body.words : []
-    const sourceWordIds = Array.isArray(body?.sourceWordIds) ? body.sourceWordIds : []
+    const parsed = await parseBody(c, aiStoryGenerateBodySchema)
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { topic, difficulty, words, sourceWordIds } = parsed.data
 
     // Check daily quota
     const today = new Date().toISOString().slice(0, 10)
@@ -1246,27 +1353,27 @@ app.post('/api/v1/ai/story-generate', async (c) => {
     ].filter(Boolean).join('\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-    let parsed: any
+    let aiParsed: any
     try {
-      parsed = JSON.parse(extractJsonText(raw))
+      aiParsed = JSON.parse(extractJsonText(raw))
     } catch {
-      console.warn('AI story generation JSON parse failed')
+      logger.warn('ai_story_parse_failed')
       return c.json({ error: 'ai_parse_failed' }, 500)
     }
 
     const story = {
-      title: readString(parsed.title),
-      category: readString(parsed.category) || topic || 'general',
+      title: readString(aiParsed.title),
+      category: readString(aiParsed.category) || topic || 'general',
       difficulty,
-      contentEn: readString(parsed.contentEn),
-      contentZh: readString(parsed.contentZh),
-      sentences: Array.isArray(parsed.sentences) ? parsed.sentences.map((s: any) => ({
+      contentEn: readString(aiParsed.contentEn),
+      contentZh: readString(aiParsed.contentZh),
+      sentences: Array.isArray(aiParsed.sentences) ? aiParsed.sentences.map((s: any) => ({
         en: readString(s?.en),
         zh: readString(s?.zh),
         words: readStringArray(s?.words),
       })).filter((s: any) => s.en) : [],
-      highlightedWords: readStringArray(parsed.highlightedWords),
-      grammarInsight: readString(parsed.grammarInsight),
+      highlightedWords: readStringArray(aiParsed.highlightedWords),
+      grammarInsight: readString(aiParsed.grammarInsight),
     }
 
     // Persist story
@@ -1307,6 +1414,7 @@ app.post('/api/v1/ai/story-generate', async (c) => {
       remaining,
     })
   } catch (err) {
+    logger.error('ai_story_generate_failed', errorContext(err))
     return c.json({ error: "internal_server_error" }, 500)
   }
 })
@@ -1317,13 +1425,14 @@ app.post('/api/v1/ai/tutor-chat', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const message = String(body?.message || '').trim()
-    if (!message) return c.json({ error: 'message_required' }, 400)
+    const parsed = await parseBody(c, aiTutorChatBodySchema, { fieldErrors: { message: 'message_required' } })
+    if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
+    const { message, story, history } = parsed.data
+
+    const limit = await checkAiCallLimits(db, user.id)
+    if (!limit.allowed) return aiLimitResponse(c, limit)
 
     const config = await getActiveAiConfig(db)
-    const story = body?.story
-    const history = Array.isArray(body?.history) ? body.history : []
 
     const systemParts: string[] = [
       'You are an English tutor helping a Chinese student learn vocabulary through stories.',
@@ -1337,7 +1446,7 @@ app.post('/api/v1/ai/tutor-chat', async (c) => {
 
     const messages = [
       { role: 'system', content: systemParts.join('\n') },
-      ...history.map((m: any) => ({
+      ...history.map((m) => ({
         role: m.sender === 'user' ? 'user' : 'assistant',
         content: String(m.text || ''),
       })),
@@ -1347,10 +1456,12 @@ app.post('/api/v1/ai/tutor-chat', async (c) => {
     const prompt = messages.map(m => `[${m.role}] ${m.content}`).join('\n\n')
 
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: false })
+    await recordAiCall(db, user.id, limit)
     const reply = String(raw || '').trim()
 
     return c.json({ reply })
   } catch (err) {
+    logger.error('ai_tutor_chat_failed', errorContext(err))
     return c.json({ error: "internal_server_error" }, 500)
   }
 })
@@ -1504,7 +1615,7 @@ app.post('/api/v1/feedback', async (c) => {
       .single()
 
     if (feedbackError || !feedbackRow) {
-      console.error('[feedback] insert failed:', feedbackError)
+      logger.error('feedback_insert_failed', errorContext(feedbackError))
       throw feedbackError
     }
 
@@ -1523,7 +1634,7 @@ app.post('/api/v1/feedback', async (c) => {
           truncated: Boolean(log.truncated),
         })
       } catch (logErr) {
-        console.warn('[feedback] log insert failed (non-blocking):', logErr)
+        logger.warn('feedback_log_insert_failed', errorContext(logErr))
       }
     }
 
@@ -1542,12 +1653,12 @@ app.post('/api/v1/feedback', async (c) => {
       }
     } catch (quotaErr) {
       // 限流计数失败不阻塞反馈成功（宁可漏限不可误伤用户）
-      console.warn('[feedback] quota update failed (non-blocking):', quotaErr)
+      logger.warn('feedback_quota_update_failed', errorContext(quotaErr))
     }
 
     return c.json({ success: true, feedbackId })
   } catch (err) {
-    console.error('[feedback] submit error:', err)
+    logger.error('feedback_submit_failed', errorContext(err))
     return c.json({ error: 'internal_server_error' }, 500)
   }
 })
@@ -1599,7 +1710,7 @@ app.get('/api/v1/feedback', async (c) => {
 
     return c.json({ items })
   } catch (err) {
-    console.error('[feedback] list error:', err)
+    logger.error('feedback_list_failed', errorContext(err))
     return c.json({ error: 'internal_server_error' }, 500)
   }
 })
@@ -1650,18 +1761,11 @@ app.post('/api/v1/ai/practice/generate', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const type = String(body?.type || '').trim()
-    if (!['reading', 'listening', 'writing', 'speaking'].includes(type)) {
-      return c.json({ error: 'invalid_practice_type' }, 400)
-    }
-
-    const words = Array.isArray(body?.words) ? body.words.filter((w: any) => String(w || '').trim()).slice(0, 10) : []
-    if (words.length === 0) {
-      return c.json({ error: 'words_required' }, 400)
-    }
-
-    const difficulty = String(body?.difficulty || 'B2')
+    const parsedBody = await parseBody(c, practiceGenerateBodySchema, {
+      fieldErrors: { type: 'invalid_practice_type', words: 'words_required' },
+    })
+    if (!parsedBody.ok) return c.json({ error: parsedBody.error, details: parsedBody.details }, 400)
+    const { type, words, difficulty, providerId } = parsedBody.data
 
     // 配额检查
     const quotaCheck = await checkPracticeQuota(db, user.id)
@@ -1669,7 +1773,7 @@ app.post('/api/v1/ai/practice/generate', async (c) => {
       return c.json({ error: 'daily_quota_exceeded' }, 429)
     }
 
-    const config = await getActiveAiConfig(db, body?.providerId)
+    const config = await getActiveAiConfig(db, providerId)
 
     let result: any = { remaining: quotaCheck.remaining }
 
@@ -1685,7 +1789,7 @@ app.post('/api/v1/ai/practice/generate', async (c) => {
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
       let parsed: any
       try { parsed = JSON.parse(extractJsonText(raw)) } catch {
-        console.warn('AI practice reading JSON parse failed')
+        logger.warn('ai_practice_parse_failed', { type: 'reading' })
         return c.json({ error: 'ai_parse_failed' }, 500)
       }
 
@@ -1726,7 +1830,7 @@ app.post('/api/v1/ai/practice/generate', async (c) => {
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
       let parsed: any
       try { parsed = JSON.parse(extractJsonText(raw)) } catch {
-        console.warn('AI practice listening JSON parse failed')
+        logger.warn('ai_practice_parse_failed', { type: 'listening' })
         return c.json({ error: 'ai_parse_failed' }, 500)
       }
 
@@ -1759,7 +1863,7 @@ app.post('/api/v1/ai/practice/generate', async (c) => {
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
       let parsed: any
       try { parsed = JSON.parse(extractJsonText(raw)) } catch {
-        console.warn('AI practice writing JSON parse failed')
+        logger.warn('ai_practice_parse_failed', { type: 'writing' })
         return c.json({ error: 'ai_parse_failed' }, 500)
       }
 
@@ -1780,7 +1884,7 @@ app.post('/api/v1/ai/practice/generate', async (c) => {
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
       let parsed: any
       try { parsed = JSON.parse(extractJsonText(raw)) } catch {
-        console.warn('AI practice speaking JSON parse failed')
+        logger.warn('ai_practice_parse_failed', { type: 'speaking' })
         return c.json({ error: 'ai_parse_failed' }, 500)
       }
 
@@ -1796,7 +1900,7 @@ app.post('/api/v1/ai/practice/generate', async (c) => {
 
     return c.json(result)
   } catch (err) {
-    console.error('[practice/generate] error:', (err as Error).message)
+    logger.error('practice_generate_failed', errorContext(err))
     return c.json({ error: 'internal_server_error' }, 500)
   }
 })
@@ -1807,22 +1911,25 @@ app.post('/api/v1/ai/practice/evaluate', async (c) => {
     const { user, db } = await getRequestContext(c)
     if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
-    const body = await c.req.json()
-    const type = String(body?.type || '').trim()
-    if (!['writing', 'speaking'].includes(type)) {
-      return c.json({ error: 'invalid_evaluate_type' }, 400)
-    }
+    const parsedBody = await parseBody(c, practiceEvaluateBodySchema, {
+      fieldErrors: {
+        type: 'invalid_evaluate_type',
+        userText: 'user_text_required',
+        transcription: 'transcription_required',
+      },
+    })
+    if (!parsedBody.ok) return c.json({ error: parsedBody.error, details: parsedBody.details }, 400)
+    const body = parsedBody.data
 
-    const config = await getActiveAiConfig(db, body?.providerId)
+    const config = await getActiveAiConfig(db, body.providerId)
 
-    if (type === 'writing') {
-      const userText = String(body?.userText || '').trim()
-      if (!userText) return c.json({ error: 'user_text_required' }, 400)
+    if (body.type === 'writing') {
+      const userText = body.userText
 
       const prompt = [
         'Evaluate the English writing and provide feedback as strict JSON only.',
         'Schema: {"score":75,"level":"B2","feedback":[{"type":"grammar","issue":"...","suggestion":"...","explanation":"中文解释"}]}',
-        `Writing prompt: ${String(body?.prompt || '')}`,
+        `Writing prompt: ${body.prompt}`,
         `User's text: ${userText}`,
         'Rules: score is 0-100; level is CEFR level; feedback items should cover grammar, vocabulary, and style issues; explanation should be in Chinese; do not include markdown.',
       ].filter(Boolean).join('\n')
@@ -1830,7 +1937,7 @@ app.post('/api/v1/ai/practice/evaluate', async (c) => {
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
       let parsed: any
       try { parsed = JSON.parse(extractJsonText(raw)) } catch {
-        console.warn('AI practice writing evaluate JSON parse failed')
+        logger.warn('ai_practice_evaluate_parse_failed', { type: 'writing' })
         return c.json({ error: 'ai_parse_failed' }, 500)
       }
 
@@ -1852,9 +1959,7 @@ app.post('/api/v1/ai/practice/evaluate', async (c) => {
     }
 
     // type === 'speaking'
-    const transcription = String(body?.transcription || '').trim()
-    const originalPrompt = String(body?.originalPrompt || '').trim()
-    if (!transcription) return c.json({ error: 'transcription_required' }, 400)
+    const { transcription, originalPrompt } = body
 
     const prompt = [
       'Evaluate the spoken English by comparing the transcription with the target sentence as strict JSON only.',
@@ -1867,7 +1972,7 @@ app.post('/api/v1/ai/practice/evaluate', async (c) => {
     const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
     let parsed: any
     try { parsed = JSON.parse(extractJsonText(raw)) } catch {
-      console.warn('AI practice speaking evaluate JSON parse failed')
+      logger.warn('ai_practice_evaluate_parse_failed', { type: 'speaking' })
       return c.json({ error: 'ai_parse_failed' }, 500)
     }
 
@@ -1888,7 +1993,7 @@ app.post('/api/v1/ai/practice/evaluate', async (c) => {
       },
     })
   } catch (err) {
-    console.error('[practice/evaluate] error:', (err as Error).message)
+    logger.error('practice_evaluate_failed', errorContext(err))
     return c.json({ error: 'internal_server_error' }, 500)
   }
 })
