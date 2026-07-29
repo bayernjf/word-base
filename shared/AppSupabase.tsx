@@ -6,7 +6,6 @@ import { AppLanguage, ThemeType, Word } from './types';
 import { getPlatform } from './platform';
 
 const logger = createLogger('AppSupabase');
-import { listeningQuizzes } from './mockData';
 import { getThemeClasses } from './components/ThemeStyles';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -879,7 +878,7 @@ export default function AppSupabase() {
             onDeleteStory={deleteStory}
           />;
         case 'practice':
-          return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} />;
+          return <PracticeMainView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} hasActiveModel={hasActiveModel} />;
         case 'practice-review':
           return (
             <ReviewView
@@ -891,13 +890,13 @@ export default function AppSupabase() {
             />
           );
         case 'practice-listening':
-          return <ListeningPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} quizzes={listeningQuizzes} />;
+          return <ListeningPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} accessToken={session?.access_token} />;
         case 'practice-speaking':
-          return <SpeakingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+          return <SpeakingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} accessToken={session?.access_token} />;
         case 'practice-reading':
-          return <ReadingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+          return <ReadingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} accessToken={session?.access_token} />;
         case 'practice-writing':
-          return <WritingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
+          return <WritingPracticeView themeStyles={themeStyles} language={language} onNavigate={setActiveView} words={words} accessToken={session?.access_token} />;
         case 'announcements':
           return <AnnouncementsView themeStyles={themeStyles} language={language} onNavigate={setActiveView} />;
         case 'profile':
