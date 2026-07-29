@@ -21,6 +21,7 @@ apps/mobile/.expo/
 # IDE
 .idea/
 .vscode/
+.qoder/
 *.iml
 *.xcuserstate
 
