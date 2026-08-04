@@ -31,7 +31,7 @@ export function registerAiRoutes(app: Hono) {
 
       const parsed = await parseBody(c, aiEnrichBodySchema, { fieldErrors: { word: 'word_required' } })
       if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
-      const { word, translation, wordId, providerId } = parsed.data
+      const { word, translation, wordId, providerId, source_language } = parsed.data
 
       const limit = await checkAiCallLimits(db, user.id)
       if (!limit.allowed) return aiLimitResponse(c, limit)
@@ -42,13 +42,25 @@ export function registerAiRoutes(app: Hono) {
         .filter(Boolean)
         .slice(0, 5)
 
+      const sourceLang = source_language || 'en'
+      const langNames: Record<string, string> = {
+        en: 'English', ja: 'Japanese', de: 'German', fr: 'French', ko: 'Korean',
+        es: 'Spanish', it: 'Italian', pt: 'Portuguese', ru: 'Russian', zh: 'Chinese',
+        ar: 'Arabic', th: 'Thai', vi: 'Vietnamese',
+      }
+      const langName = langNames[sourceLang] || sourceLang
+
+      const langRules = sourceLang === 'en'
+        ? '"definition" must be an English explanation (English-English style); "translation" must be the Chinese translation; examples must be natural English sentences with Chinese translations; synonyms must be English words; memoryTip must be in Chinese.'
+        : `This is a ${langName} word (source language: ${sourceLang}). "definition" must be an English explanation of the ${langName} word meaning; "translation" must be the Chinese translation; examples should show how the word is naturally used in ${langName}, keeping the original ${langName} word in the "en" field with a Chinese translation in the "zh" field; synonyms should be related ${langName} expressions; memoryTip must be in Chinese.`
+
       const prompt = [
         'Generate vocabulary enrichment as strict JSON only.',
         'Schema: {"definition":"...","translation":"...","synonyms":["..."],"examples":[{"en":"...","zh":"..."}],"usageHistory":[{"context":"...","translation":"...","source":"AI"}],"memoryTip":"..."}',
         `Word: ${word}`,
         `Current translation: ${translation}`,
         `Contexts: ${JSON.stringify(contexts)}`,
-        'Rules: "definition" must be an English explanation of the word meaning (English-English style); "translation" must be the Chinese translation; examples must be natural English with Chinese translations; synonyms must be English; memoryTip must be in Chinese; do not include markdown.',
+        `Rules: ${langRules} do not include markdown.`,
       ].join('\n')
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
@@ -120,7 +132,7 @@ export function registerAiRoutes(app: Hono) {
 
       const parsed = await parseBody(c, aiExplainBodySchema, { fieldErrors: { word: 'word_required' } })
       if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
-      const { word, wordId, providerId } = parsed.data
+      const { word, wordId, providerId, source_language } = parsed.data
 
       const limit = await checkAiCallLimits(db, user.id)
       if (!limit.allowed) return aiLimitResponse(c, limit)
@@ -131,12 +143,24 @@ export function registerAiRoutes(app: Hono) {
         .filter(Boolean)
         .slice(0, 5)
 
+      const sourceLang = source_language || 'en'
+      const langNames: Record<string, string> = {
+        en: 'English', ja: 'Japanese', de: 'German', fr: 'French', ko: 'Korean',
+        es: 'Spanish', it: 'Italian', pt: 'Portuguese', ru: 'Russian', zh: 'Chinese',
+        ar: 'Arabic', th: 'Thai', vi: 'Vietnamese',
+      }
+      const langName = langNames[sourceLang] || sourceLang
+
+      const langRules = sourceLang === 'en'
+        ? 'contextInsights should analyze how the word is used in each context; synonymComparison should compare synonyms in Chinese; memoryHook should be a Chinese mnemonic.'
+        : `This is a ${langName} word (source language: ${sourceLang}). contextInsights should analyze how the ${langName} word is used in each context; synonymComparison should compare related ${langName} terms in Chinese; memoryHook should be a Chinese mnemonic for remembering the ${langName} word.`
+
       const prompt = [
         'Generate a deep explanation of the word as strict JSON only.',
         'Schema: {"contextInsights":[{"context":"...","insight":"..."}],"synonymComparison":"...","memoryHook":"..."}',
         `Word: ${word}`,
         `Contexts: ${JSON.stringify(contexts)}`,
-        'Rules: contextInsights should analyze how the word is used in each context; synonymComparison should compare synonyms in Chinese; memoryHook should be a Chinese mnemonic; do not include markdown.',
+        `Rules: ${langRules} do not include markdown.`,
       ].join('\n')
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
@@ -185,7 +209,7 @@ export function registerAiRoutes(app: Hono) {
 
       const parsed = await parseBody(c, aiSenseClusterBodySchema, { fieldErrors: { word: 'word_required' } })
       if (!parsed.ok) return c.json({ error: parsed.error, details: parsed.details }, 400)
-      const { word, wordId, providerId } = parsed.data
+      const { word, wordId, providerId, source_language } = parsed.data
 
       const limit = await checkAiCallLimits(db, user.id)
       if (!limit.allowed) return aiLimitResponse(c, limit)
@@ -196,12 +220,24 @@ export function registerAiRoutes(app: Hono) {
         .filter(Boolean)
         .slice(0, 10)
 
+      const sourceLang = source_language || 'en'
+      const langNames: Record<string, string> = {
+        en: 'English', ja: 'Japanese', de: 'German', fr: 'French', ko: 'Korean',
+        es: 'Spanish', it: 'Italian', pt: 'Portuguese', ru: 'Russian', zh: 'Chinese',
+        ar: 'Arabic', th: 'Thai', vi: 'Vietnamese',
+      }
+      const langName = langNames[sourceLang] || sourceLang
+
+      const langRules = sourceLang === 'en'
+        ? 'group contexts that share the same meaning; "sense" is a short English label; "translation" is the Chinese meaning; "definition" is an English explanation; "contexts" lists the input contexts that belong to this group.'
+        : `This is a ${langName} word (source language: ${sourceLang}). group contexts that share the same meaning; "sense" is a short English label for the meaning; "translation" is the Chinese meaning; "definition" is an English explanation; "contexts" lists the input contexts that belong to this group.`
+
       const prompt = [
         'Cluster the contexts of the word by its senses as strict JSON only.',
         'Schema: {"groups":[{"sense":"...","translation":"...","definition":"...","contexts":["..."]}]}',
         `Word: ${word}`,
         `Contexts: ${JSON.stringify(contexts)}`,
-        'Rules: group contexts that share the same meaning; "sense" is a short English label; "translation" is the Chinese meaning; "definition" is an English explanation; "contexts" lists the input contexts that belong to this group; do not include markdown.',
+        `Rules: ${langRules} do not include markdown.`,
       ].join('\n')
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })

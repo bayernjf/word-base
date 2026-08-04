@@ -40,6 +40,7 @@ export const aiEnrichBodySchema = z.object({
   translation: z.string().max(500).optional().default(''),
   wordId: optionalId,
   providerId: optionalId,
+  source_language: z.string().max(10).optional().default('en'),
   contexts: aiContextsSchema
 })
 
@@ -47,6 +48,7 @@ export const aiExplainBodySchema = z.object({
   word: requiredString(100),
   wordId: optionalId,
   providerId: optionalId,
+  source_language: z.string().max(10).optional().default('en'),
   contexts: aiContextsSchema
 })
 
@@ -145,6 +147,7 @@ export const updateBookBodySchema = z.object({
 export const createWordBodySchema = z.object({
   word: z.string().trim().min(1).max(100),
   book_id: z.string().trim().min(1).max(64),
+  source_language: z.string().max(10).optional().default('en'),
   frequency: z.number().int().min(0).optional().default(1),
   translation: z.string().max(500).optional().default(''),
   phonetic: z.string().max(200).optional().default(''),
@@ -162,6 +165,8 @@ export const batchWordsBodySchema = z.object({
   words: z.array(z.looseObject({
     word: z.string().trim().min(1).max(100),
     book_id: z.string().trim().min(1).max(64),
+    // 多语言拾取：单词源语言（ISO 639-1），缺省按 'en'。其余字段仍 passthrough。
+    source_language: z.string().max(10).optional().default('en'),
   }).passthrough()).min(1).max(200),
 })
 

@@ -16,6 +16,43 @@ describe('buildAiEnrichmentPrompt', () => {
     expect(prompt).toMatch(/We can leverage existing data\./);
     expect(prompt).not.toMatch(/timeAdded/);
   });
+
+  it('defaults to English rules when sourceLanguage is not provided', () => {
+    const prompt = buildAiEnrichmentPrompt({
+      word: 'hello',
+      translation: '你好',
+    });
+    expect(prompt).toContain('English word');
+  });
+
+  it('uses English-specific rules for en sourceLanguage', () => {
+    const prompt = buildAiEnrichmentPrompt({
+      word: 'serendipity',
+      sourceLanguage: 'en',
+    });
+    expect(prompt).toContain('English word');
+    expect(prompt).toContain('English-English style');
+    expect(prompt).toContain('English words');
+  });
+
+  it('generates language-aware prompt for Japanese words', () => {
+    const prompt = buildAiEnrichmentPrompt({
+      word: 'ありがとう',
+      sourceLanguage: 'ja',
+    });
+    expect(prompt).toContain('Japanese');
+    expect(prompt).not.toContain('English word');
+    expect(prompt).toContain('(source language: ja)');
+  });
+
+  it('generates language-aware prompt for German words', () => {
+    const prompt = buildAiEnrichmentPrompt({
+      word: 'Schmetterling',
+      sourceLanguage: 'de',
+    });
+    expect(prompt).toContain('German');
+    expect(prompt).toContain('(source language: de)');
+  });
 });
 
 describe('parseAiEnrichmentResponse', () => {
