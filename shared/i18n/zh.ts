@@ -115,6 +115,8 @@ export const zh: LocaleDict = {
     batchEnrichComplete: '批量生成释义完成：成功{success}个，失败{fail}个',
     batchExplainComplete: '批量深入理解完成：成功{success}个，失败{fail}个',
     batchLimitHit: '批量操作上限为{limit}个单词',
+    batchCancel: '取消',
+    batchCancelled: '批量任务已取消',
     selectedFirstN: '已自动选中前{n}个',
     autoEnriching: '自动生成释义中 ({current}/{total})...',
     autoExplaining: '自动深入理解中 ({current}/{total})...',

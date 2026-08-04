@@ -113,6 +113,8 @@ export const en = {
     batchEnrichComplete: 'Batch definition generation complete: {success} succeeded, {fail} failed',
     batchExplainComplete: 'Batch deep explanation complete: {success} succeeded, {fail} failed',
     batchLimitHit: 'Batch operation limit is {limit} words',
+    batchCancel: 'Cancel',
+    batchCancelled: 'Batch cancelled',
     selectedFirstN: 'Automatically selected first {n}',
     autoEnriching: 'Auto-generating definition ({current}/{total})...',
     autoExplaining: 'Auto deep explanation ({current}/{total})...',

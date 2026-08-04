@@ -8,7 +8,7 @@ import type { MoveWordsResult, Word, WordContext, VocabularyBook } from '../type
 const logger = createLogger('useVocabulary');
 
 const WORD_SELECT_COLUMNS =
-  'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, memory_tip, deep_explanation, sense_groups, level, familiarity, next_review_at, review_count, ease_factor, interval_days, book_id, meta, created_at, updated_at';
+  'id, user_id, word, frequency, translation, time_added, time_updated, contexts, phonetic, part_of_speech, definition, chinese_translation, synonyms, examples, usage_history, memory_tip, deep_explanation, sense_groups, level, familiarity, next_review_at, review_count, ease_factor, interval_days, source_language, book_id, meta, created_at, updated_at';
 
 type SupabaseBookRow = {
   id: string;
@@ -52,6 +52,7 @@ type SupabaseWordRow = {
   review_count: number | null;
   ease_factor: number | null;
   interval_days: number | null;
+  source_language: string | null;
   book_id: string;
   meta: Word['meta'] | null;
   created_at: string | null;
@@ -113,6 +114,7 @@ function mapWordRow(row: SupabaseWordRow): Word {
     reviewCount: row.review_count ?? 0,
     easeFactor: row.ease_factor ?? 2.5,
     intervalDays: row.interval_days ?? 0,
+    sourceLanguage: row.source_language || 'en',
     bookId: row.book_id,
     meta: {
       ...(row.meta || {}),
@@ -234,6 +236,7 @@ function toWordPayload(word: Omit<Word, 'id'>) {
     review_count: word.reviewCount ?? 0,
     ease_factor: word.easeFactor ?? 2.5,
     interval_days: word.intervalDays ?? 0,
+    source_language: word.sourceLanguage || 'en',
     book_id: word.bookId,
     meta: word.meta || {},
   };
@@ -949,6 +952,7 @@ export function useWords(bookId?: string) {
         if (updates.reviewCount !== undefined) payload.review_count = updates.reviewCount;
         if (updates.easeFactor !== undefined) payload.ease_factor = updates.easeFactor;
         if (updates.intervalDays !== undefined) payload.interval_days = updates.intervalDays;
+        if (updates.sourceLanguage !== undefined) payload.source_language = updates.sourceLanguage;
         if (updates.bookId !== undefined) payload.book_id = updates.bookId;
         if (updates.meta !== undefined) payload.meta = updates.meta;
 
