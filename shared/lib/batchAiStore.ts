@@ -17,6 +17,15 @@ export interface BatchAiNotification {
   highlight?: string;
 }
 
+export interface TaskResult {
+  wordId: string;
+  word: string;
+  type: BatchAiType;
+  status: 'success' | 'failed' | 'cancelled';
+  error?: string;
+  completedAt: number;
+}
+
 export interface BatchAiState {
   // 当前正在运行的批量任务类型；null 表示空闲
   runningType: BatchAiType | null;
@@ -31,6 +40,10 @@ export interface BatchAiState {
   processingMap: Record<string, BatchAiType>;
   // 顶部通知
   notification: BatchAiNotification | null;
+  // 取消标志：设为 true 后当前批次在下一个单词前停止
+  cancelRequested: boolean;
+  // 任务结果追踪：key = `${wordId}:${type}`
+  taskResults: Record<string, TaskResult>;
 }
 
 type Listener = () => void;
@@ -46,6 +59,7 @@ interface RunDeps {
     progress: (current: number, total: number) => string;
     complete: (success: number, fail: number) => string;
     allFailed: string;
+    cancelled?: string;
   };
   // 截断到前 N 个时回调，让组件同步勾选状态
   onTruncate?: (keptWordIds: string[]) => void;
@@ -59,6 +73,8 @@ const initialState: BatchAiState = {
   processingWordId: null,
   processingMap: {},
   notification: null,
+  cancelRequested: false,
+  taskResults: {},
 };
 
 let state: BatchAiState = initialState;
@@ -106,6 +122,23 @@ function clearNotificationLater(duration: number) {
   }, duration);
 }
 
+function taskResultKey(wordId: string, type: BatchAiType): string {
+  return `${wordId}:${type}`;
+}
+
+function recordTaskResult(
+  wordId: string,
+  word: string,
+  type: BatchAiType,
+  status: TaskResult['status'],
+  error?: string,
+) {
+  const key = taskResultKey(wordId, type);
+  const result: TaskResult = { wordId, word, type, status, completedAt: Date.now() };
+  if (error) result.error = error;
+  setState({ taskResults: { ...state.taskResults, [key]: result } });
+}
+
 /**
  * 启动批量 AI 任务。执行循环脱离 React 组件生命周期，
  * 即使触发组件卸载（切换路由），任务仍继续，状态保存在本 store。
@@ -145,6 +178,7 @@ export async function startBatchAi(type: BatchAiType, deps: RunDeps): Promise<vo
 
   setState({
     runningType: type,
+    cancelRequested: false,
     current: 1,
     total: targetWords.length,
     processingWordId: targetWords[0]?.id ?? null,
@@ -156,6 +190,18 @@ export async function startBatchAi(type: BatchAiType, deps: RunDeps): Promise<vo
   let failCount = 0;
 
   for (let i = 0; i < targetWords.length; i++) {
+    if (state.cancelRequested) {
+      // 标记剩余未处理词为 cancelled
+      const remaining = targetWords.slice(i);
+      for (const w of remaining) {
+        recordTaskResult(w.id, w.word, type, 'cancelled');
+        const nextMap = { ...state.processingMap };
+        delete nextMap[w.id];
+        setState({ processingMap: nextMap });
+      }
+      break;
+    }
+
     const word = targetWords[i];
     setState({
       current: i + 1,
@@ -171,6 +217,7 @@ export async function startBatchAi(type: BatchAiType, deps: RunDeps): Promise<vo
             word: word.word,
             translation: word.translation || word.chineseTranslation || word.definition || '',
             contexts: word.contexts || [],
+            sourceLanguage: word.sourceLanguage || 'en',
           },
           accessToken
         );
@@ -182,15 +229,18 @@ export async function startBatchAi(type: BatchAiType, deps: RunDeps): Promise<vo
             word: word.word,
             translation: word.translation || word.chineseTranslation || word.definition || '',
             contexts: word.contexts || [],
+            sourceLanguage: word.sourceLanguage || 'en',
           },
           accessToken
         );
         await onUpdateWord(word.id, { deepExplanation });
       }
       successCount++;
+      recordTaskResult(word.id, word.word, type, 'success');
     } catch (err) {
       logger.error(`Batch ${type} failed for word:`, word.word, err);
       failCount++;
+      recordTaskResult(word.id, word.word, type, 'failed', String((err as Error)?.message || err || 'unknown'));
     } finally {
       // 处理完一个就从 processingMap 移除该词
       const nextMap = { ...state.processingMap };
@@ -199,12 +249,16 @@ export async function startBatchAi(type: BatchAiType, deps: RunDeps): Promise<vo
     }
   }
 
+  const wasCancelled = state.cancelRequested;
   setState({
     runningType: null,
+    cancelRequested: false,
     processingWordId: null,
-    notification: { message: successCount === 0 && failCount > 0 ? messages.allFailed : messages.complete(successCount, failCount) },
+    notification: wasCancelled
+      ? { message: messages.cancelled || 'Batch cancelled' }
+      : { message: successCount === 0 && failCount > 0 ? messages.allFailed : messages.complete(successCount, failCount) },
   });
-  clearNotificationLater(5000);
+  clearNotificationLater(wasCancelled ? 3000 : 5000);
 }
 
 // ============ 自动 AI 分析队列 ============
@@ -260,9 +314,26 @@ export function enqueueAutoAi(word: Word, type: BatchAiType, deps: AutoRunDeps):
 async function runAutoQueue(): Promise<void> {
   if (autoRunning) return;
   autoRunning = true;
-  setState({ autoRunning: true });
+  setState({ autoRunning: true, cancelRequested: false });
+  logger.debug('runAutoQueue started');
+
+  const cancelledTasks: Array<{ wordId: string; word: string; type: BatchAiType }> = [];
 
   while (autoQueue.length > 0) {
+    if (state.cancelRequested) {
+      // 标记队列剩余任务为 cancelled
+      for (const t of autoQueue) {
+        cancelledTasks.push({ wordId: t.word.id, word: t.word.word, type: t.type });
+        // 取消后从 autoSeen 移除，允许后续重试
+        autoSeen.delete(autoKey(t.word.id, t.type));
+        const nextMap = { ...state.processingMap };
+        delete nextMap[t.word.id];
+        setState({ processingMap: nextMap });
+      }
+      autoQueue.length = 0;
+      break;
+    }
+
     const task = autoQueue.shift()!;
     const deps = autoDeps!;
     autoDone += 1;
@@ -282,6 +353,7 @@ async function runAutoQueue(): Promise<void> {
             word: task.word.word,
             translation: task.word.translation || task.word.chineseTranslation || task.word.definition || '',
             contexts: task.word.contexts || [],
+            sourceLanguage: task.word.sourceLanguage || 'en',
           },
           deps.accessToken
         );
@@ -293,15 +365,20 @@ async function runAutoQueue(): Promise<void> {
             word: task.word.word,
             translation: task.word.translation || task.word.chineseTranslation || task.word.definition || '',
             contexts: task.word.contexts || [],
+            sourceLanguage: task.word.sourceLanguage || 'en',
           },
           deps.accessToken
         );
         await deps.onUpdateWord(task.word.id, { deepExplanation });
       }
       autoSuccess += 1;
+      recordTaskResult(task.word.id, task.word.word, task.type, 'success');
     } catch (err) {
       logger.error(`Auto ${task.type} failed for word:`, task.word.word, err);
       autoFail += 1;
+      // 失败时从 autoSeen 移除，允许后续重试
+      autoSeen.delete(autoKey(task.word.id, task.type));
+      recordTaskResult(task.word.id, task.word.word, task.type, 'failed', String((err as Error)?.message || err || 'unknown'));
     } finally {
       const nextMap = { ...state.processingMap };
       delete nextMap[task.word.id];
@@ -309,18 +386,67 @@ async function runAutoQueue(): Promise<void> {
     }
   }
 
+  // 处理取消时收集的任务
+  if (cancelledTasks.length > 0) {
+    for (const t of cancelledTasks) {
+      recordTaskResult(t.wordId, t.word, t.type, 'cancelled');
+    }
+  }
+
   // 队列清空：显示完成统计并重置计数
   const deps = autoDeps;
   const success = autoSuccess;
   const fail = autoFail;
+  const wasCancelled = state.cancelRequested;
   autoRunning = false;
   autoTotal = 0;
   autoDone = 0;
   autoSuccess = 0;
   autoFail = 0;
-  setState({ processingWordId: null, autoRunning: false });
-  if (deps && (success > 0 || fail > 0)) {
-    setState({ notification: { message: success === 0 && fail > 0 ? deps.messages.allFailed : deps.messages.complete(success, fail) } });
+  setState({ processingWordId: null, autoRunning: false, cancelRequested: false });
+  if (deps && (success > 0 || fail > 0 || wasCancelled)) {
+    setState({
+      notification: wasCancelled
+        ? { message: 'Auto analysis cancelled' }
+        : { message: success === 0 && fail > 0 ? deps.messages.allFailed : deps.messages.complete(success, fail) },
+    });
     clearNotificationLater(5000);
   }
+  logger.debug('runAutoQueue finished', { success, fail, cancelled: cancelledTasks.length });
+}
+
+// ============ 公共 API：取消 + 任务追踪 ============
+
+/**
+ * 请求取消当前正在执行的批量任务或自动队列。
+ * 不会立即中止当前已发出的网络请求，但会在下一个单词处理前停止。
+ */
+export function requestCancelBatch(): void {
+  logger.debug('requestCancelBatch');
+  setState({ cancelRequested: true });
+}
+
+/**
+ * 获取所有已追踪的任务结果。
+ * @param type 可选筛选类型
+ */
+export function getTaskResults(type?: BatchAiType): TaskResult[] {
+  const values = Object.values(state.taskResults);
+  return type ? values.filter((r) => r.type === type) : values;
+}
+
+/**
+ * 获取失败任务的 wordId 列表（可用于重试）。
+ */
+export function getFailedTaskWordIds(): string[] {
+  return Object.values(state.taskResults)
+    .filter((r) => r.status === 'failed')
+    .map((r) => r.wordId);
+}
+
+/**
+ * 清空任务结果记录。
+ */
+export function clearTaskResults(): void {
+  setState({ taskResults: {} });
 }
