@@ -66,6 +66,7 @@ export interface Word {
   reviewCount?: number;
   easeFactor?: number;
   intervalDays?: number;
+  sourceLanguage?: string;
   bookId: string;
   meta?: {
     sourceUrl?: string;
