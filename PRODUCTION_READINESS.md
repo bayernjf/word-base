@@ -20,7 +20,7 @@
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
 | 练习模块（听/说/读/写） | 🟡 75% | 已 AI 化（生成 + 评估 + 限流），待联调验证 |
 | AI Provider 配置与密钥安全 | 🟢 85% | AES-256-GCM 加密，规范 |
-| 工程质量保障 |  80% | vitest + CI 四端 tsc 卡点、zod 入参校验、结构化日志、Sentry 错误监控（env 门控）、Playwright E2E 冒烟测试已接入 |
+| 工程质量保障 |  90% | vitest 109 用例 + CI 四端 tsc 卡点、zod 入参校验、结构化日志、Sentry 错误监控（env 门控）、Playwright E2E 冒烟测试已接入 |
 | 部署与运维 | 🟡 70% | 已上 Cloudflare + Vercel，CORS 白名单 + AI 限流 + Sentry 监控就位，缺跨实例内存态方案 |
 
 **结论**：**词汇学习核心闭环（登录→生词本→AI 增强→云同步→间隔复习→智能句景）已经是真实可用的产品级功能**，完成度高。练习中心（听说读写）已于 2026-07-30 完成 AI 化改造（不再是 mock），剩联调与真机验证；工程化基础（vitest + Playwright E2E + CI）已补齐，但测试覆盖率、限流、监控仍距生产标准有差距。
@@ -86,8 +86,8 @@
 | 失败反馈 | ✅ | 各入口均有错误反馈（近期已加强） |
 
 **风险**：
-- 🟠 AI 接口仅 story 有每日限流（`STORY_DAILY_LIMIT`），**enrich/explain/translate 等无限流**，恶意用户可刷爆第三方 AI 配额、产生费用。
-- 🟠 AI 请求超时 120s，无并发上限，高并发下 Express 单进程易被打满。
+- 🟠 AI 接口已有内存固定窗口限流（每用户 20/分、全局 120/分）+ `ai_call_quota` 每日 300 次配额，但内存态不跨实例，Vercel 多实例时限流效果打折。
+- 🟠 AI 请求超时 120s，无并发上限，高并发下 Serverless 实例易被打满。
 
 ---
 
@@ -161,7 +161,7 @@
 | 项 | 状态 | 说明 |
 |---|---|---|
 | TypeScript 类型检查 | ✅ | 四端 `tsc --noEmit`，CI 已卡点（`ci.yml` 四端 typecheck + api build） |
-| 单元测试文件 | ✅ | srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation/apiSecurity 共 80 用例 |
+| 单元测试文件 | ✅ | srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation/apiSecurity 共 109 用例（9 个测试文件） |
 | 测试运行器 | ✅ | vitest 已配置，include 覆盖 `tests/**` + `shared/**`，exclude e2e |
 | API 输入校验 | ✅ | zod schema（`packages/api/src/utils/validation.ts`）覆盖 auth + 全部 AI 端点，错误码向后兼容 |
 | E2E 冒烟测试 | ✅ | Playwright Chromium，覆盖 landing/app/privacy/terms 静态页面加载（`tests/e2e/smoke.spec.ts`） |
@@ -169,7 +169,7 @@
 | 错误监控 / 上报 | ✅ | 前后端 Sentry env 门控接入（api `utils/monitoring.ts` 在 `app.onError` 上报；web `src/monitoring.ts` 动态 import，未配 DSN 时零成本惰性），配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效 |
 | 日志 | ✅ | 前端统一 logger + 环形缓冲；后端结构化 JSON 日志（`utils/logger.ts`）+ `app.onError` 兜底 |
 
-**现状**：单测 80 用例、Playwright E2E 冒烟 4 用例、CI 四端卡点、API 入参校验、结构化日志、Sentry 错误监控（env 门控）已就位。
+**现状**：单测 109 用例、Playwright E2E 冒烟 + 认证流程、CI 四端卡点、API 入参校验、结构化日志、Sentry 错误监控（env 门控）已就位。
 
 ---
 
@@ -220,5 +220,5 @@
 
 ## 备注
 
-- 本文档为静态评估快照，随代码演进需更新（最近更新：2026-07-30，部署 P0：CORS 白名单 + AI 限流/每日配额（迁移 020） + 密钥轮换方案 + 80 个单测用例 + Playwright E2E 冒烟）。
+- 本文档为静态评估快照，随代码演进需更新（最近更新：2026-07-31，同步实际状态：109 个单测用例 + AI 限流已实现 + Hono 框架）。
 - 待执行的运维动作：在 Supabase 执行迁移 019（练习配额）与 020（AI 调用配额）；如需收紧限流阈值可调 `utils/rateLimit.ts` 参数。

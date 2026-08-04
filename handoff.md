@@ -1,6 +1,6 @@
 # WordBase — Handoff Document
 
-> 项目交接文档 · 生成日期：2026-07-30
+> 项目交接文档 · 生成日期：2026-08-03
 
 ---
 
@@ -68,7 +68,7 @@ word-base/
 │   │   └── src-tauri/           # Rust 工程（已入版本控制）
 │   └── mobile/                  # @wordbase/mobile — Expo + RN
 │       └── app.json             # Expo 配置（bundle ID/权限/插件）
-├── supabase/migrations/         # 20 个 SQL 迁移脚本（001 ~ 020）
+├── supabase/migrations/         # 22 个 SQL 迁移脚本（001 ~ 022）
 ├── scripts/                     # 构建/版本/图标脚本
 └── .github/workflows/           # 5 个 CI/CD workflow
 ```
@@ -159,7 +159,7 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 ## 7. 数据库
 
 - **引擎**：PostgreSQL（Supabase 托管）
-- **迁移**：`supabase/migrations/` 下 19 个增量 SQL 文件
+- **迁移**：`supabase/migrations/` 下 22 个增量 SQL 文件
 - **安全**：Row Level Security (RLS)
 - **核心表**：
 
@@ -167,7 +167,7 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 |---|---|
 | `user_profiles` | 用户偏好（主题、语言、AI 自动丰富等） |
 | `vocabulary_books` | 单词本 |
-| `words` | 单词（含 SRS 字段、AI 丰富数据、义项分组） |
+| `words` | 单词（含 SRS 字段、AI 丰富数据、义项分组、**源语言 source_language**） |
 | `word_contexts` | 单词语境 |
 | `ai_provider_configs` | AI 模型配置（加密存储） |
 | `sync_changelogs` | 同步变更日志 |
@@ -241,14 +241,41 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
 | 练习中心（听说读写） | 🟡 75% | 已 AI 化，待联调+真机验证 |
 | 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
-| 工程质量保障 | 🟢 90% | 109 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控）+ Playwright E2E 冒烟 |
+| 工程质量保障 | 🟢 90% | 128 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控）+ Playwright E2E 冒烟 |
 | 部署与运维 | 🟡 70% | 已上 Cloudflare+Vercel，CORS 白名单 + AI 限流/配额 + Sentry 监控就绪 |
 
 **各端上架就绪度**：Web 🟢 100% · Desktop 🟡 70%（缺公证/签名） · Mobile 🔴 45%（缺 release 签名、商店素材、真机验证）
 
-**最近完成（本次会话，待提交）**：**代码重构 — API 路由拆分 + 前端 Hook 抽取**
+**最近完成（本次会话，待提交）**：**多语言支持 + 批量 AI 任务追踪**
 
-全部通过验证：四端 tsc + vitest（109/109）+ api build。
+### 多语言支持（P0 + P1 + P2）
+
+**P0 — 数据层：**
+1. 数据库迁移 022：`words` 表新增 `source_language TEXT DEFAULT 'en'`
+2. `Word` 接口新增 `sourceLanguage?: string`
+3. `createWordBodySchema` 新增 `source_language`（max 10，默认 'en'）
+4. `useVocabulary` 全链路覆盖（`WORD_SELECT_COLUMNS`、`SupabaseWordRow`、`mapWordRow`、`toWordPayload`、`updateWord`）
+
+**P1 — AI 适配：**
+5. `buildAiEnrichmentPrompt` 根据 `sourceLanguage` 动态生成语言感知 prompt
+6. `aiEnrichBodySchema`/`aiExplainBodySchema`/`aiSenseClusterBodySchema` 均新增 `source_language`
+7. API `enrich`/`explain`/`sense-cluster` 端点传入 `source_language` 到 prompt
+8. `batchAiStore`/`WordDetailView` 所有 AI 调用传递 `sourceLanguage`
+
+**P2 — 前端 UI：**
+9. 新建 `shared/lib/language.ts`：13 种语言代码 → 旗帜 emoji + 原生名称映射
+10. `VocabularyListView`：单词列表显示语言旗帜徽章 + 语言筛选下拉框
+11. `WordDetailView`/`WordDetailCompact`：header 行新增语言徽章
+
+**测试：** 新增 `language.test.ts`（7 用例）+ `batchAiStore.test.ts`（8 用例），test 总数 109 → 128
+
+### 批量 AI 任务追踪
+
+12. `BatchAiState` 新增 `cancelRequested` + `taskResults` 字段
+13. 新增 `requestCancelBatch()` / `getTaskResults()` / `getFailedTaskWordIds()` / `clearTaskResults()` API
+14. `startBatchAi` 循环内检查取消标志，记录每个任务的 `TaskResult`
+15. `runAutoQueue` 支持取消 + 失败自动从 `autoSeen` 移除（可重试）
+16. `VocabularyListView` 新增取消按钮
 
 ### 重构内容
 
@@ -401,7 +428,9 @@ c2201e5 fix(web): import trackEvent in useDownloadUrls to prevent crash
 | `shared/platform.ts` | 平台检测抽象（PlatformAPI） |
 | `shared/lib/srs.ts` | SRS 间隔复习算法 |
 | `shared/lib/supabase.ts` | Supabase 客户端封装 |
-| `shared/lib/aiEnrich.ts` | AI 单词丰富逻辑 |
+| `shared/lib/aiEnrich.ts` | AI 单词丰富逻辑（支持多语言 sourceLanguage） |
+| `shared/lib/language.ts` | 语言代码 → 旗帜 emoji + 原生名称映射 |
+| `shared/lib/batchAiStore.ts` | 批量 AI 任务状态管理（含取消 + 任务追踪） |
 | `shared/lib/logger.ts` | 结构化日志 + 环形缓冲区 |
 | `shared/lib/analytics.ts` | GA4 + Clarity 分析 |
 | `shared/lib/feedback*.ts` | 反馈采集 + 诊断日志 |
@@ -509,4 +538,4 @@ npm run dev
 
 ---
 
-*本文档基于仓库当前状态自动生成，反映 2026-07-30 的项目全貌。*
+*本文档基于仓库当前状态自动生成，反映 2026-08-03 的项目全貌。*
