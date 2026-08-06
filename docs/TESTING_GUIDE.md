@@ -180,18 +180,33 @@
 
 ## E2E 测试工具链
 
-E2E 测试依赖集成的浏览器 MCP 工具（`integrated_browser`），主要使用的工具方法：
+E2E 测试使用 **Playwright**（Chromium），配置文件为根目录 `playwright.config.ts`。
 
-| 工具 | 用途 |
+### 测试文件
+
+| 文件 | 覆盖范围 |
 |------|------|
-| `browser_navigate` | 导航到指定 URL |
-| `browser_snapshot` | 获取页面可交互元素快照 |
-| `browser_click` | 点击指定元素 |
-| `browser_type` | 在输入框中输入文本 |
-| `browser_console_messages` | 读取浏览器控制台日志 |
-| `browser_network_requests` | 查看所有网络请求 |
-| `browser_take_screenshot` | 截图保存 |
-| `browser_wait_for` | 等待条件满足 |
+| `tests/e2e/smoke.spec.ts` | 冒烟测试：landing/app/privacy/terms 页面加载 |
+| `tests/e2e/auth.spec.ts` | 认证流程：注册/登录/登出/会话保持 |
+
+### 常用命令
+
+```bash
+# 运行 E2E 测试（需要先启动 web + api）
+npm run test:e2e
+
+# UI 模式（可视化调试）
+npm run test:e2e:ui
+
+# 安装浏览器（首次）
+npx playwright install chromium
+```
+
+### 前置条件
+
+E2E 测试需要前后端同时运行：
+- Web 前端：`npm run dev`（端口 3000）
+- API 后端：`npm run dev:api`（端口 3001）
 
 ## API 测试示例
 

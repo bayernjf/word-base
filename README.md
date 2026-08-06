@@ -13,8 +13,9 @@
 
 ## 技术栈
 
-- **Web**: Next.js 15 + React 19 + Tailwind CSS v4
+- **Web**: Vite 6 + React 19 + Tailwind CSS v4（静态 SPA）
 - **后端**: Hono + Supabase (PostgreSQL)
+- **API 网关**: Next.js 15（仅 Vercel Serverless 挂载 Hono）
 - **桌面端**: Tauri 2 (Vite + Rust)
 - **移动端**: Expo (React Native)
 - **UI**: Lucide Icons + Motion

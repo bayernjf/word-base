@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly NEXT_PUBLIC_IOS_API_BASE_URL?: string;
   readonly NEXT_PUBLIC_ANDROID_API_BASE_URL?: string;
   readonly NEXT_PUBLIC_SYNC_SERVER_URL?: string;
+  readonly NEXT_PUBLIC_SENTRY_DSN?: string;
+  readonly NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE?: string;
   // Backward compatibility with VITE_ prefixed vars
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;

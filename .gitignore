@@ -21,9 +21,15 @@ apps/mobile/.expo/
 # IDE
 .idea/
 .vscode/
+.qoder/
 *.iml
 *.xcuserstate
 
 # TRAE local notes (persistent across sessions, never committed)
 .trae/
 !.trae/rules/
+
+# Playwright E2E
+test-results/
+playwright-report/
+blob-report/

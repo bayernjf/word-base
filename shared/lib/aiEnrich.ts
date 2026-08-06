@@ -7,6 +7,7 @@ export interface AiEnrichmentRequest {
   translation?: string;
   contexts?: WordContext[];
   wordId?: string;
+  sourceLanguage?: string;
 }
 
 export interface AiEnrichment {
@@ -16,6 +17,37 @@ export interface AiEnrichment {
   examples: Array<{ en: string; zh: string }>;
   usageHistory: Array<{ context: string; translation: string; source: string }>;
   memoryTip?: string;
+}
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English',
+  ja: 'Japanese',
+  de: 'German',
+  fr: 'French',
+  ko: 'Korean',
+  es: 'Spanish',
+  it: 'Italian',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  zh: 'Chinese (Mandarin)',
+  ar: 'Arabic',
+  th: 'Thai',
+  vi: 'Vietnamese',
+}
+
+function resolveLanguageName(code: string): string {
+  return LANGUAGE_NAMES[code] || code
+}
+
+function getSourceLanguageInstruction(sourceLanguage?: string): string {
+  const lang = sourceLanguage || 'en'
+  const langName = resolveLanguageName(lang)
+
+  if (lang === 'en') {
+    return `This is an English word. "definition" must be an English explanation (English-English style); "translation" must be the Chinese translation; examples must be natural English sentences with Chinese translations; synonyms must be English words; memoryTip must be in Chinese.`
+  }
+
+  return `This is a ${langName} word (source language: ${lang}). "definition" must be an English explanation of the ${langName} word meaning; "translation" must be the Chinese translation; examples should show how the word is naturally used in ${langName}, keeping the original ${langName} word in the "en" field with a Chinese translation in the "zh" field; synonyms should be related ${langName} expressions or words with similar meaning; memoryTip must be in Chinese (helping a Chinese speaker remember the ${langName} word).`
 }
 
 export function buildAiEnrichmentPrompt(input: AiEnrichmentRequest): string {
@@ -30,7 +62,7 @@ export function buildAiEnrichmentPrompt(input: AiEnrichmentRequest): string {
     `Word: ${input.word.trim()}`,
     `Current translation: ${input.translation || ''}`,
     `Contexts: ${JSON.stringify(contexts)}`,
-    'Rules: "definition" must be an English explanation of the word meaning (English-English style); "translation" must be the Chinese translation; examples must be natural English with Chinese translations; synonyms must be English; memoryTip must be in Chinese; do not include markdown.',
+    `Rules: ${getSourceLanguageInstruction(input.sourceLanguage)} do not include markdown.`,
   ].join('\n');
 }
 

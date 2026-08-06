@@ -2,9 +2,9 @@
 
 > 评判标准：真实投入生产（公网部署 + 多用户使用）的工程标准，而非"本地能 demo"。
 >
-> 生成日期：2026-06-27 · 评估对象：当前 `feature/20260604` 分支
+> 生成日期：2026-06-27 · 最近更新：2026-07-30（P0 安全：CORS 白名单 + AI 限流/配额 + 密钥轮换 + Playwright E2E 冒烟） · 评估对象：当前 `feature/20260604` 分支
 >
-> 技术栈：React 19 + Vite 6 + TypeScript + Tailwind 4 + Supabase（Auth/Postgres/RLS） + Express（AI 代理 + 同步 API） + Google GenAI / 自定义 AI Provider
+> 技术栈：React 19 + Vite 6 + TypeScript + Tailwind 4 + Supabase（Auth/Postgres/RLS） + Hono（AI 代理 + 同步 API） + Google GenAI / 自定义 AI Provider
 
 ---
 
@@ -17,13 +17,13 @@
 | 多设备云同步 | 🟢 80% | 队列 + changelog 设计完整 |
 | AI 增强（释义/义项/深度解释） | 🟢 85% | 真实可用，已接 provider |
 | AI 智能句景（故事 + 导师） | 🟢 80% | 真实，带限流 |
-| SRS 间隔复习 | 🟡 70% | 逻辑真实，缺测试运行器 |
-| 练习模块（听/说/读/写） | 🔴 20% | **全是 mock UI 原型** |
+| SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
+| 练习模块（听/说/读/写） | 🟡 75% | 已 AI 化（生成 + 评估 + 限流），待联调验证 |
 | AI Provider 配置与密钥安全 | 🟢 85% | AES-256-GCM 加密，规范 |
-| 工程质量保障 | 🔴 30% | 有测试文件但跑不起来，无 CI |
-| 部署与运维 | 🔴 35% | CORS 全开、地址硬编码、无监控 |
+| 工程质量保障 |  90% | vitest 109 用例 + CI 四端 tsc 卡点、zod 入参校验、结构化日志、Sentry 错误监控（env 门控）、Playwright E2E 冒烟测试已接入 |
+| 部署与运维 | 🟡 70% | 已上 Cloudflare + Vercel，CORS 白名单 + AI 限流 + Sentry 监控就位，缺跨实例内存态方案 |
 
-**结论**：**词汇学习核心闭环（登录→生词本→AI 增强→云同步→间隔复习→智能句景）已经是真实可用的产品级功能**，完成度高。但**练习中心（听说读写）整体是 UI 原型，没有真实逻辑**；同时**工程化与部署运维**距离生产标准有明显差距。
+**结论**：**词汇学习核心闭环（登录→生词本→AI 增强→云同步→间隔复习→智能句景）已经是真实可用的产品级功能**，完成度高。练习中心（听说读写）已于 2026-07-30 完成 AI 化改造（不再是 mock），剩联调与真机验证；工程化基础（vitest + Playwright E2E + CI）已补齐，但测试覆盖率、限流、监控仍距生产标准有差距。
 
 ---
 
@@ -86,8 +86,8 @@
 | 失败反馈 | ✅ | 各入口均有错误反馈（近期已加强） |
 
 **风险**：
-- 🟠 AI 接口仅 story 有每日限流（`STORY_DAILY_LIMIT`），**enrich/explain/translate 等无限流**，恶意用户可刷爆第三方 AI 配额、产生费用。
-- 🟠 AI 请求超时 120s，无并发上限，高并发下 Express 单进程易被打满。
+- 🟠 AI 接口已有内存固定窗口限流（每用户 20/分、全局 120/分）+ `ai_call_quota` 每日 300 次配额，但内存态不跨实例，Vercel 多实例时限流效果打折。
+- 🟠 AI 请求超时 120s，无并发上限，高并发下 Serverless 实例易被打满。
 
 ---
 
@@ -107,7 +107,7 @@
 
 ---
 
-## 模块六：SRS 间隔复习 🟡 70%
+## 模块六：SRS 间隔复习 🟢 80%
 
 | 功能点 | 状态 | 说明 |
 |---|---|---|
@@ -118,21 +118,26 @@
 | 遇见曲线 EncounterCurve | ✅ | |
 
 **风险**：
-- 🔴 `srs.test.ts` 存在，但**项目无测试运行器**（见模块九），算法正确性无自动化保障。SRS 算错会直接破坏学习体验。
+- 🟡 已改写为 vitest 套件并纳入根 `vitest.config.ts`（20 个用例：ease 下限、NaN 归一化、quality 全档位、遇见分封顶/跨度封顶、无时间戳退化等）；CI 跑 `vitest run` 即可卡点。
 
 ---
 
-## 模块七：练习中心（听 / 说 / 读 / 写）🔴 20%
+## 模块七：练习中心（听 / 说 / 读 / 写）🟡 75%
+
+> 2026-07-30 完成 AI 化改造：新增 `POST /api/v1/ai/practice/generate`（统一内容生成）与 `POST /api/v1/ai/practice/evaluate`（写作批改 + 口语评分），基于用户生词本选词（最多 8 个），支持难度 B1/B2/C1，每日限流 20 次（`practice_generation_quota` 表 + 迁移 019）。共享层 `shared/lib/practice.ts` 提供类型、API 客户端与 5 分钟内存缓存。
 
 | 功能点 | 状态 | 说明 |
 |---|---|---|
-| 听力训练 | 🔴 Mock | `mockData.listeningQuizzes` + 假播放进度条（定时器递增），**无真实音频/TTS** |
-| 口语训练 | 🔴 Mock | `Math.random()` 假打分 + 假声波动画，**无录音/语音识别** |
-| 阅读理解 | 🔴 Mock | 文章和高亮词全部**写死在组件里** |
-| 写作评估 | 🔴 Mock | `setTimeout` 模拟 + **写死的反馈数组**，无真实 AI 批改 |
-| 练习主页卡片 | ✅ | UI 完成，进度为静态展示值 |
+| 听力训练 | 🟢 已实现 | AI 生成听力短文 + 时间轴字幕 + 理解题，TTS 播放与字幕联动 |
+| 口语训练 | 🟢 已实现 | AI 生成跟读场景，Web Speech API（ASR）录音转写 + evaluate API 词级发音反馈 |
+| 阅读理解 | 🟢 已实现 | AI 动态生成文章 + 高亮词汇释义 + 理解题，带 loading/error/retry 状态 |
+| 写作评估 | 🟢 已实现 | AI 生成写作提示 + 建议词汇，提交后 AI 评分（0-100）+ CEFR 等级 + 语法/词汇/风格反馈 |
+| 练习主页卡片 | ✅ | `isReady` 状态（需 AI 模型 + 有生词），移除假进度条 |
 
-**结论**：练习中心是**视觉原型**，四个子模块没有任何真实功能逻辑。生产上线前要么补真实实现（TTS、ASR、AI 批改、动态文章），要么明确标注"开发中"避免误导用户。
+**剩余风险**：
+- 🟠 前后端尚未完整联调；迁移 `019_practice_quota.sql` 需在生产 Supabase 执行。
+- 🟠 口语 ASR 依赖 Web Speech API（仅 Chrome/Edge），移动端降级方案未确认，需真机测试。
+- 🟡 内容缓存为纯内存 Map，刷新即失效，可后续优化。
 
 ---
 
@@ -151,34 +156,36 @@
 
 ---
 
-## 模块九：工程质量保障 🔴 30%
+## 模块九：工程质量保障 🟢 80%
 
 | 项 | 状态 | 说明 |
 |---|---|---|
-| TypeScript 类型检查 | ✅ | `npm run lint` = `tsc --noEmit` |
-| 单元测试文件 | ⚠️ | 有 `srs.test.ts`/`aiEnrich.test.ts`/`aiProviderConfigs.test.ts` |
-| 测试运行器 | 🔴 **缺失** | package.json 无 vitest/jest 依赖，也无 `test` 脚本——**现有测试根本跑不起来** |
-| 集成 / E2E 测试 | 🔴 无 | |
-| CI | 🔴 无 | 无自动 lint/test 卡点 |
-| 错误监控 / 上报 | 🔴 无 | 前后端均无 Sentry 类监控 |
-| 日志 | 🟡 | 有统一 logger，但后端部分仍用 `console.error` |
+| TypeScript 类型检查 | ✅ | 四端 `tsc --noEmit`，CI 已卡点（`ci.yml` 四端 typecheck + api build） |
+| 单元测试文件 | ✅ | srs/aiEnrich/aiProviderConfigs/aiUtils/practice/apiBase/apiValidation/apiSecurity 共 109 用例（9 个测试文件） |
+| 测试运行器 | ✅ | vitest 已配置，include 覆盖 `tests/**` + `shared/**`，exclude e2e |
+| API 输入校验 | ✅ | zod schema（`packages/api/src/utils/validation.ts`）覆盖 auth + 全部 AI 端点，错误码向后兼容 |
+| E2E 冒烟测试 | ✅ | Playwright Chromium，覆盖 landing/app/privacy/terms 静态页面加载（`tests/e2e/smoke.spec.ts`） |
+| CI | ✅ | GitHub Actions（`ci.yml`：lint + 四端 typecheck + test + api/web build + e2e） |
+| 错误监控 / 上报 | ✅ | 前后端 Sentry env 门控接入（api `utils/monitoring.ts` 在 `app.onError` 上报；web `src/monitoring.ts` 动态 import，未配 DSN 时零成本惰性），配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效 |
+| 日志 | ✅ | 前端统一 logger + 环形缓冲；后端结构化 JSON 日志（`utils/logger.ts`）+ `app.onError` 兜底 |
 
-**这是最需要补强的模块**：测试形同虚设（写了不能跑），核心算法（SRS）和 AI 解析逻辑无回归保护。
+**现状**：单测 109 用例、Playwright E2E 冒烟 + 认证流程、CI 四端卡点、API 入参校验、结构化日志、Sentry 错误监控（env 门控）已就位。
 
 ---
 
-## 模块十：部署与运维 🔴 35%
+## 模块十：部署与运维 🟡 70%
 
 | 项 | 状态 | 说明 |
 |---|---|---|
-| 后端框架 | ✅ | Express，静态托管 dist |
-| CORS | 🔴 | `Access-Control-Allow-Origin: *` **全开**，生产应限定来源 |
-| 地址硬编码 | 🔴 | 扩展/默认指向 `localhost:3000/3001`，需环境化 |
-| 限流 / 防刷 | 🔴 | 仅 story 有日限，无全局 rate limit |
-| 密钥 / 环境变量管理 | 🟡 | 用 dotenv，需确认生产 secrets 管理 |
+| 后端框架 | ✅ | Hono（本地 @hono/node-server，生产 Vercel Serverless） |
+| 部署 | ✅ | Cloudflare Pages（静态前端）+ Vercel（API），main/dev 环境隔离 |
+| CORS | ✅ | 白名单模式（`utils/cors.ts`）：生产/预览域名 + Tauri + 本地开发 + 插件来源，未命中不下发 CORS 头，`ALLOWED_ORIGINS` 可追加 |
+| 限流 / 防刷 | ✅ | story/practice 每日配额 + AI 轻量端点（enrich/explain/translate/sense-cluster/tutor-chat）内存固定窗口限流 + `ai_call_quota` 每日配额（迁移 020） |
+| 密钥 / 环境变量管理 | ✅ | 三份 `.env`，生产走平台 secrets；`AI_CONFIG_ENCRYPTION_KEY` 有备份/轮换方案（`docs/KEY_ROTATION.md` + `scripts/rotate-ai-config-key.mjs`） |
 | 健康检查 | ✅ | `/api/v1/health` |
-| 进程管理 / 水平扩展 | 🔴 | 单进程，`isSyncing` 等用内存态，多实例不安全 |
-| HTTPS / 反代 | ❓ | 未见配置，依赖部署环境 |
+| 错误监控 | ✅ | 前后端 Sentry env 门控接入（未配 DSN 时惰性），配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效 |
+| 进程管理 / 水平扩展 | 🟡 | Vercel Serverless 天然多实例，但内存态（练习缓存等）不跨实例 |
+| HTTPS / 反代 | ✅ | Cloudflare `_worker.js` 反代 `/api/*` → Vercel |
 
 ---
 
@@ -186,23 +193,25 @@
 
 ### P0（阻塞，不做无法面向多用户上线）
 
-- [ ] 收敛 CORS 来源白名单，移除 `*`
-- [ ] 后端地址 / Supabase 配置全部环境化，移除 localhost 硬编码
-- [ ] 给 AI 接口（enrich/explain/translate/sense-cluster）加全局限流与每用户配额，防刷爆第三方配额
-- [ ] 练习中心四个 mock 模块：明确"开发中"标识或下线入口，避免误导
-- [ ] `AI_CONFIG_ENCRYPTION_KEY` 制定备份 + 轮换方案
+- [x] 收敛 CORS 来源白名单（2026-07-30：`utils/cors.ts` 白名单模式，未命中不下发 CORS 头，`ALLOWED_ORIGINS` 可追加）
+- [x] 后端地址 / Supabase 配置环境化（`apiBase.ts` 按平台自动解析，生产走 Cloudflare/Vercel）
+- [x] 给 AI 接口（enrich/explain/translate/sense-cluster/tutor-chat）加全局限流与每用户配额（2026-07-30：内存固定窗口 + `ai_call_quota` 每日配额，需执行迁移 020）
+- [x] 练习中心四个 mock 模块：已 AI 化改造（2026-07-30），剩联调 + 真机验证 + 执行迁移 019
+- [x] `AI_CONFIG_ENCRYPTION_KEY` 制定备份 + 轮换方案（2026-07-30：`docs/KEY_ROTATION.md` 流程 + 幂等轮换脚本）
 
 ### P1（强烈建议）
 
-- [ ] 引入 vitest + `test` 脚本，让现有测试可运行，并接 CI（lint + test 卡点）
-- [ ] 补 SRS 算法、AI payload 解析的单元测试回归保护
-- [ ] 接前后端错误监控（Sentry）
+- [x] 引入 vitest + `test` 脚本，并接 CI（lint + 四端 typecheck + test + api/web build 卡点，`ci.yml`）
+- [x] 补 SRS 算法、AI payload 解析的单元测试回归保护（2026-07-30：shared/lib 测试纳入 vitest，SRS 20 用例含边界场景）
+- [x] API 请求体 zod 校验 + 后端统一错误收口（2026-07-30：auth/AI/practice 端点全覆盖，`app.onError` 兜底，结构化 JSON 日志替换 console.*）
+- [x] 接前后端错误监控（Sentry）（2026-07-30：env 门控接入 api/web，未配 DSN 时惰性，配 `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` 即生效）
 - [ ] 确认 Supabase 生产配置：邮箱验证、密码强度、登录限流
-- [ ] 后端内存态（isSyncing 等）改为支持多实例的方案，或固定单实例部署
+- [ ] 后端内存态（练习缓存等）跨实例方案，或确认 Serverless 实例行为可接受
 
 ### P2（功能完善 / 体验）
 
-- [ ] 练习中心真实化：听力 TTS、口语录音+ASR、阅读动态文章、写作 AI 批改
+- [x] 练习中心真实化：听力 TTS、口语录音+ASR、阅读动态文章、写作 AI 批改（2026-07-30）
+- [ ] 口语 ASR 移动端降级方案（Web Speech API 仅 Chrome/Edge）
 - [ ] AI 导师对话改流式输出
 - [ ] AI 生成内容审核 / 过滤
 - [ ] 同步字段级冲突合并，sync_version 加唯一约束防撞号
@@ -211,6 +220,5 @@
 
 ## 备注
 
-- 本文档为静态评估快照，随代码演进需更新。
-- 勾选清单可作为后续逐项解决的跟踪表。
-- 词汇学习主闭环已达到可用水平；优先补齐 P0 的安全/防刷/部署项，再决定练习中心是真实化还是暂时下线。
+- 本文档为静态评估快照，随代码演进需更新（最近更新：2026-07-31，同步实际状态：109 个单测用例 + AI 限流已实现 + Hono 框架）。
+- 待执行的运维动作：在 Supabase 执行迁移 019（练习配额）与 020（AI 调用配额）；如需收紧限流阈值可调 `utils/rateLimit.ts` 参数。

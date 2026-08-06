@@ -42,6 +42,8 @@ export interface UpdateCheckResult {
   version?: string;
   body?: string;
   date?: string;
+  /** Non-empty when the check itself failed (network error, etc). UI can surface this. */
+  error?: string;
 }
 
 export interface UpdateProgress {
