@@ -2,6 +2,73 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createLogger } from './logger'
 import { getPlatform, hasPlatform } from '../platform'
 
+// DB row types for API layer
+interface ProfileUpdate {
+  display_name?: string
+  avatar_url?: string
+  theme_preference?: string
+  bio?: string
+  is_premium?: boolean
+  premium_expires_at?: string
+  [key: string]: unknown
+}
+
+interface BookInsert {
+  user_id: string
+  name: string
+  description?: string
+  icon?: string
+  is_sync?: boolean
+  word_count?: number
+  [key: string]: unknown
+}
+
+interface BookUpdate {
+  name?: string
+  description?: string
+  icon?: string
+  is_sync?: boolean
+  word_count?: number
+  is_deleted?: boolean
+  [key: string]: unknown
+}
+
+interface WordInsert {
+  user_id: string
+  word: string
+  book_id: string
+  frequency?: number
+  translation?: string
+  phonetic?: string
+  part_of_speech?: string
+  definition?: string
+  chinese_translation?: string
+  level?: string
+  contexts?: unknown
+  synonyms?: unknown
+  examples?: unknown
+  meta?: unknown
+  [key: string]: unknown
+}
+
+interface WordUpdate {
+  word?: string
+  frequency?: number
+  translation?: string
+  phonetic?: string
+  part_of_speech?: string
+  definition?: string
+  chinese_translation?: string
+  level?: string
+  familiarity?: number
+  contexts?: unknown
+  synonyms?: unknown
+  examples?: unknown
+  meta?: unknown
+  is_deleted?: boolean
+  [key: string]: unknown
+}
+
 const logger = createLogger('supabase')
 
 function getEnvValue(key: string): string | undefined {
@@ -92,7 +159,7 @@ export const profileApi = {
     return data
   },
 
-  async updateProfile(userId: string, updates: any) {
+  async updateProfile(userId: string, updates: ProfileUpdate) {
     logger.debug('profileApi.updateProfile', { userId, fields: Object.keys(updates) })
     const { data, error } = await getSupabase()
       .from('profiles')
@@ -125,7 +192,7 @@ export const bookApi = {
     return data
   },
 
-  async createBook(book: any) {
+  async createBook(book: BookInsert) {
     logger.debug('bookApi.createBook', { name: book.name })
     const { data, error } = await getSupabase()
       .from('vocabulary_books')
@@ -137,7 +204,7 @@ export const bookApi = {
     return data[0]
   },
 
-  async updateBook(bookId: string, updates: any) {
+  async updateBook(bookId: string, updates: BookUpdate) {
     logger.debug('bookApi.updateBook', { bookId })
     const { data, error } = await getSupabase()
       .from('vocabulary_books')
@@ -187,7 +254,7 @@ export const wordApi = {
     return data
   },
 
-  async createWord(word: any) {
+  async createWord(word: WordInsert) {
     logger.debug('wordApi.createWord', { word: word.word })
     const { data, error } = await getSupabase()
       .from('words')
@@ -199,7 +266,7 @@ export const wordApi = {
     return data[0]
   },
 
-  async updateWord(wordId: string, updates: any) {
+  async updateWord(wordId: string, updates: WordUpdate) {
     logger.debug('wordApi.updateWord', { wordId })
     const { data, error } = await getSupabase()
       .from('words')

@@ -12,6 +12,7 @@ import { getPlatform } from '../../../platform';
 import { EncounterCurve } from './EncounterCurve';
 import { WordDetailCompact } from './WordDetailCompact';
 import { enrichmentToWordUpdates, requestAiEnrichment, requestDeepExplanation, requestAiTranslate, requestSenseClusters } from '../../../lib/aiEnrich';
+import { getLanguageDisplay } from '../../../lib/language';
 import {
   subscribe as subscribeBatchAi,
   getSnapshot as getBatchAiSnapshot,
@@ -420,6 +421,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
           word: word.word,
           translation: word.translation || word.chineseTranslation || word.definition || '',
           contexts: word.contexts || [],
+          sourceLanguage: word.sourceLanguage || 'en',
         },
         accessToken
       );
@@ -466,6 +468,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
           word: word.word,
           translation: word.translation || word.chineseTranslation || word.definition || '',
           contexts: word.contexts || [],
+          sourceLanguage: word.sourceLanguage || 'en',
         },
         accessToken
       );
@@ -512,6 +515,7 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
           word: word.word,
           translation: word.translation || word.chineseTranslation || word.definition || '',
           contexts: word.contexts || [],
+          sourceLanguage: word.sourceLanguage || 'en',
         },
         accessToken
       );
@@ -613,6 +617,11 @@ export const WordDetailView: React.FC<WordDetailProps> = ({
                     {word.level && (
                       <span className="bg-slate-100 dark:bg-white/10 px-2 py-0.5 text-neutral-500 text-xs font-mono rounded-md">
                         {word.level}
+                      </span>
+                    )}
+                    {word.sourceLanguage && (
+                      <span className="bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-md">
+                        {getLanguageDisplay(word.sourceLanguage)}
                       </span>
                     )}
                   </div>

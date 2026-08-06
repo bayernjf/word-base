@@ -4,6 +4,7 @@ import { AppLanguage, Word } from '../../../types';
 import { ThemeClasses } from '../../ThemeStyles';
 import { createTranslator } from '../../../i18n';
 import { getFrequency, formatDateTime } from '../shared/helpers';
+import { getLanguageDisplay } from '../../../lib/language';
 import { WordPhonetics } from '../shared/WordPhonetics';
 import { EncounterCurve } from './EncounterCurve';
 
@@ -53,6 +54,7 @@ export const WordDetailCompact: React.FC<WordDetailCompactProps> = ({
               <h2 className={`text-2xl font-extrabold tracking-tight ${themeStyles.textPrimary}`}>{word.word}</h2>
               {word.partOfSpeech && <span className="bg-indigo-500/10 px-2 py-0.5 text-indigo-600 dark:text-indigo-400 text-xs font-mono rounded-md uppercase font-semibold">{word.partOfSpeech}</span>}
               {word.level && <span className="bg-slate-100 dark:bg-white/10 px-2 py-0.5 text-neutral-500 text-xs font-mono rounded-md">{word.level}</span>}
+              {word.sourceLanguage && <span className="bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 text-xs font-medium rounded-md">{getLanguageDisplay(word.sourceLanguage)}</span>}
             </div>
             <WordPhonetics word={word.word} fallbackPhonetic={word.phonetic} language={language} />
             <p className="text-lg font-bold text-indigo-650 dark:text-indigo-400 mt-1">{word.translation || word.chineseTranslation}</p>

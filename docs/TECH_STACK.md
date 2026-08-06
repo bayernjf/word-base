@@ -23,8 +23,8 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 |------|------|------|
 | **UI 框架** | React | ^19.0.1 |
 | **语言** | TypeScript | ~5.8.2 |
-| **Web 框架** | Next.js | ^15.5.20 |
-| **App Router** | Next.js App Router | SSR / Edge Runtime |
+| **Web 前端构建** | Vite 6 | 静态 SPA（CSR） |
+| **API 网关** | Next.js 15 App Router | 仅用于 Vercel Serverless 挂载 Hono |
 | **JSX 模式** | `react-jsx` | 自动导入 React |
 | **TS Target** | ES2022 | - |
 | **模块解析** | `bundler` | - |
@@ -88,9 +88,11 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 | **环境变量** | dotenv | ^17.2.3 |
 | **加密模块** | Web Crypto API | `crypto.subtle`（AES-256-GCM） |
 | **CORS** | Hono 中间件 | - |
-| **入口文件** | `packages/api/src/index.ts` | Hono app |
+| **入口文件** | `packages/api/src/index.ts` | Hono app（~70 行，注册路由） |
+| **路由模块** | `packages/api/src/routes/` | 10 个模块（auth/ai/ai-providers/books/words/sync/settings/session/feedback/practice） |
+| **共享上下文** | `packages/api/src/context.ts` | Supabase 客户端/认证/AI 限流/工具函数 |
 | **Server 入口** | `packages/api/src/server.ts` | `@hono/node-server` |
-| **Vercel 入口** | `api/[[...all]].ts` | Hono → Vercel Serverless 适配 |
+| **Vercel 入口** | `apps/web/src/app/api/[[...all]]/route.ts` | Next.js Route Handler 挂载 Hono |
 | **包名** | `@wordbase/api` | - |
 
 ### 后端 API 端点
@@ -101,7 +103,11 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 | **单词本** | CRUD / 同步 |
 | **单词** | CRUD / 批量导入 / 批量删除 |
 | **AI 配置** | Provider CRUD / 测试连接 |
-| **同步** | 版本状态 / 全量同步 |
+| **AI 功能** | enrich / explain / sense-cluster / translate / story-generate / tutor-chat / practice generate+evaluate |
+| **同步** | 版本状态 / 增量同步 / 全量同步 |
+| **用户设置** | 设置读写同步 |
+| **公告** | 公告列表 / 已读标记 |
+| **反馈** | 用户反馈提交 |
 | **健康检查** | `/api/v1/health` |
 
 ---
@@ -151,7 +157,7 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 |------|------|
 | **数据库** | PostgreSQL（Supabase 托管） |
 | **迁移管理** | 手动 SQL migration（`supabase/migrations/`） |
-| **迁移数量** | 14 个（001 ~ 014） |
+| **迁移数量** | 21 个（001 ~ 021） |
 | **安全策略** | Row Level Security (RLS) |
 | **触发器** | 默认单词本自动创建等 |
 
@@ -160,13 +166,19 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 | 表名 | 用途 |
 |------|------|
 | `vocabulary_books` | 单词本 |
-| `words` | 单词（含 SRS 字段、AI 丰富数据） |
+| `words` | 单词（含 SRS 字段、AI 丰富数据、义项分组） |
 | `word_contexts` | 单词语境 |
 | `ai_provider_configs` | AI 模型配置（加密存储） |
 | `sync_changelogs` | 同步变更日志 |
 | `stories` | AI 生成的故事 |
 | `story_generation_quota` | 故事生成每日限流 |
 | `user_profiles` | 用户偏好（主题、AI 自动丰富等） |
+| `announcements` | 公告系统 |
+| `feedback` | 用户反馈 |
+| `pairing_codes` | 设备配对码 |
+| `practice_generation_quota` | 练习生成每日限流 |
+| `ai_call_quota` | AI 调用每日配额 |
+| `user_settings` | 用户设置（跨端同步） |
 
 ---
 
@@ -174,8 +186,8 @@ WordBase 是一款基于 AI 的多端英语单词学习工具，支持 Web、桌
 
 | 平台 | 用途 | 配置文件 |
 |------|------|---------|
-| **Vercel** | 前端 SSR + Serverless Functions（Hono API） | `vercel.json`、`api/[[...all]].ts` |
-| **Cloudflare Pages** | 前端静态托管 | - |
+| **Cloudflare Pages** | 前端静态托管（全球 CDN） | `apps/web/public/_worker.js` |
+| **Vercel** | Serverless Functions（Hono API） | `vercel.json`、`apps/web/src/app/api/[[...all]]/route.ts` |
 | **Cloudflare Workers** | API 请求反向代理到 Vercel | `apps/web/public/_worker.js` |
 
 ### 部署架构
@@ -194,9 +206,11 @@ Vercel（Node.js 运行时）
 
 | Workflow | 触发条件 | 功能 |
 |----------|---------|------|
-| `ci.yml` | push 到 main/dev/feature/*、PR | Typecheck + Web Build + Supabase 健康检查 |
+| `ci.yml` | push 到 main/dev/feature/*、PR | 四端 Typecheck + 单测 + Web Build + E2E 冒烟 + Supabase 健康检查 |
 | `deploy.yml` | push 到 main/dev | 部署到 Cloudflare Pages + Vercel |
-| `desktop-release.yml` | tag `desktop-v*` | 构建 macOS .dmg + Windows .exe + Android APK + GitHub Release |
+| `desktop-release.yml` | push `v*` tag / push main / push dev | macOS .dmg + Windows .exe + Android APK + iOS Simulator + GitHub Release |
+| `mobile-ota.yml` | push 到 main/dev | Expo EAS Update 热更新 |
+| `rollback.yml` | 手动触发 | 回滚 Vercel/Cloudflare |
 
 **CI 环境：**
 - Node.js 22
@@ -216,14 +230,17 @@ Vercel（Node.js 运行时）
 
 ---
 
-## 14. 代码质量
+## 14. 代码质量 & 测试
 
 | 类别 | 技术 | 命令 |
 |------|------|------|
-| **类型检查** | TypeScript `tsc --noEmit` | `npm run lint` |
-| **Lint（Web）** | tsc 类型检查 | `npm -w @wordbase/web run lint` |
-| **全端 Lint** | tsc 类型检查 | `npm run lint:all` |
+| **类型检查** | TypeScript `tsc --noEmit`（四端） | `npm run lint:all` |
+| **单元测试** | Vitest（109 用例，9 个测试文件） | `npx vitest run` |
+| **E2E 测试** | Playwright（Chromium 冒烟 + 认证流程） | `npm run test:e2e` |
 | **构建编排** | Turborepo | `npm run build:all` |
+| **错误监控** | Sentry（env 门控，未配 DSN 时惰性） | 配 `SENTRY_DSN` 即生效 |
+| **API 校验** | Zod schema（auth/AI/books/words 全覆盖） | `packages/api/src/utils/validation.ts` |
+| **日志** | 前端结构化 logger + 环形缓冲；后端 JSON 日志 | `shared/lib/logger.ts` / `api/utils/logger.ts` |
 
 ---
 
@@ -240,9 +257,9 @@ Vercel（Node.js 运行时）
           ▼                   ▼                   ▼
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
 │   Web 端      │   │  桌面端       │   │  移动端       │
-│  Next.js 15   │   │  Tauri 2      │   │  Expo RN 52   │
-│  SSR/Edge     │   │  macOS/Win    │   │  iOS/Android  │
-│  Vercel/CF    │   │  WebView      │   │  原生渲染     │
+│  Vite 6 SPA   │   │  Tauri 2      │   │  Expo RN 52   │
+│  CSR/静态     │   │  macOS/Win    │   │  iOS/Android  │
+│  Cloudflare   │   │  WebView      │   │  原生渲染     │
 └───────────────┘   └───────────────┘   └───────────────┘
           │                   │                   │
           └───────────────────┼───────────────────┘

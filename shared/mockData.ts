@@ -1,4 +1,4 @@
-import { Word, VocabularyBook, Story, PracticeQuiz, AIModel } from './types';
+import { Word, VocabularyBook, Story, AIModel } from './types';
 
 export const initialVocabularyBooks: VocabularyBook[] = [
   {
@@ -146,31 +146,6 @@ export const initialStories: Story[] = [
     ],
     highlightedWords: ['negotiate', 'leverage', 'synergize', 'bandwidth', 'pivot'],
     grammarInsight: 'The subjunctive construction is elegantly implied in "The CEO suggested that we leverage" (suggest + that + subject + base verb), a classic test point in TOEFL/Business writing.'
-  }
-];
-
-export const listeningQuizzes: PracticeQuiz[] = [
-  {
-    question: 'According to the speaker, what is the main risk of failing to synergize?',
-    options: [
-      'Increased market share of competitors',
-      'Duplication of efforts and siloed, low-impact product development',
-      'Sudden resignation of executive boards',
-      'Inefficient cloud storage billing spikes'
-    ],
-    correctIndex: 1,
-    explanation: 'The speaker emphasizes that without synergistic integration, departments operate in isolated silos, reproducing redundant materials.'
-  },
-  {
-    question: 'What is meant by "having enough bandwidth" in common team workspaces?',
-    options: [
-      'Deploying a high-speed fiber internet subscription',
-      'Having the mental availability and schedule capacity to handle additional tasks',
-      'Having a larger count of processors in the server cluster',
-      'The ability of a team member to speak multiple languages'
-    ],
-    correctIndex: 1,
-    explanation: 'In slang business terminology, "bandwidth" acts as a metaphor for cognitive storage, focus slots, or literal hours left in the week.'
   }
 ];
 

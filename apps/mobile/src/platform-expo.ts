@@ -25,7 +25,8 @@ async function expoSpeak(text: string, options: SpeakOptions): Promise<void> {
 async function expoStopSpeak(): Promise<void> {
   try {
     await Speech.stop();
-  } catch {
+  } catch (err) {
+    console.warn('[expo] stopSpeak failed:', err);
   }
 }
 
@@ -33,7 +34,8 @@ async function expoReadClipboard(): Promise<string> {
   try {
     const result = await Clipboard.getStringAsync();
     return result ?? '';
-  } catch {
+  } catch (err) {
+    console.warn('[expo] readClipboard failed:', err);
     return '';
   }
 }
@@ -42,7 +44,8 @@ async function expoWriteClipboard(text: string): Promise<boolean> {
   try {
     await Clipboard.setStringAsync(text);
     return true;
-  } catch {
+  } catch (err) {
+    console.warn('[expo] writeClipboard failed:', err);
     return false;
   }
 }
@@ -68,7 +71,8 @@ async function expoShowNotification(title: string, body: string): Promise<void> 
         },
       });
     }
-  } catch {
+  } catch (err) {
+    console.warn('[expo] showNotification failed:', err);
   }
 }
 
@@ -80,14 +84,16 @@ function loadAllFromAsyncStorage(): Record<string, string> {
 async function saveToAsyncStorage(k: string, v: string): Promise<void> {
   try {
     await AsyncStorage.setItem(k, v);
-  } catch {
+  } catch (err) {
+    console.warn('[expo] saveToAsyncStorage failed:', err);
   }
 }
 
 async function removeFromAsyncStorage(k: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(k);
-  } catch {
+  } catch (err) {
+    console.warn('[expo] removeFromAsyncStorage failed:', err);
   }
 }
 
@@ -100,7 +106,8 @@ async function loadAllKv(): Promise<Record<string, string>> {
       if (value != null) out[key] = value;
     }
     return out;
-  } catch {
+  } catch (err) {
+    console.warn('[expo] loadAllKv failed:', err);
     return {};
   }
 }
@@ -134,13 +141,15 @@ const mobileUpdater: UpdateService = {
         || (result.manifest as { id?: string; revisionId?: string } | undefined)?.revisionId
         || 'new';
       otaUpdate = { id: updateId, createdAt: new Date() };
+      // 展示 SemVer（app.json version）而非 OTA update ID
+      const appVersion = (Constants.expoConfig?.version as string | undefined) || 'unknown';
       return {
         hasUpdate: true,
-        version: updateId.slice(0, 8),
+        version: appVersion,
       };
     } catch (err) {
       console.warn('[ota] check failed:', err);
-      return { hasUpdate: false };
+      return { hasUpdate: false, error: err instanceof Error ? err.message : String(err) };
     }
   },
 
@@ -149,10 +158,10 @@ const mobileUpdater: UpdateService = {
       const Updates = await import('expo-updates');
       if (!Updates.isEnabled || !otaUpdate) return;
       const fetchResult = await Updates.fetchUpdateAsync();
-      if (fetchResult.isNew) {
-        mobileUpdater.isReady = true;
-        onProgress?.({ percentage: 100 });
-      }
+      // isNew=true: 刚下载完；isNew=false: 之前已下载过，本次无需重复下载
+      // 两种情况都视为 ready，apply() 会调 reloadAsync()
+      mobileUpdater.isReady = true;
+      onProgress?.({ percentage: 100 });
     } catch (err) {
       console.warn('[ota] fetch failed:', err);
       throw err;
@@ -193,8 +202,8 @@ export const mobilePlatform: PlatformAPI = {
     try {
       const { Linking } = await import('react-native');
       await Linking.openURL(url);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.warn('[expo] openUrl failed:', err);
     }
   },
 

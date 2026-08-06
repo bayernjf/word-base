@@ -8,8 +8,10 @@ import { getPlatform, setPlatform } from '@wordbase/shared/platform';
 import { installGlobalErrorHandlers } from '@wordbase/shared/lib/feedbackLogger';
 import { webPlatform } from './platform-web';
 import { initAnalytics } from '@wordbase/shared/lib/analytics';
+import { initMonitoring } from './monitoring';
 
 setPlatform(webPlatform);
+initMonitoring();
 installGlobalErrorHandlers();
 initAnalytics();
 

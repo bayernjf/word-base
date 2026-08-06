@@ -12,9 +12,12 @@ import { useIsMobile } from '../../../hooks/useIsMobile';
 import {
   BATCH_AI_LIMIT,
   startBatchAi,
+  requestCancelBatch,
   subscribe as subscribeBatchAi,
   getSnapshot as getBatchAiSnapshot,
 } from '../../../lib/batchAiStore';
+import { getLanguageFlag, getLanguageLabel } from '../../../lib/language';
+import { filterWords, getAvailableLanguages } from '../../../lib/vocabularyFilter';
 
 const logger = createLogger('VocabularyListView');
 
@@ -99,6 +102,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
   const accessToken = propAccessToken || session?.access_token;
   const [selectedBookId, setSelectedBookId] = useState(initialSelectedBookId);
   const [searchQuery, setSearchQuery] = useState('');
+  const [languageFilter, setLanguageFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedWordIds, setSelectedWordIds] = useState<string[]>(() => getStoredSelection(initialSelectedBookId));
@@ -193,10 +197,10 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     setSortDir('asc');
   }, [initialSelectedBookId]);
 
-  // 当搜索或每页条数变化时回到第一页
+  // 当搜索、语言筛选、或每页条数变化时回到第一页
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, itemsPerPage]);
+  }, [searchQuery, languageFilter, itemsPerPage]);
 
   // 列宽拖拽：mousedown 记录起点，全局 mousemove 改宽，mouseup 落库到 localStorage
   useEffect(() => {
@@ -275,20 +279,16 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
     />
   );
 
-  const filteredWords = useMemo(() => {
-    const searchLower = searchQuery.toLowerCase();
-    return words.filter(w => {
-      // 按词本过滤
-      if (w.bookId !== selectedBookId) return false;
-      // 搜索过滤：搜索为空时显示全部；搜索时只要任一匹配字段命中即通过
-      if (!searchQuery) return true;
-      const matchesWord = w.word.toLowerCase().includes(searchLower);
-      const matchesTranslation = !!w.translation && w.translation.toLowerCase().includes(searchLower);
-      const matchesDefinition = !!w.definition && w.definition.toLowerCase().includes(searchLower);
-      const matchesChineseTranslation = !!w.chineseTranslation && w.chineseTranslation.includes(searchQuery);
-      return matchesWord || matchesTranslation || matchesDefinition || matchesChineseTranslation;
-    });
-  }, [words, selectedBookId, searchQuery]);
+  const filteredWords = useMemo(
+    () => filterWords(words, { selectedBookId, languageFilter, searchQuery }),
+    [words, selectedBookId, languageFilter, searchQuery],
+  );
+
+  // 当前单词本中可用的语言列表
+  const availableLanguages = useMemo(
+    () => getAvailableLanguages(words, selectedBookId),
+    [words, selectedBookId],
+  );
 
   // 计算当前单词本中最大context数量N
   const currentBookWords = words.filter(w => w.bookId === selectedBookId);
@@ -571,6 +571,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
             ? t('vocab.batchEnrichComplete', { success, fail })
             : t('vocab.batchExplainComplete', { success, fail }),
         allFailed: t('vocab.batchAllFailed'),
+        cancelled: t('vocab.batchCancelled'),
       },
     });
   };
@@ -697,6 +698,16 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
               {batchAiLoading === 'explain' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5" />}
               {t('vocab.batchExplain')}
             </button>
+            {batchAiLoading && (
+              <button
+                onClick={requestCancelBatch}
+                className={`inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-xl border cursor-pointer transition-all ${isGlass
+                  ? 'border-red-400/50 text-red-300 hover:bg-red-400/10'
+                  : 'border-red-300 text-red-600 hover:bg-red-50'}`}
+              >
+                {t('vocab.batchCancel')}
+              </button>
+            )}
             {/* Book switcher dropdown */}
             <div className="relative">
             <button
@@ -730,17 +741,33 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
       </div>
 
       {/* Filter and Search */}
-      <div className={`flex items-center space-x-2 border px-3 py-2 rounded-xl ${searchPanelClass}`}>
-        <Search className={`w-4 h-4 ${searchIconClass}`} />
-        <input 
-          type="text" 
-          placeholder={t('vocab.searchPlaceholder')}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className={`w-full bg-transparent border-0 text-xs focus:ring-0 focus:outline-hidden ${searchInputClass}`}
-        />
-        {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className={`text-xs ${isGlass ? 'text-neutral-400 hover:text-indigo-400' : 'text-[#6f8b72] hover:text-[#2f805d]'}`}>{t('vocab.clear')}</button>
+      <div className="flex items-center gap-2">
+        <div className={`flex items-center space-x-2 border px-3 py-2 rounded-xl flex-1 ${searchPanelClass}`}>
+          <Search className={`w-4 h-4 ${searchIconClass}`} />
+          <input 
+            type="text" 
+            placeholder={t('vocab.searchPlaceholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={`w-full bg-transparent border-0 text-xs focus:ring-0 focus:outline-hidden ${searchInputClass}`}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className={`text-xs ${isGlass ? 'text-neutral-400 hover:text-indigo-400' : 'text-[#6f8b72] hover:text-[#2f805d]'}`}>{t('vocab.clear')}</button>
+          )}
+        </div>
+        {availableLanguages.length > 1 && (
+          <select
+            value={languageFilter}
+            onChange={(e) => { setLanguageFilter(e.target.value); setCurrentPage(1); }}
+            className={`text-xs border rounded-xl px-2.5 py-2 cursor-pointer ${searchPanelClass} ${searchInputClass}`}
+          >
+            <option value="">All</option>
+            {availableLanguages.map((lang) => (
+              <option key={lang} value={lang}>
+                {getLanguageFlag(lang)} {getLanguageLabel(lang)}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
@@ -835,6 +862,7 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                         <div className="min-w-0">
                           <h3 className={`font-bold text-base ${isSelected ? (isGlass ? 'text-indigo-200' : 'text-[#2f805d]') : wordLinkClass} truncate`}>
                             {w.word}
+                            {w.sourceLanguage && <span className="text-[10px] ml-1 opacity-60">{getLanguageFlag(w.sourceLanguage)}</span>}
                           </h3>
                           <WordPhonetics word={w.word} fallbackPhonetic={w.phonetic} language={language} compact />
                         </div>
@@ -992,6 +1020,11 @@ export const VocabularyListView: React.FC<VocabularyProps> = ({
                       >
                         {w.word}
                       </button>
+                      {w.sourceLanguage && (
+                        <span className="text-[10px] text-neutral-400 ml-1" title={getLanguageLabel(w.sourceLanguage)}>
+                          {getLanguageFlag(w.sourceLanguage)}
+                        </span>
+                      )}
                     </td>
                     <td className={`py-3.5 px-4 ${tableColDivider}`}>
                       <div className="relative inline-flex items-center space-x-2 group">

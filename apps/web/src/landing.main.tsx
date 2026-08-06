@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { Landing } from './landing/Landing';
 import './landing/landing.css';
 import { initAnalytics } from '@wordbase/shared/lib/analytics';
+import { initMonitoring } from './monitoring';
 
+initMonitoring();
 initAnalytics();
 
 const root = createRoot(document.getElementById('root')!);

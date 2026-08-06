@@ -4,7 +4,7 @@
 >
 > **更新规则**：修复某个项后，将对应 checkbox 标记为 `[x]` 并在「更新日志」追加一行。新增功能或发现新问题时，同步更新对应模块。
 >
-> **评估日期**：2026-07-17 · 评估分支：当前工作分支
+> **评估日期**：2026-07-30 · 评估分支：`feature/20260604`
 
 ---
 
@@ -12,16 +12,16 @@
 
 | 维度 | 就绪度 | 结论 |
 |------|--------|------|
-| 功能完整性 | 🟢 70% | 核心学习闭环完整，练习中心是 mock |
-| 合规性与安全 | 🟡 65% | RLS/加密规范，隐私政策已上线，缺限流 |
-| 代码质量 | 🟡 65% | 类型安全，测试覆盖率低，主组件过大 |
+| 功能完整性 | 🟢 85% | 核心学习闭环完整，练习中心已 AI 化（待联调验证） |
+| 合规性与安全 | 🟢 80% | RLS/加密规范，隐私政策已上线，CORS 白名单 + AI 限流已就位 |
+| 代码质量 | 🟢 80% | 类型安全，109 单测 + E2E，API Zod 校验，AppSupabase 已拆分 |
 | 桌面端上架 | 🟡 70% | 可 GitHub Release 分发，进官方商店缺签名公证 |
-| 移动端上架 | 🔴 40% | 缺签名、缺素材、练习 mock 会被拒 |
+| 移动端上架 | 🔴 45% | 缺签名、缺素材；练习功能需真机验证（ASR 依赖 Web Speech API） |
 | Web 端上线 | 🟢 100% | 隐私政策 ✓ 服务条款 ✓ 账号删除 ✓ 注册同意 ✓ |
 
 ---
 
-## 一、功能完整性 🟢 70%
+## 一、功能完整性 🟢 85%
 
 ### 已实现的核心功能
 
@@ -35,25 +35,28 @@
 | AI 智能句景 | 🟢 80% | 故事生成 + AI 导师对话，带每日限流（20条/天） |
 | 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
 | 设置中心 | 🟢 85% | 账号/外观/AI 模型/同步存储/关于 |
+| 练习中心 | 🟡 75% | 四模块已 AI 化（`/api/v1/ai/practice/{generate,evaluate}`），待联调与真机验证 |
 
 ### 功能缺口
 
-#### 🔴 练习中心（听说读写）— 20% 完成度
+#### 🟡 练习中心（听说读写）— 75% 完成度（2026-07-30 AI 化改造完成）
 
 | 子模块 | 状态 | 说明 |
 |--------|------|------|
-| 听力训练 | 🔴 Mock | mockData + 假进度条，无真实音频/TTS |
-| 口语训练 | 🔴 Mock | Math.random() 假打分 + 假声波，无录音/语音识别 |
-| 阅读理解 | 🔴 Mock | 文章和高亮词写死在组件里 |
-| 写作评估 | 🔴 Mock | setTimeout 模拟 + 写死反馈，无真实 AI 批改 |
+| 听力训练 | 🟢 已实现 | AI 生成听力短文 + 时间轴字幕 + 理解题，TTS 播放联动 |
+| 口语训练 | 🟢 已实现 | AI 生成跟读场景，Web Speech API（ASR）录音转写 + evaluate API 发音评估 |
+| 阅读理解 | 🟢 已实现 | 基于用户生词本 AI 动态生成文章 + 高亮词汇 + 理解题 |
+| 写作评估 | 🟢 已实现 | AI 生成写作提示，提交后 AI 批改（评分 + CEFR 等级 + 反馈） |
 
-**处理方案**（二选一）：
-- A：补全真实实现（TTS / ASR / AI 批改 / 动态文章）
-- B：暂时隐藏入口，标注「即将推出」，避免商店审核被拒
+所有生成走用户已配置的 AI Provider，每日限流 20 次（`practice_generation_quota` 表 + 迁移 019）。
+
+**剩余风险**：
+- 🟠 前后端尚未完整联调；迁移 `019_practice_quota.sql` 需在生产 Supabase 执行
+- 🟠 口语 ASR 依赖 Web Speech API（仅 Chrome/Edge），移动端降级方案未确认，需真机测试
 
 ---
 
-## 二、合规性与安全 🟡 60%
+## 二、合规性与安全 🟢 80%
 
 ### 做得好的方面
 
@@ -62,7 +65,10 @@
 | 数据行级安全（RLS） | ✅ | [002_security_policies.sql](file:///Users/jiangfeng/000mycodes/word-base/supabase/migrations/002_security_policies.sql) — 所有核心表启用 RLS |
 | AI 密钥加密 | ✅ | [crypto.ts](file:///Users/jiangfeng/000mycodes/word-base/packages/api/src/utils/crypto.ts) — AES-256-GCM + 随机 IV + auth tag |
 | Tauri 权限最小化 | ✅ | [capabilities/default.json](file:///Users/jiangfeng/000mycodes/word-base/apps/desktop/src-tauri/capabilities/default.json) — 仅 say/powershell shell |
-| CORS 非全开 | ✅* | 已从 `*` 改为回显 Origin（仍非白名单模式） |
+| CORS 白名单 | ✅ | `utils/cors.ts` 白名单模式，未命中不下发 CORS 头 |
+| AI 接口限流 | ✅ | 内存固定窗口（每用户 20/分、全局 120/分）+ `ai_call_quota` 每日 300 次配额 |
+| 密钥轮换方案 | ✅ | `docs/KEY_ROTATION.md` + `scripts/rotate-ai-config-key.mjs` |
+| 错误监控 | ✅ | 前后端 Sentry env 门控接入，配 DSN 即生效 |
 | 账号注销 | ✅ | `/api/v1/auth/delete-account` |
 | 移动端权限描述 | ✅ | 通知/语音识别/麦克风均有 UsageDescription |
 
@@ -74,15 +80,15 @@
 | 无服务条款 | ✅ 已解决 | 独立双语页面 `/terms` + landing 页脚链接 + 注册同意入口 |
 | 无站外账号删除入口 | ✅ 已解决 | 独立双语页面 `/delete-account` + landing 页脚链接 + 隐私政策说明 |
 | 注册无明确同意 | ✅ 已解决 | 注册前必须主动勾选隐私政策和服务条款 |
-| CORS 非白名单 | 🟠 P1 | 回显任意 Origin，生产应使用白名单校验 |
-| AI 接口无限流 | 🔴 P0 | enrich/explain/translate/sense-cluster 无用户级限流 |
+| CORS 非白名单 | ✅ 已解决 | 已改为白名单模式（`utils/cors.ts`） |
+| AI 接口无限流 | ✅ 已解决 | 内存固定窗口 + 每日配额（迁移 020） |
 | AI 生成内容无审核 | 🟠 P1 | 故事/释义无内容过滤 |
-| 加密主密钥无轮换方案 | 🟠 P1 | AI_CONFIG_ENCRYPTION_KEY 丢失则不可解密 |
-| 无错误监控 | 🟡 P2 | 前后端均无 Sentry 类监控 |
+| 加密主密钥无轮换方案 | ✅ 已解决 | `docs/KEY_ROTATION.md` + 幂等轮换脚本 |
+| 无错误监控 | ✅ 已解决 | Sentry env 门控接入（api + web） |
 
 ---
 
-## 三、代码质量 🟡 65%
+## 三、代码质量 🟢 80%
 
 ### 优点
 
@@ -90,21 +96,22 @@
 |----|------|
 | TypeScript 全栈类型安全 | ✅ |
 | Monorepo 架构清晰 | ✅ shared + packages + apps |
-| 单元测试存在 | ✅ 4 个测试文件（SRS/AI enrich/AI provider/aiUtils） |
-| 测试运行器 | ✅ Vitest 已配置 |
-| CI/CD | ✅ GitHub Actions 完整 |
-| 统一 logger | ✅ |
+| 单元测试 | ✅ 9 个测试文件，109 用例（vitest） |
+| E2E 测试 | ✅ Playwright Chromium（冒烟 + 认证流程） |
+| API 输入校验 | ✅ Zod schema 全覆盖 |
+| 测试运行器 | ✅ Vitest + Playwright |
+| CI/CD | ✅ GitHub Actions 完整（5 个 workflow） |
+| 统一 logger | ✅ 前端结构化 + 环形缓冲；后端 JSON 日志 |
+| 错误监控 | ✅ Sentry env 门控接入 |
+| AppSupabase 拆分 | ✅ 已提取 4 个独立 hooks，主组件 ~747 行 |
 
 ### 待改进
 
 | 项 | 现状 | 影响 |
 |----|------|------|
-| 测试覆盖率低 | 仅 4 个测试文件 | 核心业务逻辑无回归保护 |
-| API 输入校验弱 | 仅 String() 转换，无 schema 校验 | 恶意输入风险 |
-| 全局错误处理 | 各 try-catch 返回统一 internal_server_error | 排障困难 |
-| 无 E2E 测试 | 完全没有 | UI 回归无保障 |
-| AppSupabase 过大 | 1000+ 行单组件 | 可维护性差 |
+| 测试覆盖率 | 109 单测 + E2E 冒烟，但业务组件无测试 | 组件级回归无保障 |
 | 前端无 URL 路由 | 纯 state 驱动 activeView | 无法分享链接、SEO 差 |
+| API 集成测试缺失 | 无端点级测试 | 接口回归无保障 |
 
 ---
 
@@ -135,9 +142,9 @@
 | 应用截图/预览 | ❌ | 无商店素材 |
 | App Store 元数据 | ❌ | 描述/关键词/分级未准备 |
 | Google Play 元数据 | ❌ | 同上 |
-| 功能完整度 | 🔴 | 练习中心 mock，审核大概率被拒 |
+| 功能完整度 | 🟡 | 练习中心已 AI 化，但 ASR 依赖 Web Speech API，移动端可用性需真机验证 |
 
-**结论**：缺口最大，需补功能 + 签名 + 商店素材。
+**结论**：缺口最大，需补签名 + 商店素材 + 练习功能真机验证。
 
 ### Web 端 — 🟢 100%
 
@@ -160,27 +167,27 @@
 
 ### P0 — 阻塞上架
 
-- [ ] 补全或下线练习中心 mock 功能
+- [x] 补全或下线练习中心 mock 功能（2026-07-30 四模块 AI 化完成，剩联调 + 真机验证）
 - [x] 添加隐私政策页面（Web `/privacy` + 应用内关于页链接 + landing 页脚）
 - [x] 添加服务条款页面（Web `/terms` + landing 页脚链接 + 注册同意入口）
 - [x] 添加站外账号删除页面（Web `/delete-account` + landing 页脚链接 + 隐私政策说明）
 - [x] 注册表单添加同意勾选框（未勾选禁止注册）
-- [ ] AI 接口加全局限流（enrich/explain/translate/sense-cluster）
+- [x] AI 接口加全局限流（2026-07-30：内存固定窗口 + `ai_call_quota` 每日配额，迁移 020）
 - [ ] 移动端 release 签名配置（Android keystore + iOS provisioning）
 
 ### P1 — 强烈建议
 
 - [ ] 桌面端代码签名与公证（macOS Apple Developer ID + Windows EV/OV 证书）
-- [ ] CORS 白名单化
+- [x] CORS 白名单化（2026-07-30：`utils/cors.ts` 白名单模式）
 - [ ] AI 内容审核过滤
-- [ ] 加密密钥轮换方案
+- [x] 加密密钥轮换方案（2026-07-30：`docs/KEY_ROTATION.md` + 幂等轮换脚本）
 
 ### P2 — 体验优化
 
-- [ ] 测试覆盖率提升
-- [ ] 错误监控接入（Sentry）
+- [x] 测试覆盖率提升（2026-07-30：109 单测 + Playwright E2E）
+- [x] 错误监控接入（2026-07-30：Sentry env 门控，api + web）
 - [ ] URL 路由（React Router）
-- [ ] AppSupabase 组件拆分
+- [x] AppSupabase 组件拆分（2026-07-30：提取 useAiModels/useProfile/useAutoAi/useBookActions 4 个 hooks）
 - [ ] 商店素材准备（截图/描述/关键词/分级）
 
 ---
@@ -189,6 +196,8 @@
 
 | 日期 | 更新内容 | 更新人 |
 |------|----------|--------|
+| 2026-07-31 | 同步已完成项：CORS 白名单、AI 限流、Sentry 监控、密钥轮换、AppSupabase 拆分、E2E 测试、API Zod 校验；合规性 65%→80%，代码质量 65%→80% | AI Agent |
+| 2026-07-30 | 练习中心（听/说/读/写）AI 化改造完成：新增 practice generate/evaluate API + 每日限流 + 迁移 019；功能完整性 70%→85%，移动端 40%→45%；勾选 P0「补全练习中心」 | AI Agent |
 | 2026-07-17 | 补齐上线合规：双语服务条款、站外账号删除说明、注册同意勾选框、页脚法律入口；修正隐私政策与实际数据处理一致性 | AI Agent |
 | 2026-07-17 | 补齐 Web 端隐私政策：独立 `/privacy` 页面、应用内「设置-关于」入口、landing 页 footer 链接；Web 端就绪度提升至 95% | AI Agent |
 | 2026-07-17 | 初始评估，基于当前工作分支全量扫描 | AI Agent |

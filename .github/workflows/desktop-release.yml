@@ -2,8 +2,6 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
     branches:
       - main
       - dev
@@ -108,8 +106,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos
+          - platform: macos-arm64
             os: macos-14
+          - platform: macos-x64
+            os: macos-13
           - platform: windows
             os: windows-latest
 
@@ -162,6 +162,8 @@ jobs:
           tauri-plugin-notification = "2"
           tauri-plugin-shell = "2"
           tauri-plugin-store = "2"
+          tauri-plugin-updater = "2"
+          tauri-plugin-process = "2"
           EOF
           fi
 
@@ -171,8 +173,10 @@ jobs:
         run: |
           cp ../../native-templates/lib.rs lib.rs
 
-      - name: Re-inject version after tauri.conf overwrite
+      - name: Re-inject version + pubkey after tauri.conf overwrite
         run: node scripts/set-version.cjs ${{ needs.determine-version.outputs.tag }}
+        env:
+          TAURI_SIGNING_PUBKEY: ${{ secrets.TAURI_SIGNING_PUBKEY }}
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -186,7 +190,7 @@ jobs:
           args: --verbose
 
       - name: Rename macOS dmg artifacts
-        if: matrix.platform == 'macos'
+        if: contains(matrix.platform, 'macos')
         working-directory: apps/desktop/src-tauri/target/release/bundle/dmg
         shell: bash
         run: |
@@ -221,10 +225,10 @@ jobs:
           ls -la
 
       - name: Upload macOS dmg
-        if: matrix.platform == 'macos'
+        if: contains(matrix.platform, 'macos')
         uses: actions/upload-artifact@v5
         with:
-          name: macOS
+          name: ${{ matrix.platform }}
           path: |
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg.sig
@@ -387,7 +391,6 @@ jobs:
     needs: [determine-version, build-desktop, build-android, build-ios]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: always()
 
     steps:
       - uses: actions/checkout@v5
@@ -407,10 +410,12 @@ jobs:
         if: needs.determine-version.outputs.prerelease == 'false'
         run: |
           set -e
-          VERSION="${{ needs.determine-version.outputs.tag }}"
-          VERSION="${VERSION#v}"
+          TAG="${{ needs.determine-version.outputs.tag }}"
+          VERSION="${TAG#v}"
           PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           OUT="release-flat/latest.json"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 
           # Map Tauri triple -> installer filename glob
           # macOS universal not supported here; we ship x86_64 + aarch64
@@ -457,7 +462,7 @@ jobs:
               echo "::warning::No signature found for $installer ($triple) – skipping platform"
               continue
             fi
-            url="$installer"
+            url="${BASE_URL}/${installer}"
             if [ "$first" = true ]; then first=false; else echo "," >> "$OUT"; fi
             echo "    \"$triple\": { \"signature\": \"$sig\", \"url\": \"$url\" }" >> "$OUT"
           done

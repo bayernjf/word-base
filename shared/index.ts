@@ -6,6 +6,8 @@ export { profileApi, supabase } from './lib/supabase.ts';
 export { createLogger } from './lib/logger.ts';
 export { enqueueAutoAi } from './lib/batchAiStore.ts';
 export type { BatchAiType } from './lib/batchAiStore.ts';
+export { requestGetSettings, requestSaveSettings } from './lib/settings.ts';
+export type { UserSettings, SettingsResponse, SaveSettingsResponse } from './lib/settings.ts';
 export { createTranslator } from './i18n/index.ts';
 export { AVATARS } from './avatars.ts';
 export { getThemeClasses } from './components/ThemeStyles.ts';
@@ -16,7 +18,6 @@ export type { AppLanguage, ThemeType, Word, VocabularyBook, Story, PracticeQuiz,
 export type { LocaleDict } from './i18n/index.ts';
 export { en } from './i18n/en.ts';
 export { zh } from './i18n/zh.ts';
-export { listeningQuizzes } from './mockData.ts';
 export { setPlatform, getPlatform, hasPlatform } from './platform.ts';
 export type { PlatformAPI, SpeakOptions } from './platform.ts';
 

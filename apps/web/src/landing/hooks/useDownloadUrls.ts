@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { trackEvent } from '@wordbase/shared/lib/analytics';
 
 interface ReleaseAsset {
   name: string;
