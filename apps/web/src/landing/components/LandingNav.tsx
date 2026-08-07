@@ -105,6 +105,18 @@ export function LandingNav({ theme, toggleTheme }: Props) {
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <a
+            href="https://bayjf.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'hidden sm:inline-flex text-sm transition-colors px-2 py-1.5',
+              t.textMuted,
+              theme === 'dark' ? 'hover:text-white' : 'hover:text-slate-800',
+            )}
+          >
+            BayJF
+          </a>
+          <a
             href="https://github.com/bayernjf/word-base"
             target="_blank"
             rel="noopener noreferrer"
@@ -190,6 +202,19 @@ export function LandingNav({ theme, toggleTheme }: Props) {
             )}
           >
             进入 Web 版
+          </a>
+          <a
+            href="https://bayjf.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMobileMenuOpen(false)}
+            className={cn(
+              'px-3 py-2.5 rounded-lg text-sm transition-colors',
+              t.textMuted,
+              theme === 'dark' ? 'hover:bg-slate-800/60 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-800',
+            )}
+          >
+            BayJF
           </a>
           <a
             href="https://github.com/bayernjf/word-base"

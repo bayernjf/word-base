@@ -88,6 +88,49 @@ export function LandingFooter({ theme }: Props) {
                 theme === 'dark' ? 'text-slate-500' : 'text-slate-400',
               )}
             >
+              资源
+            </h4>
+            <ul className="space-y-2.5">
+              <li>
+                <a
+                  href="https://github.com/bayernjf/word-base"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    'text-sm transition-colors',
+                    theme === 'dark'
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  GitHub
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://bayjf.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    'text-sm transition-colors',
+                    theme === 'dark'
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900',
+                  )}
+                >
+                  BayJF
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4
+              className={cn(
+                'text-xs font-bold uppercase tracking-wider mb-4',
+                theme === 'dark' ? 'text-slate-500' : 'text-slate-400',
+              )}
+            >
               法律
             </h4>
             <ul className="space-y-2.5">
