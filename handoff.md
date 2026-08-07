@@ -241,12 +241,12 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
 | 练习中心（听说读写） | 🟡 75% | 已 AI 化，待联调+真机验证 |
 | 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
-| 工程质量保障 | 🟢 90% | 128 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控）+ Playwright E2E 冒烟 |
+| 工程质量保障 | 🟢 90% | 164 用例 + zod 校验 + 结构化日志 + CI 四端卡点 + Sentry 监控（env 门控）+ Playwright E2E 冒烟 |
 | 部署与运维 | 🟡 70% | 已上 Cloudflare+Vercel，CORS 白名单 + AI 限流/配额 + Sentry 监控就绪 |
 
 **各端上架就绪度**：Web 🟢 100% · Desktop 🟡 70%（缺公证/签名） · Mobile 🔴 45%（缺 release 签名、商店素材、真机验证）
 
-**最近完成（本次会话，待提交）**：**多语言支持 + 批量 AI 任务追踪**
+**最近完成（本次会话，待提交）**：**多语言支持 + 批量 AI 任务追踪 + 落地页与 word-base-landing 对齐**
 
 ### 多语言支持（P0 + P1 + P2）
 
@@ -267,7 +267,19 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 10. `VocabularyListView`：单词列表显示语言旗帜徽章 + 语言筛选下拉框
 11. `WordDetailView`/`WordDetailCompact`：header 行新增语言徽章
 
-**测试：** 新增 `language.test.ts`（7 用例）+ `batchAiStore.test.ts`（8 用例），test 总数 109 → 128
+**修复（2026-08-07）：** 客户端 AI 请求体此前只发驼峰 `sourceLanguage`，被服务端 Zod 剥离后静默回落 'en'（语言感知 prompt 对非英语词失效）。现由 `buildAiWordRequestBody` 统一映射为蛇形 `source_language`（enrich/explain/sense-cluster 三端点），并新增跨层契约测试验证
+
+**测试：** 新增 `language.test.ts`（7 用例）+ `batchAiStore.test.ts`（8 用例）+ `aiLanguageContract.test.ts`（4 用例），test 总数 109 → 164
+
+### 落地页与 word-base-landing 对齐（2026-08-08）
+
+内置落地页（`apps/web/src/landing/`）与独立 Astro 仓库 `word-base-landing` 逐区块比对后补齐差异：
+
+- `LandingNav.tsx`：新增 BayJF 官网链接（桌面端 + 移动端抽屉）
+- `LandingFooter.tsx`：新增「资源」栏（GitHub + BayJF），支持明暗主题
+- word-base-landing 侧同步改动：Workflow demo 修饰键按平台动态显示（Mac → ⌘ Cmd）、下载按钮接入 GitHub Release chrome zip 直链 + download_click 埋点（BaseLayout 全局脚本）
+
+验证：`tsc --noEmit`（apps/web）+ `npm -w @wordbase/web run build` + word-base-landing `astro build` 均通过。已知未对齐项：Astro 版仅中文（React 版有中英切换）。
 
 ### 批量 AI 任务追踪
 
@@ -444,6 +456,7 @@ c2201e5 fix(web): import trackEvent in useDownloadUrls to prevent crash
 | `shared/hooks/useAutoAi.ts` | 自动 AI enrich/explain 开关与入队逻辑 |
 | `shared/hooks/useBookActions.ts` | 书本/单词操作 wrapper hook |
 | `apps/web/vercel.json` | Vercel 框架声明 |
+| `apps/web/src/landing/` | 内置落地页（Landing.tsx 组装各区块；与独立仓库 `word-base-landing` 内容需保持对齐） |
 | `apps/desktop/src-tauri/tauri.conf.json` | Tauri 配置 |
 | `apps/desktop/native-templates/` | CI 构建时覆盖的 Tauri 配置模板 |
 | `apps/mobile/app.json` | Expo 配置 |
