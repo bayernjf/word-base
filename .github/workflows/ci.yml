@@ -81,4 +81,11 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-        run: npm run test:e2e
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR: run smoke E2E only"
+            npx playwright test tests/e2e/smoke.spec.ts
+          else
+            echo "Branch push: run full E2E suite"
+            npm run test:e2e
+          fi
