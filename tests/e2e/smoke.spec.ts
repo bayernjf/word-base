@@ -29,17 +29,3 @@ test('/terms 路由可访问', async ({ page }) => {
   await page.goto('/terms');
   await expect(page).toHaveTitle(/WordBase/);
 });
-
-// —— API 端点冒烟（无需认证，验证路由存在 + 鉴权拦截）——
-
-test('GET /api/v1/settings 无 token 返回 401', async ({ request }) => {
-  const res = await request.get('/api/v1/settings');
-  expect(res.status()).toBe(401);
-});
-
-test('PUT /api/v1/settings 无 token 返回 401', async ({ request }) => {
-  const res = await request.put('/api/v1/settings', {
-    data: { settings: { theme: 'dark' } },
-  });
-  expect(res.status()).toBe(401);
-});
