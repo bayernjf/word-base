@@ -10,6 +10,13 @@ export interface AiEnrichmentRequest {
   sourceLanguage?: string;
 }
 
+// 后端 AI 端点的 Zod schema 以蛇形 source_language 接收源语言（默认剥离未知字段），
+// 这里把客户端的驼峰 sourceLanguage 映射过去，避免语言感知规则被静默回落到 'en'。
+function buildAiWordRequestBody(input: AiEnrichmentRequest): Record<string, unknown> {
+  const { sourceLanguage, ...rest } = input;
+  return { ...rest, source_language: sourceLanguage || 'en' };
+}
+
 export interface AiEnrichment {
   definition: string;
   translation: string;
@@ -110,7 +117,7 @@ export async function requestAiEnrichment(input: AiEnrichmentRequest, accessToke
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(buildAiWordRequestBody(input)),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -166,7 +173,7 @@ export async function requestDeepExplanation(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(buildAiWordRequestBody(input)),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -244,7 +251,7 @@ export async function requestSenseClusters(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(buildAiWordRequestBody(input)),
   });
 
   const data = await response.json().catch(() => ({}));
