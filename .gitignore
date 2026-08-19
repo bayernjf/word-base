@@ -33,3 +33,6 @@ apps/mobile/.expo/
 test-results/
 playwright-report/
 blob-report/
+
+# CodeGraph local index
+.codegraph/
