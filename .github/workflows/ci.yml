@@ -17,6 +17,7 @@ jobs:
   lint-test-build:
     name: Lint + Test + Build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -60,7 +61,12 @@ jobs:
   e2e:
     name: E2E (Playwright Chromium)
     needs: lint-test-build
+    # Pre-deploy gate only. Skipped on pull_request: the suite covers static page
+    # loads that `Build web frontend` already exercises, and its Playwright/apt
+    # install step is the main source of CI flakiness.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -81,11 +87,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "PR: run smoke E2E only"
-            npx playwright test tests/e2e/smoke.spec.ts
-          else
-            echo "Branch push: run full E2E suite"
-            npm run test:e2e
-          fi
+        run: npm run test:e2e
