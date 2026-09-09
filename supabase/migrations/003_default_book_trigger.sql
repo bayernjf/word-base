@@ -1,3 +1,12 @@
+-- =====================================================
+-- Migration 003: Create default sync book on signup
+-- File: 003_default_book_trigger.sql
+-- Date: 2026-06-11 01:06
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Extends handle_new_user() so a new user also gets a
+--       default sync vocabulary book alongside their profile.
+-- -----------------------------------------------------
 -- =============================================
 -- 新用户注册时自动创建默认同步单词本
 -- =============================================

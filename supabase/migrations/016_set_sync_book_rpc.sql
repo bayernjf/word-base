@@ -1,3 +1,14 @@
+-- =====================================================
+-- Migration 016: Replace set_sync_book with VOID RPC
+-- File: 016_set_sync_book_rpc.sql
+-- Date: 2026-07-11 10:54
+-- Depends on: 004_sync_book_uniqueness.sql
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Replaces the table-returning set_sync_book() from 004
+--       with a SECURITY DEFINER RPC that atomically clears
+--       is_sync on the user's other books and sets the target.
+-- -----------------------------------------------------
 -- =============================================
 -- set_sync_book RPC：原子化设置同步单词本
 -- 取消所有其他单词本的 is_sync，设置目标单词本为 is_sync

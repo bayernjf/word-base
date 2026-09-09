@@ -1,3 +1,14 @@
+-- =====================================================
+-- Migration 018: Add feedback system
+-- File: 018_feedback.sql
+-- Date: 2026-07-17 14:06
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Creates feedbacks, feedback_logs and feedback_quota
+--       with RLS. Users can only insert/select their own data;
+--       admin replies and status flow via service role.
+--       Daily submission limit of 10.
+-- -----------------------------------------------------
 -- =============================================
 -- 意见反馈系统
 -- 设计参考 soft-desk 项目的 Feedback-Schema，针对 word-base 多端学习 App 增强：

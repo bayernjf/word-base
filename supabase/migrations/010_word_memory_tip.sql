@@ -1,2 +1,11 @@
+-- =====================================================
+-- Migration 010: Add AI memory tip to words
+-- File: 010_word_memory_tip.sql
+-- Date: 2026-06-25 14:04
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Stores an AI-generated memory tip per word to aid
+--       recall, kept separate from basic enrichment fields.
+-- -----------------------------------------------------
 -- AI 丰富生成的记忆技巧：在 words 表存储单词记忆提示
 ALTER TABLE words ADD COLUMN IF NOT EXISTS memory_tip TEXT DEFAULT '';
