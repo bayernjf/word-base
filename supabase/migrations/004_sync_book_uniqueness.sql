@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 004: Enforce one sync book per user with atomic switch
+-- File: 004_sync_book_uniqueness.sql
+-- Date: 2026-06-11 01:06
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Deduplicates pre-existing sync books, adds a partial
+--       unique index (one sync book per user), and provides
+--       set_sync_book() for atomic switching without races.
+-- -----------------------------------------------------
 -- =============================================
 -- 同步单词本唯一性约束与原子切换函数
 -- =============================================

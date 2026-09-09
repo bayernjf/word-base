@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 011: Add AI deep explanation to words
+-- File: 011_word_deep_explanation.sql
+-- Date: 2026-06-25 14:09
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Stores a personalized deep explanation (context
+--       insights, synonym comparison, memory hook) without
+--       overwriting the basic enrichment fields.
+-- -----------------------------------------------------
 -- AI 深度解释：结合用户保存的语境，单独存储个性化用法讲解（不覆盖基础丰富字段）
 -- 结构：{ "contextInsights": [{ "context": "...", "insight": "..." }], "synonymComparison": "...", "memoryHook": "...", "generatedAt": 1700000000000 }
 ALTER TABLE words ADD COLUMN IF NOT EXISTS deep_explanation JSONB DEFAULT NULL;

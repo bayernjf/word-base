@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 017: Add announcements table
+-- File: 017_announcements.sql
+-- Date: 2026-07-17 14:00
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Creates the bilingual announcements system with
+--       severity and platform targeting; anon/authenticated
+--       read-only, writes via service_role in Supabase Studio.
+-- -----------------------------------------------------
 -- ============================================================================
 -- WordBase 公告系统 announcements 表 + RLS
 -- 在 Supabase Dashboard SQL Editor 中执行

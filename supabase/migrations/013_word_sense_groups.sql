@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 013: Add sense groups to words
+-- File: 013_word_sense_groups.sql
+-- Date: 2026-06-27 06:22
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Stores clustered multi-context senses for a word
+--       (sense label, translation, definition, verbatim
+--       contexts) as JSONB.
+-- -----------------------------------------------------
 -- AI 多语境义项分离：对一个词的多条语境聚类，把不同含义分组存储
 -- 结构：{
 --   "groups": [

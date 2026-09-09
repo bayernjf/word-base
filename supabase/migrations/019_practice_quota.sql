@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 019: Add practice generation quota
+-- File: 019_practice_quota.sql
+-- Date: 2026-07-30 00:52
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Daily per-user quota for practice-center AI
+--       generation, mirroring story_generation_quota to
+--       control AI cost.
+-- -----------------------------------------------------
 -- =============================================
 -- 练习中心每日生成限流
 -- 与 story_generation_quota 同构，控 AI 成本
