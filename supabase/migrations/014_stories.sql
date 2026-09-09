@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 014: Add AI stories and generation quota
+-- File: 014_stories.sql
+-- Date: 2026-06-27 21:10
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Creates stories (AI story close-reading) and
+--       story_generation_quota with RLS: per-user library,
+--       public reuse of articles, and daily generation limits.
+-- -----------------------------------------------------
 -- =============================================
 -- 智能句景（AI 故事精读）表
 -- 设计目标：低频生成、单条偏大；存储不是瓶颈，重点在 user_id 隔离 + 索引 + 限流

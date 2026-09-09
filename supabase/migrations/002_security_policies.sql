@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 002: Add RLS policies and realtime notifications
+-- File: 002_security_policies.sql
+-- Date: 2026-06-08 22:24
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Enables row level security on all core tables, adds
+--       owner-scoped policies, auto-creates a profile on signup,
+--       and notifies realtime channels on word/book changes.
+-- -----------------------------------------------------
 -- =============================================
 -- Supabase 安全策略 (RLS)
 -- =============================================

@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 015: Add browser extension pairing codes
+-- File: 015_pairing_codes.sql
+-- Date: 2026-07-11 10:54
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Creates pairing_codes for pairing the browser
+--       extension with web/mobile clients; one valid code
+--       per user, expires after 10 minutes.
+-- -----------------------------------------------------
 -- =============================================
 -- 配对码表：用于浏览器扩展与 Web/Mobile 端配对
 -- 每个用户同一时间只有一个有效配对码，10 分钟过期

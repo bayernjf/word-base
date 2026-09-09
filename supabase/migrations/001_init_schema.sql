@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 001: Initialize core database schema
+-- File: 001_init_schema.sql
+-- Date: 2026-06-08 22:24
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Creates the core tables (profiles, vocabulary_books, words,
+--       sync_changelogs), the updated_at trigger function, and the
+--       get_next_sync_version() helper used by the sync flow.
+-- -----------------------------------------------------
 -- =============================================
 -- Supabase 数据库初始化脚本
 -- =============================================

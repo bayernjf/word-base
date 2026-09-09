@@ -1,2 +1,11 @@
+-- =====================================================
+-- Migration 009: Add theme preference to profiles
+-- File: 009_profile_theme_preference.sql
+-- Date: 2026-06-24 05:36
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Persists the cross-device page theme selection
+--       (default 'glass') on the profiles table.
+-- -----------------------------------------------------
 -- 跨设备主题偏好：在 profiles 表存储用户选择的页面主题
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS theme_preference TEXT DEFAULT 'glass';

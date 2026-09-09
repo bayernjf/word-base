@@ -1,3 +1,12 @@
+-- =====================================================
+-- Migration 006: Add AI provider configuration table
+-- File: 006_ai_provider_configs.sql
+-- Date: 2026-06-24 00:16
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Creates ai_provider_configs with encrypted API keys,
+--       one-active-config uniqueness per user, and RLS policies.
+-- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS ai_provider_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,

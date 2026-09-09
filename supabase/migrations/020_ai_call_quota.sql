@@ -1,3 +1,13 @@
+-- =====================================================
+-- Migration 020: Add AI call quota
+-- File: 020_ai_call_quota.sql
+-- Date: 2026-07-30 02:15
+-- Run: Supabase SQL Editor, execute once
+-- =====================================================
+-- Note: Daily hard limit on lightweight AI endpoints
+--       (enrich/explain/sense-cluster/translate/tutor-chat),
+--       mirroring the story/practice quotas.
+-- -----------------------------------------------------
 -- =============================================
 -- AI 轻量端点（enrich/explain/sense-cluster/translate/tutor-chat）每日调用配额
 -- 与 story/practice 配额同构，作为跨实例的硬上限，控 AI 成本
