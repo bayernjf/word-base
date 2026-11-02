@@ -578,6 +578,36 @@ export function useVocabularyBooks() {
   };
 }
 
+/**
+ * 把 words 行恢复到变更前快照（moveWords 失败回滚用）。
+ * 逐行 update 除 id/user_id 外的全部快照列：纯移动行恢复整行（含原
+ * book_id），合并过的目标行恢复合并前内容。返回恢复/失败计数，
+ * 单行失败不中断其余行。
+ */
+export async function rollbackWordRows(
+  client: typeof supabase,
+  userId: string,
+  snapshots: SupabaseWordRow[],
+): Promise<{ restored: number; failed: number }> {
+  let restored = 0;
+  let failed = 0;
+  for (const snapshot of snapshots) {
+    const { id, user_id: _owner, ...restorable } = snapshot;
+    const { error } = await client
+      .from('words')
+      .update(restorable)
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) {
+      failed += 1;
+      logger.error('rollbackWordRows: restore failed', { id, error });
+    } else {
+      restored += 1;
+    }
+  }
+  return { restored, failed };
+}
+
 export function useWords(bookId?: string) {
   const { user } = useSupabase();
   const [words, setWords] = useState<Word[]>([]);
@@ -775,6 +805,10 @@ export function useWords(bookId?: string) {
 
       // 提升到 try 块外部，供 catch 块访问
       const processedSourceIds: string[] = [];
+      // 失败回滚用的变更前快照（行原始内容，含原 book_id / 合并前的 contexts 等）。
+      // 旧实现回滚时查的是行"当前"的 book_id（已是目标值）再写回——无操作；
+      // 且 upsert 的 onConflict 'id,user_id' 依赖不存在的唯一约束，回滚语句本身就会报错。
+      const changedSnapshots: SupabaseWordRow[] = [];
 
       try {
         const { data: sourceRows, error: sourceError } = await supabase
@@ -797,6 +831,7 @@ export function useWords(bookId?: string) {
           } satisfies MoveWordsResult;
         }
 
+        const sourceRowById = new Map(movingRows.map((row) => [row.id, row] as const));
         const movingWords = movingRows.map(mapWordRow);
         const candidateWords = Array.from(new Set(movingRows.map((row) => row.word)));
 
@@ -819,8 +854,6 @@ export function useWords(bookId?: string) {
         const now = new Date().toISOString();
         let movedCount = 0;
         let duplicateCount = 0;
-        // 记录已移动的单词，用于失败时回滚
-        const movedWordMap = new Map<string, string>(); // sourceId -> existingTargetRowId (如果是合并操作)
 
         for (const sourceWord of movingWords) {
           const existingTargetRow = targetWordMap.get(sourceWord.word);
@@ -841,7 +874,9 @@ export function useWords(bookId?: string) {
 
             movedCount += 1;
             processedSourceIds.push(sourceWord.id);
-            movedWordMap.set(sourceWord.id, ''); // 空字符串表示纯移动，无需回滚
+            // 纯移动：变更前快照（含原 book_id），供失败回滚
+            const sourceRow = sourceRowById.get(sourceWord.id);
+            if (sourceRow) changedSnapshots.push(sourceRow);
             continue;
           }
 
@@ -868,8 +903,8 @@ export function useWords(bookId?: string) {
 
           if (updateExistingError) throw updateExistingError;
 
-          // 记录合并操作的目标单词 ID，用于回滚
-          movedWordMap.set(sourceWord.id, existingTargetRow.id);
+          // 合并：变更前快照（合并前的目标行全文），供失败回滚
+          changedSnapshots.push(existingTargetRow);
         }
 
         setWords((prev) => prev.filter((word) => !processedSourceIds.includes(word.id)));
@@ -881,34 +916,25 @@ export function useWords(bookId?: string) {
         } satisfies MoveWordsResult;
       } catch (error) {
         logger.error('Error moving words, attempting rollback:', error);
-        
-        // 回滚已移动的单词
-        if (processedSourceIds.length > 0) {
+
+        // 按变更前快照恢复：纯移动恢复整行（含原 book_id），合并恢复目标行全文
+        if (changedSnapshots.length > 0) {
           try {
-            const { data: sourceRows } = await supabase
-              .from('words')
-              .select('id, book_id')
-              .eq('user_id', user.id)
-              .in('id', processedSourceIds);
-            
-            if (sourceRows) {
-              const rollbackUpdates = sourceRows.map(row => ({
-                id: row.id,
-                book_id: row.book_id, // 恢复原来的 book_id
-              }));
-              
-              await supabase
-                .from('words')
-                .upsert(rollbackUpdates, {
-                  onConflict: 'id,user_id',
-                });
-              logger.info('moveWords rollback completed', { rollbackCount: rollbackUpdates.length });
+            const { restored, failed } = await rollbackWordRows(
+              supabase,
+              user.id,
+              changedSnapshots,
+            );
+            if (failed > 0) {
+              logger.error(`moveWords rollback partial: ${failed} row(s) failed to restore`);
+            } else {
+              logger.info('moveWords rollback completed', { rollbackCount: restored });
             }
           } catch (rollbackError) {
             logger.error('moveWords rollback failed:', rollbackError);
           }
         }
-        
+
         return {
           success: false,
           movedCount: 0,
