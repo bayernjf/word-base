@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { getRequestContext, logger, errorContext } from '../context'
+import { getRequestContext, supabaseAdmin, logger, errorContext } from '../context'
 
 const FEEDBACK_CATEGORIES = ['bug', 'feature', 'content_error', 'question', 'other'] as const
 const FEEDBACK_TITLE_MAX = 100
@@ -93,21 +93,15 @@ export function registerFeedbackRoutes(app: Hono) {
         }
       }
 
-      // 8. 限流计数 +1
-      try {
-        if (quotaRow) {
-          await db
-            .from('feedback_quota')
-            .update({ count: currentCount + 1 })
-            .eq('user_id', user.id)
-            .eq('quota_date', today)
-        } else {
-          await db
-            .from('feedback_quota')
-            .insert({ user_id: user.id, quota_date: today, count: 1 })
-        }
-      } catch (quotaErr) {
-        logger.warn('feedback_quota_update_failed', errorContext(quotaErr))
+      // 8. 限流计数 +1（配额表已对用户态加锁，迁移 023；走 SECURITY DEFINER RPC 原子自增）
+      if (supabaseAdmin) {
+        const { error: quotaErr } = await supabaseAdmin.rpc('increment_feedback_quota', {
+          p_user_id: user.id,
+          p_quota_date: today,
+        })
+        if (quotaErr) logger.warn('feedback_quota_update_failed', errorContext(quotaErr))
+      } else {
+        logger.warn('feedback_quota_update_skipped', { reason: 'service_role_key_missing' })
       }
 
       return c.json({ success: true, feedbackId })

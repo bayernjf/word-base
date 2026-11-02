@@ -9,6 +9,7 @@ import {
   checkAiCallLimits,
   recordAiCall,
   aiLimitResponse,
+  supabaseAdmin,
   logger,
   errorContext,
 } from '../context'
@@ -64,7 +65,7 @@ export function registerAiRoutes(app: Hono) {
       ].join('\n')
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-      await recordAiCall(db, user.id, limit)
+      await recordAiCall(user.id, limit)
       let aiParsed: any
       try {
         aiParsed = JSON.parse(extractJsonText(raw))
@@ -164,7 +165,7 @@ export function registerAiRoutes(app: Hono) {
       ].join('\n')
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-      await recordAiCall(db, user.id, limit)
+      await recordAiCall(user.id, limit)
       let aiParsed: any
       try {
         aiParsed = JSON.parse(extractJsonText(raw))
@@ -241,7 +242,7 @@ export function registerAiRoutes(app: Hono) {
       ].join('\n')
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: true })
-      await recordAiCall(db, user.id, limit)
+      await recordAiCall(user.id, limit)
       let aiParsed: any
       try {
         aiParsed = JSON.parse(extractJsonText(raw))
@@ -298,7 +299,7 @@ export function registerAiRoutes(app: Hono) {
       const prompt = `Translate the following text to ${targetLanguage === 'zh' ? 'Chinese' : targetLanguage}. Return only the translation, no explanation.\n\nText: ${text}`
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: false })
-      await recordAiCall(db, user.id, limit)
+      await recordAiCall(user.id, limit)
       const translatedText = String(raw || '').trim()
 
       return c.json({ translatedText })
@@ -388,14 +389,16 @@ export function registerAiRoutes(app: Hono) {
 
       if (insertErr) throw insertErr
 
-      if (quota) {
-        await db.from('story_generation_quota')
-          .update({ generated_count: currentCount + 1 })
-          .eq('user_id', user.id)
-          .eq('quota_date', today)
+      // Quota tables are write-locked for user clients (migration 023);
+      // increment atomically via the SECURITY DEFINER RPC.
+      if (supabaseAdmin) {
+        const { error: quotaErr } = await supabaseAdmin.rpc('increment_story_generation_quota', {
+          p_user_id: user.id,
+          p_quota_date: today,
+        })
+        if (quotaErr) logger.warn('story_quota_write_failed', errorContext(quotaErr))
       } else {
-        await db.from('story_generation_quota')
-          .insert({ user_id: user.id, quota_date: today, generated_count: 1 })
+        logger.warn('story_quota_write_skipped', { reason: 'service_role_key_missing' })
       }
 
       return c.json({
@@ -445,7 +448,7 @@ export function registerAiRoutes(app: Hono) {
       const prompt = messages.map(m => `[${m.role}] ${m.content}`).join('\n\n')
 
       const raw = await callAiProviderRaw({ config, prompt, jsonMode: false })
-      await recordAiCall(db, user.id, limit)
+      await recordAiCall(user.id, limit)
       const reply = String(raw || '').trim()
 
       return c.json({ reply })
