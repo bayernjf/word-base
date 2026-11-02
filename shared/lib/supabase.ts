@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createLogger } from './logger'
+import { getExpoPublicEnv } from './expoEnv'
 import { getPlatform, hasPlatform } from '../platform'
 
 // DB row types for API layer
@@ -77,16 +78,19 @@ function getEnvValue(key: string): string | undefined {
   if (g.__APP_ENV__ && g.__APP_ENV__[key] !== undefined) {
     return g.__APP_ENV__[key]
   }
-  // Normalize: try NEXT_PUBLIC_ prefix for Next.js, then bare key, then VITE_ fallback
+  // Normalize: try NEXT_PUBLIC_ prefix for Next.js, then bare key,
+  // then VITE_ (desktop) and EXPO_PUBLIC_ (Expo/RN Metro) fallbacks
   const bareKey = key.replace(/^NEXT_PUBLIC_/, '')
-  // Next.js/Webpack has process.env
+  // Next.js/Webpack/Metro has process.env. Note: Metro only inlines static
+  // EXPO_PUBLIC_ member expressions, so Expo values go through expoEnv.
   if (typeof process !== 'undefined' && process.env) {
-    return process.env[key] || process.env[bareKey] || process.env[`VITE_${bareKey}`]
+    return process.env[key] || process.env[bareKey]
+      || process.env[`VITE_${bareKey}`] || getExpoPublicEnv(bareKey)
   }
   // Vite/Expo has import.meta.env
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     const env = import.meta.env as Record<string, string | undefined>
-    return env[key] || env[bareKey] || env[`VITE_${bareKey}`]
+    return env[key] || env[bareKey] || env[`VITE_${bareKey}`] || env[`EXPO_PUBLIC_${bareKey}`]
   }
   return undefined
 }

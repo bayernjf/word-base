@@ -64,8 +64,29 @@ jobs:
       - name: Publish OTA update
         if: steps.check-token.outputs.available == 'true'
         working-directory: apps/mobile
+        env:
+          # Expo Metro only inlines EXPO_PUBLIC_* into the client bundle
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
         run: |
           npx eas update --channel ${{ steps.channel.outputs.channel }} --non-interactive --message "${{ github.event.head_commit.message || 'OTA update' }}"
+
+      - name: Verify OTA bundle contains Supabase config
+        if: steps.check-token.outputs.available == 'true'
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+        run: |
+          npx expo export --platform android --output-dir dist-smoke
+          if ! grep -rqs "$EXPO_PUBLIC_SUPABASE_URL" dist-smoke; then
+            echo "::error::Exported OTA bundle is missing EXPO_PUBLIC_SUPABASE_URL"
+            exit 1
+          fi
+          echo "OTA bundle smoke check passed"
+          rm -rf dist-smoke
 
       - name: OTA skipped (no token)
         if: steps.check-token.outputs.available != 'true'

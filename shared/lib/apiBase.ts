@@ -1,3 +1,5 @@
+import { getExpoPublicEnv } from './expoEnv'
+
 type Platform = 'web' | 'desktop' | 'ios' | 'android'
 
 function detectPlatform(): Platform {
@@ -30,14 +32,17 @@ function getEnvValue(key: string): string | undefined {
   if (g.__APP_ENV__ && g.__APP_ENV__[key] !== undefined) {
     return g.__APP_ENV__[key]
   }
-  // Try the full key first, then bare key, then VITE_ prefixed
+  // Try the full key first, then bare key, then VITE_ (desktop) and
+  // EXPO_PUBLIC_ (Expo/RN Metro) prefixed variants. Note: Metro only inlines
+  // static EXPO_PUBLIC_ member expressions, so Expo values go through expoEnv.
   const bareKey = key.replace(/^NEXT_PUBLIC_/, '')
   if (typeof process !== 'undefined' && process.env) {
-    return process.env[key] || process.env[bareKey] || process.env[`VITE_${bareKey}`]
+    return process.env[key] || process.env[bareKey]
+      || process.env[`VITE_${bareKey}`] || getExpoPublicEnv(bareKey)
   }
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     const env = import.meta.env as Record<string, string | undefined>
-    return env[key] || env[bareKey] || env[`VITE_${bareKey}`]
+    return env[key] || env[bareKey] || env[`VITE_${bareKey}`] || env[`EXPO_PUBLIC_${bareKey}`]
   }
   return undefined
 }
