@@ -63,13 +63,14 @@ jobs:
 
       - name: Rollback to Cloudflare Pages
         if: github.event.inputs.platform == 'cloudflare' || github.event.inputs.platform == 'both'
-        uses: cloudflare/pages-action@v1
+        # pages-action@v1 is delisted; wrangler-action@v3 runs the Wrangler CLI
+        # via `command`. Rollback always targets the production branch, so the
+        # deploy goes out with --branch=main (same semantics as before).
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: word-base
-          directory: apps/web/dist
-          branch: main
+          command: pages deploy apps/web/dist --project-name=word-base --branch=main
 
       - name: Rollback to Vercel
         if: github.event.inputs.platform == 'vercel' || github.event.inputs.platform == 'both'
