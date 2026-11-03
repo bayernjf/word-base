@@ -540,4 +540,7 @@ export const en = {
       submitFailed: 'Submission failed, please try again later',
     },
   },
+  toast: {
+    writeFailed: 'Save failed — check your connection and try again. Your change was not stored.',
+  },
 };
