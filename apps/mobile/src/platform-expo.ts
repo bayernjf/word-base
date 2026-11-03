@@ -2,10 +2,46 @@ import * as Clipboard from 'expo-clipboard';
 import * as Speech from 'expo-speech';
 import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { createCachedKV, type PlatformAPI, type SpeakOptions, type UpdateService, type UpdateProgress, type UpdateCheckResult, type SystemInfo, type PlatformLogData } from '@wordbase/shared/platform';
+import { createChunkedSecureStorage } from '@wordbase/shared/lib/secure-auth-storage';
+
+// Supabase 会话令牌走 Keychain/Keystore（评审 P2-1）；
+// AsyncStorage 明文遗留会话由适配器一次性迁移。
+const authStorage = createChunkedSecureStorage({
+  secure: {
+    async getItem(key) {
+      try {
+        return await SecureStore.getItemAsync(key);
+      } catch {
+        return null;
+      }
+    },
+    async setItem(key, value) {
+      await SecureStore.setItemAsync(key, value);
+    },
+    async removeItem(key) {
+      await SecureStore.deleteItemAsync(key);
+    },
+  },
+  legacyGet: async (key) => {
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  legacyRemove: async (key) => {
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch {
+      /* best effort */
+    }
+  },
+});
 
 async function expoSpeak(text: string, options: SpeakOptions): Promise<void> {
   try {
@@ -213,6 +249,8 @@ export const mobilePlatform: PlatformAPI = {
     remove: removeKv,
     readMiss: async () => null,
   }),
+
+  authStorage,
 
   updater: mobileUpdater,
 

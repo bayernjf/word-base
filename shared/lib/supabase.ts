@@ -108,26 +108,30 @@ function buildClient(): SupabaseClient {
     )
   }
 
-  const kv = hasPlatform() ? getPlatform().kv : null
+  const platform = hasPlatform() ? getPlatform() : null
+  const kv = platform ? platform.kv : null
+  // 移动端提供安全存储（Keychain/Keystore）时优先使用，
+  // 避免 access/refresh token 明文落入未加密的 AsyncStorage（评审 P2-1）。
+  const authStorage = platform?.authStorage ?? (kv
+    ? {
+        async getItem(key: string) {
+          return (await kv.get(key))
+        },
+        async setItem(key: string, value: string) {
+          await kv.set(key, value)
+        },
+        async removeItem(key: string) {
+          await kv.remove(key)
+        },
+      }
+    : undefined)
 
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storage: kv
-        ? {
-            async getItem(key: string) {
-              return (await kv.get(key))
-            },
-            async setItem(key: string, value: string) {
-              await kv.set(key, value)
-            },
-            async removeItem(key: string) {
-              await kv.remove(key)
-            },
-          }
-        : undefined,
+      storage: authStorage,
     },
   })
 }
