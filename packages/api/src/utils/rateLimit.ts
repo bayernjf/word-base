@@ -47,3 +47,15 @@ export const AI_DAILY_LIMIT = 300
 
 export const createAiUserLimiter = () => new FixedWindowCounter(AI_USER_WINDOW_MS, AI_USER_MAX_PER_WINDOW)
 export const createAiGlobalLimiter = () => new FixedWindowCounter(AI_GLOBAL_WINDOW_MS, AI_GLOBAL_MAX_PER_WINDOW)
+
+// 匿名会话发放（/api/v1/session/bootstrap）限流参数（评审 P2-2）：
+// 按 IP 防单点批量注册匿名用户；全局阈值兜底 IP 轮换（宽限，避免误伤 NAT 出口）
+export const SESSION_BOOTSTRAP_IP_WINDOW_MS = 60_000
+export const SESSION_BOOTSTRAP_IP_MAX_PER_WINDOW = 10
+export const SESSION_BOOTSTRAP_GLOBAL_WINDOW_MS = 60_000
+export const SESSION_BOOTSTRAP_GLOBAL_MAX_PER_WINDOW = 300
+
+export const createSessionBootstrapIpLimiter = () =>
+  new FixedWindowCounter(SESSION_BOOTSTRAP_IP_WINDOW_MS, SESSION_BOOTSTRAP_IP_MAX_PER_WINDOW)
+export const createSessionBootstrapGlobalLimiter = () =>
+  new FixedWindowCounter(SESSION_BOOTSTRAP_GLOBAL_WINDOW_MS, SESSION_BOOTSTRAP_GLOBAL_MAX_PER_WINDOW)

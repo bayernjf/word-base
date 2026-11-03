@@ -1,10 +1,33 @@
 import { Hono } from 'hono'
 import { randomInt } from 'crypto'
 import { supabase, getRequestContext } from '../context'
+import { createSessionBootstrapIpLimiter, createSessionBootstrapGlobalLimiter } from '../utils/rateLimit'
+
+// 评审 P2-2：匿名会话发放此前无任何限流，可被无限批量刷匿名用户。
+// IP 级 + 全局双阈值（内存态，单实例；硬兜底为 Supabase 侧匿名用户配额）。
+const bootstrapIpLimiter = createSessionBootstrapIpLimiter()
+const bootstrapGlobalLimiter = createSessionBootstrapGlobalLimiter()
+
+type HeaderReader = { req: { header: (key: string) => string | undefined } }
+
+function clientIpKey(c: HeaderReader): string {
+  const forwarded = c.req.header('x-forwarded-for')
+  const ip = (forwarded ? forwarded.split(',')[0].trim() : '') || c.req.header('x-real-ip')?.trim() || ''
+  return ip || 'unknown'
+}
 
 export function registerSessionRoutes(app: Hono) {
   app.post('/api/v1/session/bootstrap', async (c) => {
     try {
+      const globalHit = bootstrapGlobalLimiter.hit('global')
+      if (!globalHit.allowed) {
+        return c.json({ error: 'rate_limited', retryAfterSeconds: globalHit.retryAfterSeconds }, 429)
+      }
+      const ipHit = bootstrapIpLimiter.hit(`ip:${clientIpKey(c)}`)
+      if (!ipHit.allowed) {
+        return c.json({ error: 'rate_limited', retryAfterSeconds: ipHit.retryAfterSeconds }, 429)
+      }
+
       const { data, error } = await supabase.auth.signInAnonymously()
       if (error) {
         return c.json({ error: error.message }, 400)
