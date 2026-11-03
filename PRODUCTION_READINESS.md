@@ -14,7 +14,7 @@
 |---|---|---|
 | 认证与账号 | 🟢 85% | 基于 Supabase Auth，较扎实 |
 | 生词本与数据存储 | 🟢 90% | 核心 CRUD + 同步完整 |
-| 多设备云同步 | 🟢 80% | 队列 + changelog 设计完整 |
+| 多设备云同步 | 🟡 60% | 仅全量同步可用；changelog/增量同步未实装（见下方修正说明） |
 | AI 增强（释义/义项/深度解释） | 🟢 85% | 真实可用，已接 provider |
 | AI 智能句景（故事 + 导师） | 🟢 80% | 真实，带限流 |
 | SRS 间隔复习 | 🟢 80% | 逻辑真实，20 个单测用例覆盖边界场景 |
@@ -58,14 +58,19 @@
 
 ---
 
-## 模块三：多设备云同步 🟢 80%
+## 模块三：多设备云同步 🟡 60%
 
 | 功能点 | 状态 | 说明 |
 |---|---|---|
-| 同步状态 / 增量 / 全量 | ✅ | `/api/v1/sync/{status,changes,full}` |
+| 同步状态 / 全量 | ✅ | `/api/v1/sync/{status,full}` |
 | 批量上传 / 批量删除 | ✅ | `/api/v1/words/{batch,batch-delete}` |
-| 变更日志版本号（changelog） | ✅ | `recordChange` 递增 sync_version |
+| 增量同步 / 变更日志版本号（changelog） | ❌ 未实装 | 无 `/api/v1/sync/changes` 端点、无 `recordChange`；`sync_changelogs` 表无写入方，`sync_version` 无服务端递增 |
 | 与浏览器扩展（word-picker2）打通 | ✅ | 同一套 API |
+
+> **修正说明（2026-11-03 评审 P2-3）**：此前宣称的「增量同步 + changelog 版本追踪」实际未实装。
+> 当前客户端直写 Supabase 时 `sync_version` 恒为 1，跨设备并发修改同一词时**无版本冲突保护，
+> 后写覆盖先写（lost update）**。`sync_changelogs` 表与 `get_next_sync_version()` 是预留的死结构。
+> 并发冲突保护需作为独立特性实装后再恢复此处的 ✅。
 
 **风险**：
 - 🟠 `recordChange` 取 `lastChange[0]` 但查询失败时无回退，并发写入可能 sync_version 撞号（无唯一约束兜底时存在丢日志风险）。

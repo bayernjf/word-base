@@ -31,7 +31,7 @@
 | 生词本管理 | 🟢 90% | 多单词本、单词 CRUD、批量操作、语境记录 |
 | AI 增强 | 🟢 85% | enrich/explain/sense-cluster/translate/批量自动 AI |
 | SRS 间隔复习 | 🟡 75% | [shared/lib/srs.ts](file:///Users/jiangfeng/000mycodes/word-base/shared/lib/srs.ts) — 算法完整，Review 视图可用 |
-| 云同步 | 🟢 80% | 全量同步、批量上传/删除、sync_version 版本控制 |
+| 云同步 | 🟡 60% | 全量同步、批量上传/删除可用；sync_version 版本控制与增量 changelog 未实装（无并发冲突保护） |
 | AI 智能句景 | 🟢 80% | 故事生成 + AI 导师对话，带每日限流（20条/天） |
 | 多端支持 | 🟡 70% | Web/Desktop 完整，Mobile 基础可用 |
 | 设置中心 | 🟢 85% | 账号/外观/AI 模型/同步存储/关于 |

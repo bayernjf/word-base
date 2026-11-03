@@ -13,7 +13,7 @@
 - SRS 间隔复习算法（类 Anki/FSRS）
 - 多模态练习：听力、口语、阅读、写作
 - AI 故事生成（基于单词上下文）
-- 多端数据同步（Supabase PostgreSQL + 增量 changelog）
+- 多端数据同步（Supabase PostgreSQL 全量同步；增量 changelog 为预留结构、未实装，见 PRODUCTION_READINESS.md）
 - 多 AI Provider 支持（OpenAI / Anthropic / Gemini / OpenAI-Compatible）
 - 国际化（中/英双语）
 
@@ -170,7 +170,7 @@ rm -rf apps/mobile/android apps/mobile/ios  # 清 Expo prebuild 产物
 | `words` | 单词（含 SRS 字段、AI 丰富数据、义项分组、**源语言 source_language**） |
 | `word_contexts` | 单词语境 |
 | `ai_provider_configs` | AI 模型配置（加密存储） |
-| `sync_changelogs` | 同步变更日志 |
+| `sync_changelogs` | 同步变更日志（预留结构，当前无写入方，未实装） |
 | `stories` | AI 生成故事 |
 | `announcements` | 公告系统 |
 | `feedback` | 用户反馈 |
