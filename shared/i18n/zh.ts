@@ -542,4 +542,7 @@ export const zh: LocaleDict = {
       submitFailed: '提交失败，请稍后重试',
     },
   },
+  toast: {
+    writeFailed: '保存失败——请检查网络后重试，本次更改未保存。',
+  },
 };

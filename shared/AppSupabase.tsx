@@ -48,6 +48,8 @@ import { useProfile } from './hooks/useProfile';
 import { useAutoAi } from './hooks/useAutoAi';
 import { useBookActions } from './hooks/useBookActions';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
+import { ToastHost } from './components/ToastHost';
+import { publishToast } from './lib/toastBus';
 import { trackEvent, trackPageView } from './lib/analytics';
 
 export default function AppSupabase() {
@@ -344,6 +346,17 @@ export default function AppSupabase() {
     loadBooks, addWord, deleteWords, moveWords, createBook, deleteBook, updateBook, setSyncBook,
   );
 
+  // 用户可见的写失败提示（评审 P2-5）：updateWord 失败此前仅 logger.error 静默返回 null。
+  // useAutoAi 的后台批量任务保持原样（有自身错误处理），只包装用户发起的更新。
+  const notifyUpdateWord = React.useCallback(
+    async (id: string, updates: Parameters<typeof updateWord>[1]) => {
+      const result = await updateWord(id, updates);
+      if (!result) publishToast('error', 'toast.writeFailed');
+      return result;
+    },
+    [updateWord],
+  );
+
   const activeWordCard = words.find((wordItem) => wordItem.id === selectedWordId) || words[0];
 
   // 提取为独立组件避免每次 render 重建
@@ -390,7 +403,7 @@ export default function AppSupabase() {
             }}
             onDeleteWords={handleDeleteWords}
             onMoveWords={handleMoveWords}
-            onUpdateWord={(id, updates) => updateWord(id, updates)}
+            onUpdateWord={notifyUpdateWord}
           />
         );
       }
@@ -430,10 +443,10 @@ export default function AppSupabase() {
               onNavigate={setActiveView}
               word={activeWordCard}
               onUpdateFamiliarity={(id, level) => {
-                void updateWord(id, { familiarity: level, timeUpdated: Date.now(), dateUpdated: Date.now() });
+                void notifyUpdateWord(id, { familiarity: level, timeUpdated: Date.now(), dateUpdated: Date.now() });
               }}
-              onUpdateContexts={(id, contexts) => updateWord(id, { contexts, timeUpdated: Date.now(), dateUpdated: Date.now() })}
-              onUpdateWord={(id, updates) => updateWord(id, updates)}
+              onUpdateContexts={(id, contexts) => notifyUpdateWord(id, { contexts, timeUpdated: Date.now(), dateUpdated: Date.now() })}
+              onUpdateWord={notifyUpdateWord}
               aiProviders={models}
             />
           );
@@ -471,7 +484,7 @@ export default function AppSupabase() {
               language={language}
               words={words}
               onNavigate={setActiveView}
-              onReviewWord={(id, updates) => updateWord(id, updates)}
+              onReviewWord={notifyUpdateWord}
             />
           );
         case 'practice-listening':
@@ -606,7 +619,7 @@ export default function AppSupabase() {
       }
     };
     return ContentView;
-  }, [user, activeView, words, books, models, stories, session, theme, language, themeStyles, currentUser, autoEnrich, autoExplain, hasActiveModel, isCompactMode, isSmallTypography, selectedBookId, selectedWordId, isGeneratingStory, handleSignIn, handleSignUp, handleRequestPasswordReset, authError, setActiveView, handleAddWord, handleDeleteWords, handleMoveWords, updateWord, handleUpdateCustomModel, handleCreateBook, handleSetSyncBook, handleDeleteBooks, handleUpdateBook, generateStory, deleteStory, handleUpdateProfile, handleChangePassword, handleDeleteAccount, handleToggleModel, handleDeleteModel, handleAddCustomModel, handleTestModelConnection, handleThemeChange, handleToggleAutoEnrich, handleToggleAutoExplain, activeWordCard]);
+  }, [user, activeView, words, books, models, stories, session, theme, language, themeStyles, currentUser, autoEnrich, autoExplain, hasActiveModel, isCompactMode, isSmallTypography, selectedBookId, selectedWordId, isGeneratingStory, handleSignIn, handleSignUp, handleRequestPasswordReset, authError, setActiveView, handleAddWord, handleDeleteWords, handleMoveWords, notifyUpdateWord, handleUpdateCustomModel, handleCreateBook, handleSetSyncBook, handleDeleteBooks, handleUpdateBook, generateStory, deleteStory, handleUpdateProfile, handleChangePassword, handleDeleteAccount, handleToggleModel, handleDeleteModel, handleAddCustomModel, handleTestModelConnection, handleThemeChange, handleToggleAutoEnrich, handleToggleAutoExplain, activeWordCard]);
 
   if (authLoading) {
     return (
@@ -634,6 +647,8 @@ export default function AppSupabase() {
       }
     >
       {themeStyles.glowEffect && <div className={themeStyles.glowEffect} />}
+
+      <ToastHost language={language} />
 
       <Navbar
         theme={theme}

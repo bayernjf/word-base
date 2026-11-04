@@ -1,9 +1,15 @@
 import { useCallback } from 'react';
 import { getPlatform } from '../platform';
 import { createLogger } from '../lib/logger';
+import { publishToast } from '../lib/toastBus';
 import type { Word, VocabularyBook, MoveWordsResult } from '../types';
 
 const logger = createLogger('useBookActions');
+
+/** 写失败时给出用户可见提示（评审 P2-5：此前仅 logger.error，静默失败）。 */
+function notifyWriteFailed() {
+  publishToast('error', 'toast.writeFailed');
+}
 
 function persistSelectedBookId(bookId: string) {
   void getPlatform().kv.set('wordbase-selected-book', bookId);
@@ -39,11 +45,14 @@ export function useBookActions(
       setSelectedWordId(saved.id);
       await loadBooks();
       logger.info('handleAddWord success', { id: saved.id });
+    } else {
+      notifyWriteFailed();
     }
   }, [addWord, loadBooks, setSelectedWordId]);
 
   const handleDeleteWords = useCallback(async (wordIds: string[]) => {
-    await deleteWords(wordIds);
+    const ok = await deleteWords(wordIds);
+    if (!ok) notifyWriteFailed();
     await loadBooks();
   }, [deleteWords, loadBooks]);
 
@@ -60,6 +69,8 @@ export function useBookActions(
     if (created) {
       setSelectedBookId(created.id);
       void getPlatform().kv.set('wordbase-selected-book', created.id);
+    } else {
+      notifyWriteFailed();
     }
   }, [createBook, setSelectedBookId]);
 
@@ -67,7 +78,8 @@ export function useBookActions(
     const deletingSyncBook = books.find((b) => bookIds.includes(b.id) && b.isSync);
     const remaining = books.filter((b) => !bookIds.includes(b.id));
 
-    await Promise.all(bookIds.map((bookId) => deleteBook(bookId)));
+    const results = await Promise.all(bookIds.map((bookId) => deleteBook(bookId)));
+    if (results.some((ok) => !ok)) notifyWriteFailed();
 
     if (deletingSyncBook && remaining.length > 0) {
       await setSyncBook(remaining[0].id);
@@ -86,6 +98,7 @@ export function useBookActions(
       await loadBooks();
       return true;
     }
+    notifyWriteFailed();
     return false;
   }, [updateBook, loadBooks]);
 
@@ -96,6 +109,7 @@ export function useBookActions(
 
     const ok = await setSyncBook(bookId);
     if (!ok) {
+      notifyWriteFailed();
       if (previousBookId) {
         setSelectedBookId(previousBookId);
         persistSelectedBookId(previousBookId);

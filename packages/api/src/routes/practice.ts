@@ -6,6 +6,7 @@ import {
   readString,
   readStringArray,
   callAiProviderRaw,
+  supabaseAdmin,
   logger,
   errorContext,
 } from '../context'
@@ -34,16 +35,18 @@ async function checkPracticeQuota(db: any, userId: string) {
   return { allowed: true, remaining: PRACTICE_DAILY_LIMIT - currentCount - 1, quota, today }
 }
 
-async function incrementPracticeQuota(db: any, userId: string, quota: any, today: string) {
-  if (quota) {
-    await db.from('practice_generation_quota')
-      .update({ generated_count: quota.generated_count + 1 })
-      .eq('user_id', userId)
-      .eq('quota_date', today)
-  } else {
-    await db.from('practice_generation_quota')
-      .insert({ user_id: userId, quota_date: today, generated_count: 1 })
+// Quota tables are write-locked for user clients (migration 023);
+// increment atomically via the SECURITY DEFINER RPC.
+async function incrementPracticeQuota(userId: string, today: string) {
+  if (!supabaseAdmin) {
+    logger.warn('practice_quota_write_skipped', { reason: 'service_role_key_missing' })
+    return
   }
+  const { error } = await supabaseAdmin.rpc('increment_practice_generation_quota', {
+    p_user_id: userId,
+    p_quota_date: today,
+  })
+  if (error) logger.warn('practice_quota_write_failed', errorContext(error))
 }
 
 export function registerPracticeRoutes(app: Hono) {
@@ -185,7 +188,7 @@ export function registerPracticeRoutes(app: Hono) {
         }
       }
 
-      await incrementPracticeQuota(db, user.id, quotaCheck.quota, quotaCheck.today)
+      await incrementPracticeQuota(user.id, quotaCheck.today)
 
       return c.json(result)
     } catch (err) {

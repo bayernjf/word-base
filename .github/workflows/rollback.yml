@@ -43,29 +43,34 @@ jobs:
           echo "Target commit: $TARGET"
 
       - name: Verify target commit builds
+        env:
+          # Vite inlines NEXT_PUBLIC_* at build time; these must be set on the
+          # build step (not the deploy step) or the rollback artifact is broken
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
         run: |
           git checkout ${{ steps.target.outputs.target }}
           npm ci
           npm run lint || { echo "::error::Lint failed on rollback target"; exit 1; }
           npm run test || { echo "::error::Tests failed on rollback target"; exit 1; }
           npm -w @wordbase/web run build || { echo "::error::Build failed on rollback target"; exit 1; }
+          if ! grep -rqs "$NEXT_PUBLIC_SUPABASE_URL" apps/web/dist; then
+            echo "::error::Rollback bundle is missing NEXT_PUBLIC_SUPABASE_URL"
+            exit 1
+          fi
           echo "✅ Rollback target verified"
 
       - name: Rollback to Cloudflare Pages
         if: github.event.inputs.platform == 'cloudflare' || github.event.inputs.platform == 'both'
-        uses: cloudflare/pages-action@v1
+        # pages-action@v1 is delisted; wrangler-action@v3 runs the Wrangler CLI
+        # via `command`. Rollback always targets the production branch, so the
+        # deploy goes out with --branch=main (same semantics as before).
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: word-base
-          directory: apps/web/dist
-          branch: main
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AI_CONFIG_ENCRYPTION_KEY: ${{ secrets.AI_CONFIG_ENCRYPTION_KEY }}
+          command: pages deploy apps/web/dist --project-name=word-base --branch=main
 
       - name: Rollback to Vercel
         if: github.event.inputs.platform == 'vercel' || github.event.inputs.platform == 'both'

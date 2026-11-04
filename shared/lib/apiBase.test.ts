@@ -83,6 +83,36 @@ describe('apiBase 平台探测与 base URL 解析', () => {
     expect(getApiBaseUrl()).toBe('https://ios.example.com');
   });
 
+  it('android（RN）平台支持 EXPO_PUBLIC_ 前缀变量（Expo Metro 内联）', async () => {
+    vi.stubGlobal('window', { ReactNative: {}, Platform: { OS: 'android' } });
+    // 隔离宿主环境（根 .env 会被 vitest 载入 process.env），
+    // 并置空所有前缀变体，确保命中的一定是 EXPO_PUBLIC_
+    vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_ANDROID_API_BASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_MOBILE_API_BASE_URL', '');
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.stubEnv('VITE_ANDROID_API_BASE_URL', '');
+    vi.stubEnv('VITE_MOBILE_API_BASE_URL', '');
+    vi.stubEnv('EXPO_PUBLIC_ANDROID_API_BASE_URL', 'http://10.0.2.2:9999');
+    const { getApiBaseUrl, API_PLATFORM } = await loadApiBase();
+    expect(API_PLATFORM).toBe('android');
+    expect(getApiBaseUrl()).toBe('http://10.0.2.2:9999');
+  });
+
+  it('ios（RN）平台回退到 EXPO_PUBLIC_API_BASE_URL 通用变量', async () => {
+    vi.stubGlobal('window', { ReactNative: {}, Platform: { OS: 'ios' } });
+    vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_IOS_API_BASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_MOBILE_API_BASE_URL', '');
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.stubEnv('VITE_IOS_API_BASE_URL', '');
+    vi.stubEnv('VITE_MOBILE_API_BASE_URL', '');
+    vi.stubEnv('EXPO_PUBLIC_API_BASE_URL', 'https://api.expo.example.com');
+    const { getApiBaseUrl, API_PLATFORM } = await loadApiBase();
+    expect(API_PLATFORM).toBe('ios');
+    expect(getApiBaseUrl()).toBe('https://api.expo.example.com');
+  });
+
   it('__APP_ENV__ 注入优先于 process.env', async () => {
     vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
     vi.stubEnv('NEXT_PUBLIC_DESKTOP_API_BASE_URL', 'http://from-process-env');

@@ -90,19 +90,20 @@ export const checkAiCallLimits = async (
   return { allowed: true, quota, quotaAvailable: true }
 }
 
-export const recordAiCall = async (
-  db: ReturnType<typeof createUserSupabaseClient>, userId: string, limit: AiLimitState
-) => {
+export const recordAiCall = async (userId: string, limit: AiLimitState) => {
   if (!limit.quotaAvailable) return
-  try {
-    if (limit.quota) {
-      await db.from('ai_call_quota').update({ call_count: limit.quota.call_count + 1 })
-        .eq('user_id', userId).eq('quota_date', quotaDateToday())
-    } else {
-      await db.from('ai_call_quota').insert({ user_id: userId, quota_date: quotaDateToday(), call_count: 1 })
-    }
-  } catch (err) {
-    logger.warn('ai_call_quota_write_failed', errorContext(err))
+  if (!supabaseAdmin) {
+    logger.warn('ai_call_quota_write_skipped', { reason: 'service_role_key_missing' })
+    return
+  }
+  // Quota tables are write-locked for user clients (migration 023);
+  // increment atomically via the SECURITY DEFINER RPC.
+  const { error } = await supabaseAdmin.rpc('increment_ai_call_quota', {
+    p_user_id: userId,
+    p_quota_date: quotaDateToday(),
+  })
+  if (error) {
+    logger.warn('ai_call_quota_write_failed', errorContext(error))
   }
 }
 

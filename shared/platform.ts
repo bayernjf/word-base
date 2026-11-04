@@ -37,6 +37,17 @@ export interface PlatformKV {
   remove(key: string): Promise<void>;
 }
 
+/**
+ * Supabase auth 会话存储接口（对应 supabase-js SupportedStorage）。
+ * 平台若提供安全存储（mobile = Keychain/Keystore），buildClient 优先使用，
+ * 避免 access/refresh token 明文落入普通 kv（AsyncStorage 在 Android 未加密）。
+ */
+export interface AuthStorage {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+}
+
 export interface UpdateCheckResult {
   hasUpdate: boolean;
   version?: string;
@@ -104,6 +115,9 @@ export interface PlatformAPI {
 
   /** 平台键值存储。Web=localStorage, Desktop=Tauri Store, Mobile=AsyncStorage。 */
   kv: PlatformKV;
+
+  /** 认证会话安全存储（仅 mobile 提供，底层 Keychain/Keystore；缺省时回退 kv）。 */
+  authStorage?: AuthStorage;
 
   getPlatform(): 'web' | 'desktop' | 'mobile' | string;
 

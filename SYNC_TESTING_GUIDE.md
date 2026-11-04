@@ -100,6 +100,10 @@ npm run dev
 
 ## 📊 检查同步变更日志
 
+> ⚠️ **已失效（2026-11-03 评审 P2-3）**：增量同步/changelog 子系统未实装——
+> `sync_changelogs` 表没有任何写入方，`sync_version` 不会在写入时递增。
+> 本节检查项仅在该特性实装后适用；当前同步为全量拉取/批量上传，无版本冲突保护。
+
 在 Supabase Table Editor 中查看 `sync_changelogs` 表：
 
 - 应该看到 `entity_type` 为 "book" 或 "word" 的记录

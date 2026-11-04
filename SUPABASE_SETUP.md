@@ -64,7 +64,7 @@ supabase start
 
 ### 关键特性
 - **软删除**：所有表有 `is_deleted` 字段
-- **版本控制**：`sync_version` 严格递增
+- **版本控制**：`sync_version` 字段已预留；注意服务端递增与 changelog 写入**当前未实装**（增量同步是预留结构，见 PRODUCTION_READINESS.md 修正说明）
 - **实时同步**：内置数据库触发器 + Supabase Realtime
 - **安全策略**：完整的 RLS（行级安全策略）
 

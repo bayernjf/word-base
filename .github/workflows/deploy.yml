@@ -191,13 +191,17 @@ jobs:
           path: apps/web/dist
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        # cloudflare/pages-action@v1 was delisted from the marketplace and no
+        # longer resolves. wrangler-action@v3 is the supported successor; it
+        # takes no projectName/directory/branch inputs but runs the Wrangler
+        # CLI via `command`, so the same Pages semantics are spelled out as
+        # `wrangler pages deploy <directory> --project-name --branch` (the
+        # branch still decides production vs preview deployment).
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: word-base
-          directory: apps/web/dist
-          branch: ${{ github.ref == 'refs/heads/main' && 'main' || 'dev' }}
+          command: pages deploy apps/web/dist --project-name=word-base --branch=${{ github.ref == 'refs/heads/main' && 'main' || 'dev' }}
 
       - name: Verify Cloudflare deployment
         env:

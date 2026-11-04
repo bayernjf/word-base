@@ -181,13 +181,26 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Desktop Vite build only exposes VITE_* (envPrefix: ['VITE_', 'TAURI_'])
+          VITE_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          VITE_DESKTOP_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           args: --verbose
+
+      - name: Verify desktop bundle contains Supabase config
+        shell: bash
+        env:
+          EXPECTED_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          if ! grep -rqs "$EXPECTED_SUPABASE_URL" apps/desktop/dist; then
+            echo "::error::Desktop web bundle is missing VITE_SUPABASE_URL (env injection broken)"
+            exit 1
+          fi
+          echo "Desktop bundle smoke check passed"
 
       - name: Rename macOS dmg artifacts
         if: contains(matrix.platform, 'macos')
@@ -273,13 +286,15 @@ jobs:
 
       - name: Prebuild Android native project
         working-directory: apps/mobile
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo prebuild --platform android --clean
 
       - name: Build Android APK
         working-directory: apps/mobile/android
+        env:
+          # Metro bundling runs inside gradlew; Expo only inlines EXPO_PUBLIC_*
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Rename Android APK
@@ -294,6 +309,18 @@ jobs:
           rm -f "$APK_NAME"
           mv app-debug.apk "$APK_NAME"
           ls -la
+
+      - name: Verify Android APK contains Supabase config
+        working-directory: apps/mobile/android/app/build/outputs/apk/debug
+        env:
+          EXPECTED_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          APK=$(ls *.apk | head -1)
+          if ! unzip -p "$APK" assets/index.android.bundle 2>/dev/null | grep -qs "$EXPECTED_SUPABASE_URL"; then
+            echo "::error::Android APK JS bundle is missing EXPO_PUBLIC_SUPABASE_URL (env injection broken)"
+            exit 1
+          fi
+          echo "Android APK smoke check passed"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v5
@@ -328,9 +355,6 @@ jobs:
 
       - name: Prebuild iOS native project
         working-directory: apps/mobile
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo prebuild --platform ios --clean
 
       - name: Install CocoaPods
@@ -340,6 +364,11 @@ jobs:
 
       - name: Build iOS app for simulator
         working-directory: apps/mobile/ios
+        env:
+          # Metro bundling runs inside xcodebuild; Expo only inlines EXPO_PUBLIC_*
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
         run: |
           # Build x86_64 only. Simulator builds are never shipped; a single arch
           # avoids the ExpoModulesCore double-compile OOM on CI. We pin to a
@@ -377,6 +406,17 @@ jobs:
           rm -f "$ZIP_NAME"
           zip -r "$ZIP_NAME" WordBase.app
           ls -la "$ZIP_NAME"
+
+      - name: Verify iOS app contains Supabase config
+        working-directory: apps/mobile/build/Build/Products/Debug-iphonesimulator
+        env:
+          EXPECTED_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          if ! grep -rqs "$EXPECTED_SUPABASE_URL" WordBase.app; then
+            echo "::error::iOS app bundle is missing EXPO_PUBLIC_SUPABASE_URL (env injection broken)"
+            exit 1
+          fi
+          echo "iOS app smoke check passed"
 
       - name: Upload iOS app
         uses: actions/upload-artifact@v5
