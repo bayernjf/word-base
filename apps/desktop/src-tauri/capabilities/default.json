@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "WordBase 桌面端默认能力集：剪贴板、通知、系统 TTS shell 命令、持久化 KV。",
+  "description": "WordBase 桌面端默认能力集：剪贴板、通知、系统 TTS shell 命令、持久化 KV、应用更新与进程重启。",
   "windows": [
     "main"
   ],
@@ -43,6 +43,9 @@
           "args": true
         }
       ]
-    }
+    },
+
+    "updater:default",
+    "process:default"
   ]
 }
