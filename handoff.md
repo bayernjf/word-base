@@ -565,6 +565,14 @@ npm run dev
 - [ ] **API 文档**：补充 OpenAPI/Markdown 文档
 - [ ] **替换 `any` 类型**：`shared/lib/supabase.ts` 中仍有部分 `any`（`getEnvValue` 的 `globalThis`）
 
+## 2026-11-28 CI runner 修复（`de167ae`）
+
+- **现象**：`Deploy Web` 的 `Build Web (Vite)` 在 `Install Playwright Chromium` 步骤 42 秒失败，日志 `Playwright does not support chromium on ubuntu26.04-x64`。
+- **根因**：`ubuntu-latest` 已解析到 Ubuntu 26.04，`npx playwright@1.54.0` 无该平台构建；与本次提交内容无关。
+- **修复**：该 job 的 `runs-on` 固定为 `ubuntu-24.04`（Playwright 1.54 仍支持），不改 Playwright 版本，避免影响截图脚本与预览图产物。
+- **验证**：重跑后 `Build Web (Vite)`、`Lint + Test + Build`、`E2E (Playwright Chromium)`、`Publish OTA update` 全绿；PR #126 由 pr-helper Flow 的 `merge-pr` 动作 `4915` 自动合并进 `main`。
+- **关联**：该仓 Flow 已于 2026-11-28 纳入全量自动化（`dev→main`，autoCreate + autoMerge）。
+
 ---
 
 *本文档基于仓库当前状态自动生成，反映 2026-08-03 的项目全貌。*
