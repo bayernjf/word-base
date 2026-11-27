@@ -12,7 +12,9 @@ concurrency:
 jobs:
   build:
     name: Build Web (Vite)
-    runs-on: ubuntu-latest
+    # Playwright 1.54 has no Ubuntu 26.04 build; pin the runner to 24.04 LTS
+    # instead of following ubuntu-latest.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 

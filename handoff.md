@@ -4,6 +4,22 @@
 
 ---
 
+## 待办登记（标准）
+
+> 本段是本产品唯一活跃待办入口；详细背景见下方原有章节。
+> 最近同步：2026-11-27
+
+<!-- tier:todos v1 -->
+| id | title | status | priority | owner | next | evidence | updated |
+|---|---|---|---|---|---|---|---|
+| WB-01 | Tauri 签名密钥 | blocked | p1 | owner | 生成签名密钥对并配置 3 个 GitHub Secrets | `handoff.md` §15 | 2026-08-03 |
+| WB-02 | Expo OTA 配置 | blocked | p1 | owner | 注册 Expo、绑定项目、配置 `EXPO_TOKEN` | `handoff.md` §15 | 2026-08-03 |
+| WB-03 | Supabase 迁移 019/020 | blocked | p1 | owner | 执行练习配额与 AI 调用配额 SQL | `handoff.md` §15 | 2026-08-03 |
+| WB-04 | 桌面端 updater 修复 | closed | p1 | self | capabilities 补 `updater:default`/`process:default`；apply 调 install、绝对 URL、后台检查、错误上抛此前已落地 | `handoff.md` §15 | 2026-11-27 |
+| WB-05 | 移动端完善 | open | p2 | self | 真机测试、EAS project ID、release keystore、口语降级 | `handoff.md` §15 | 2026-08-03 |
+| WB-06 | 功能改进 | open | p2 | self | 练习中心联调、缓存优化、关于页版本号 | `handoff.md` §15 | 2026-08-03 |
+<!-- /tier:todos -->
+
 ## 1. 项目概述
 
 **WordBase** 是一款 AI 驱动的英语单词学习与复习应用，支持 **Web**、**Desktop（macOS/Windows）**、**Mobile（iOS/Android）** 三端。
@@ -518,11 +534,11 @@ npm run dev
 
 ### 🟠 桌面端 updater 修复（P0，详见 `.trae/TODO.md`）
 
-- [ ] `apply()` 未调 `install()`，当前重启的是旧版本
-- [ ] capabilities 缺 `updater:default` 和 `process:default` 权限
-- [ ] `latest.json` 使用相对路径，需改为完整 GitHub 下载 URL
-- [ ] 全局后台自动检查（主进程 30s 首次 + 6h 轮询）
-- [ ] 检查/下载/安装错误被吞没，需向 UI 推送具体错误
+- [x] `apply()` 调 `install()`（`platform-desktop.ts` 已调 `updateHandle.install()`）
+- [x] capabilities 补 `updater:default` 和 `process:default` 权限（2026-11-27）
+- [x] `latest.json` 使用完整 GitHub 下载 URL（`tauri.conf.json` endpoint + CI 生成绝对 URL）
+- [x] 全局后台自动检查（`useAutoUpdateCheck`：启动 5s 首次 + 6h 轮询）
+- [x] 检查/下载/安装错误上抛到 UI（`check()` 返回 error，`download()`/`apply()` 上抛，About 页 catch 展示）
 
 ### 🟡 移动端完善
 
